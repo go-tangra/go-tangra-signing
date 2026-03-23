@@ -1,0 +1,91 @@
+{
+  "name": "@module-federation/vite",
+  "version": "1.13.1",
+  "description": "Vite plugin for Module Federation",
+  "type": "module",
+  "main": "./lib/index.cjs",
+  "module": "./lib/index.mjs",
+  "types": "./lib/index.d.mts",
+  "exports": {
+    ".": {
+      "types": {
+        "import": "./lib/index.d.mts",
+        "require": "./lib/index.d.cts"
+      },
+      "import": "./lib/index.mjs",
+      "require": "./lib/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/**/*"
+  ],
+  "scripts": {
+    "prepare": "husky install",
+    "fmt": "oxfmt src",
+    "fmt.check": "oxfmt --check src",
+    "dev": "tsdown --watch",
+    "build": "tsdown",
+    "clean": "pnpm -r exec rm -rf dist .__mf__temp __mf__virtual .vite node_modules/.vite",
+    "dev-rv": "pnpm clean && pnpm -filter 'examples-rust-vite*' run dev",
+    "preview-rv": "pnpm clean && pnpm -filter 'examples-rust-vite*' run preview",
+    "dev-vv": "pnpm clean && pnpm -filter 'examples-vite-vite*' run dev",
+    "dev-nv": "pnpm clean && pnpm -filter 'examples-nuxt-vite-host' -filter 'examples-vite-vite-remote' run dev",
+    "preview-vv": "pnpm clean && pnpm -filter 'examples-vite-vite*' --parallel run preview",
+    "multi-example": "pnpm clean && pnpm --filter \"multi-example-*\" --parallel run start",
+    "test": "vitest run --dir src",
+    "test:integration": "vitest run integration",
+    "e2e": "playwright test",
+    "changeset": "changeset",
+    "changeset:status": "changeset status"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/module-federation/vite.git"
+  },
+  "keywords": [
+    "vite",
+    "module federation",
+    "microfrontend"
+  ],
+  "author": {
+    "name": "Giorgio Boa",
+    "email": "giorgiob.boa@gmail.com",
+    "url": "https://github.com/gioboa"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/module-federation/vite/issues"
+  },
+  "homepage": "https://github.com/module-federation/vite#readme",
+  "packageManager": "pnpm@10.28.2",
+  "overrides": {
+    "koa": "3.1.2"
+  },
+  "peerDependencies": {
+    "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0"
+  },
+  "dependencies": {
+    "@module-federation/dts-plugin": "2.2.2",
+    "@module-federation/runtime": "2.2.2",
+    "@module-federation/sdk": "2.2.2",
+    "@rollup/pluginutils": "^5.3.0",
+    "defu": "^6.1.4",
+    "estree-walker": "^3.0.3",
+    "magic-string": "^0.30.21",
+    "pathe": "^2.0.3"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.30.0",
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.3.3",
+    "cjs-dep": "workspace:*",
+    "husky": "^9.1.7",
+    "mime-types": "^3.0.2",
+    "oxfmt": "^0.36.0",
+    "rollup": "^4.47.1",
+    "tsdown": "^0.21.0",
+    "vite": "^8.0.0",
+    "vitest": "^4.0.18"
+  }
+}

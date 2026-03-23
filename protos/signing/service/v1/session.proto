@@ -1,0 +1,101 @@
+syntax = "proto3";
+package signing.service.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+
+// Public signing session service — no auth required, accessed via unique token
+service SigningSessionService {
+  // Get signing session for a submitter (public, token-based)
+  rpc GetSigningSession(GetSigningSessionRequest) returns (GetSigningSessionResponse) {
+    option (google.api.http) = { get: "/v1/signing/sessions/{token}" };
+  }
+
+  // Submit signing (public, token-based)
+  rpc SubmitSigning(SubmitSigningRequest) returns (SubmitSigningResponse) {
+    option (google.api.http) = { post: "/v1/signing/sessions/{token}/submit" body: "*" };
+  }
+
+  // Prepare PDF for external signing (BISS) — returns hash to be signed
+  rpc PrepareForBissSigning(PrepareForBissSigningRequest) returns (PrepareForBissSigningResponse) {
+    option (google.api.http) = { post: "/v1/signing/sessions/{token}/prepare-biss" body: "*" };
+  }
+
+  // Complete BISS signing — embeds external PKCS#7 signature into the PDF
+  rpc CompleteBissSigning(CompleteBissSigningRequest) returns (CompleteBissSigningResponse) {
+    option (google.api.http) = { post: "/v1/signing/sessions/{token}/complete-biss" body: "*" };
+  }
+}
+
+// A field the signer needs to fill
+message SessionField {
+  string field_id = 1 [json_name = "fieldId"];
+  string name = 2;
+  string type = 3;
+  bool required = 4;
+  int32 page_number = 5 [json_name = "pageNumber"];
+  double x_percent = 6 [json_name = "xPercent"];
+  double y_percent = 7 [json_name = "yPercent"];
+  double width_percent = 8 [json_name = "widthPercent"];
+  double height_percent = 9 [json_name = "heightPercent"];
+  string prefilled_value = 10 [json_name = "prefilledValue"];
+  string font = 11;           // font name detected from the PDF placeholder
+  double font_size = 12 [json_name = "fontSize"];  // font size in points from PDF placeholder
+}
+
+message GetSigningSessionRequest {
+  string token = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetSigningSessionResponse {
+  string submission_name = 1 [json_name = "submissionName"];
+  string template_name = 2 [json_name = "templateName"];
+  string document_url = 3 [json_name = "documentUrl"];
+  string signer_name = 4 [json_name = "signerName"];
+  string signer_email = 5 [json_name = "signerEmail"];
+  repeated SessionField fields = 6;
+  string message = 7;
+  string status = 8;  // PENDING, OPENED, COMPLETED, DECLINED
+}
+
+message FieldValueSubmission {
+  string field_id = 1 [json_name = "fieldId"];
+  string value = 2;
+}
+
+message SubmitSigningRequest {
+  string token = 1 [(google.api.field_behavior) = REQUIRED];
+  repeated FieldValueSubmission field_values = 2 [json_name = "fieldValues"];
+  bytes signature_image = 3 [json_name = "signatureImage"];  // Base64-encoded PNG
+}
+
+message SubmitSigningResponse {
+  bool completed = 1;
+  string message = 2;
+}
+
+// BISS two-phase signing messages
+
+message PrepareForBissSigningRequest {
+  string token = 1 [(google.api.field_behavior) = REQUIRED];
+  repeated FieldValueSubmission field_values = 2 [json_name = "fieldValues"];
+}
+
+message PrepareForBissSigningResponse {
+  string hash_base64 = 1 [json_name = "hashBase64"];                     // SHA-256 hash of PDF byte ranges
+  string signed_hash_base64 = 2 [json_name = "signedHashBase64"];       // Server-signed hash (for BISS verification)
+  string server_cert_base64 = 3 [json_name = "serverCertBase64"];       // Server SSL cert (public part, base64 DER)
+  string session_id = 4 [json_name = "sessionId"];                       // Temporary ID to correlate with CompleteBissSigning
+}
+
+message CompleteBissSigningRequest {
+  string token = 1 [(google.api.field_behavior) = REQUIRED];
+  string session_id = 2 [json_name = "sessionId"];
+  string pkcs7_signature_base64 = 3 [json_name = "pkcs7SignatureBase64"];  // PKCS#7/CMS signature from BISS
+  repeated string certificate_chain = 4 [json_name = "certificateChain"]; // Signer's certificate chain (base64)
+}
+
+message CompleteBissSigningResponse {
+  bool completed = 1;
+  string message = 2;
+}

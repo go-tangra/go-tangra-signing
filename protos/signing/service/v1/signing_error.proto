@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package signing.service.v1;
+
+import "errors/errors.proto";
+
+enum SigningErrorReason {
+  option (errors.default_code) = 500;
+
+  // 400 - Bad Request
+  BAD_REQUEST = 0 [(errors.code) = 400];
+  INVALID_TEMPLATE = 1 [(errors.code) = 400];
+  INVALID_SUBMISSION = 2 [(errors.code) = 400];
+  INVALID_CERTIFICATE = 3 [(errors.code) = 400];
+  INVALID_FORMULA = 4 [(errors.code) = 400];
+  INVALID_CONDITION = 5 [(errors.code) = 400];
+  SUBMISSION_NOT_SENDABLE = 6 [(errors.code) = 400];
+  SUBMITTER_ALREADY_COMPLETED = 7 [(errors.code) = 400];
+  SIGNING_MODE_VIOLATION = 8 [(errors.code) = 400];
+  CERTIFICATE_EXPIRED = 9 [(errors.code) = 400];
+  CERTIFICATE_REVOKED = 10 [(errors.code) = 400];
+  INVALID_TEMPLATE_PDF = 11 [(errors.code) = 400];
+
+  // 401 - Unauthorized
+  UNAUTHORIZED = 100 [(errors.code) = 401];
+
+  // 403 - Forbidden
+  FORBIDDEN = 300 [(errors.code) = 403];
+  ACCESS_DENIED = 301 [(errors.code) = 403];
+
+  // 404 - Not Found
+  NOT_FOUND = 400 [(errors.code) = 404];
+  TEMPLATE_NOT_FOUND = 401 [(errors.code) = 404];
+  SUBMISSION_NOT_FOUND = 402 [(errors.code) = 404];
+  SUBMITTER_NOT_FOUND = 403 [(errors.code) = 404];
+  CERTIFICATE_NOT_FOUND = 404 [(errors.code) = 404];
+
+  // 409 - Conflict
+  TEMPLATE_ALREADY_EXISTS = 901 [(errors.code) = 409];
+
+  // 410 - Gone
+  SUBMISSION_EXPIRED = 1000 [(errors.code) = 410];
+
+  // 500 - Internal Server Error
+  INTERNAL_SERVER_ERROR = 2000 [(errors.code) = 500];
+  STORAGE_OPERATION_ERROR = 2001 [(errors.code) = 500];
+  SIGNING_FAILED = 2002 [(errors.code) = 500];
+  VERIFICATION_FAILED = 2003 [(errors.code) = 500];
+}

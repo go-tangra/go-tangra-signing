@@ -1,0 +1,192 @@
+syntax = "proto3";
+
+package signing.service.v1;
+
+import "buf/validate/validate.proto";
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// Template Service - manages document signing templates with fields and submitter roles
+service SigningTemplateService {
+  rpc CreateTemplate(CreateTemplateRequest) returns (CreateTemplateResponse) {
+    option (google.api.http) = {
+      post: "/v1/signing/templates"
+      body: "*"
+    };
+  }
+
+  rpc GetTemplate(GetTemplateRequest) returns (GetTemplateResponse) {
+    option (google.api.http) = {get: "/v1/signing/templates/{id}"};
+  }
+
+  rpc ListTemplates(ListTemplatesRequest) returns (ListTemplatesResponse) {
+    option (google.api.http) = {get: "/v1/signing/templates"};
+  }
+
+  rpc UpdateTemplate(UpdateTemplateRequest) returns (UpdateTemplateResponse) {
+    option (google.api.http) = {
+      put: "/v1/signing/templates/{id}"
+      body: "*"
+    };
+  }
+
+  rpc DeleteTemplate(DeleteTemplateRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/v1/signing/templates/{id}"};
+  }
+
+  rpc CloneTemplate(CloneTemplateRequest) returns (CloneTemplateResponse) {
+    option (google.api.http) = {
+      post: "/v1/signing/templates/{id}/clone"
+      body: "*"
+    };
+  }
+
+  rpc UpdateTemplateFields(UpdateTemplateFieldsRequest) returns (UpdateTemplateFieldsResponse) {
+    option (google.api.http) = {
+      put: "/v1/signing/templates/{id}/fields"
+      body: "*"
+    };
+  }
+
+  rpc GetTemplatePdfUrl(GetTemplatePdfUrlRequest) returns (GetTemplatePdfUrlResponse) {
+    option (google.api.http) = {get: "/v1/signing/templates/{id}/pdf-url"};
+  }
+}
+
+// Template status
+enum TemplateStatus {
+  TEMPLATE_STATUS_UNSPECIFIED = 0;
+  TEMPLATE_STATUS_DRAFT = 1;
+  TEMPLATE_STATUS_ACTIVE = 2;
+  TEMPLATE_STATUS_ARCHIVED = 3;
+}
+
+// Field type for template fields
+enum TemplateFieldType {
+  TEMPLATE_FIELD_TYPE_UNSPECIFIED = 0;
+  TEMPLATE_FIELD_TYPE_TEXT = 1;
+  TEMPLATE_FIELD_TYPE_NUMBER = 2;
+  TEMPLATE_FIELD_TYPE_SIGNATURE = 3;
+  TEMPLATE_FIELD_TYPE_INITIALS = 4;
+  TEMPLATE_FIELD_TYPE_DATE = 5;
+  TEMPLATE_FIELD_TYPE_CHECKBOX = 6;
+  TEMPLATE_FIELD_TYPE_SELECT = 7;
+  TEMPLATE_FIELD_TYPE_RADIO = 8;
+  TEMPLATE_FIELD_TYPE_IMAGE = 9;
+  TEMPLATE_FIELD_TYPE_FILE = 10;
+  TEMPLATE_FIELD_TYPE_CELLS = 11;
+  TEMPLATE_FIELD_TYPE_STAMP = 12;
+  TEMPLATE_FIELD_TYPE_PAYMENT = 13;
+}
+
+// A single field definition on a template page
+message TemplateFieldDef {
+  string id = 1;
+  string name = 2;
+  TemplateFieldType type = 3;
+  bool required = 4;
+  int32 page_number = 5 [json_name = "pageNumber"];
+  double x_percent = 6 [json_name = "xPercent"];
+  double y_percent = 7 [json_name = "yPercent"];
+  double width_percent = 8 [json_name = "widthPercent"];
+  double height_percent = 9 [json_name = "heightPercent"];
+  int32 submitter_index = 10 [json_name = "submitterIndex"];
+  string font = 11 [json_name = "font"];             // font name detected from PDF placeholder
+  double font_size = 12 [json_name = "fontSize"];     // font size in points from PDF placeholder
+}
+
+// Template entity
+message Template {
+  string id = 1 [json_name = "id"];
+  uint32 tenant_id = 2 [json_name = "tenantId"];
+  string name = 3 [json_name = "name"];
+  string slug = 4 [json_name = "slug"];
+  string description = 5 [json_name = "description"];
+  optional string folder_id = 6 [json_name = "folderId"];
+  string status = 7 [json_name = "status"];
+  string source = 8 [json_name = "source"];
+  string file_key = 9 [json_name = "fileKey"];
+  string file_name = 10 [json_name = "fileName"];
+  int64 file_size = 11 [json_name = "fileSize"];
+  repeated TemplateFieldDef fields = 12 [json_name = "fields"];
+  optional uint32 created_by = 13 [json_name = "createdBy"];
+  google.protobuf.Timestamp create_time = 14 [json_name = "createTime"];
+  google.protobuf.Timestamp update_time = 15 [json_name = "updateTime"];
+}
+
+// Service messages
+message CreateTemplateRequest {
+  string name = 1 [(google.api.field_behavior) = REQUIRED, (buf.validate.field).string = {min_len: 1, max_len: 255}];
+  optional string description = 2;
+  optional string folder_id = 3;
+  string file_name = 4 [(google.api.field_behavior) = REQUIRED, (buf.validate.field).string = {min_len: 1, max_len: 255}];
+  bytes file_content = 5 [(google.api.field_behavior) = REQUIRED];
+}
+
+message CreateTemplateResponse {
+  Template template = 1;
+}
+
+message GetTemplateRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetTemplateResponse {
+  Template template = 1;
+}
+
+message ListTemplatesRequest {
+  optional uint32 page = 1;
+  optional uint32 page_size = 2;
+  optional string folder_id = 3;
+  optional string name_filter = 4;
+  optional string status = 5;
+}
+
+message ListTemplatesResponse {
+  repeated Template templates = 1;
+  uint32 total = 2;
+}
+
+message UpdateTemplateRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  optional string name = 2;
+  optional string description = 3;
+  optional string status = 4;
+}
+
+message UpdateTemplateResponse {
+  Template template = 1;
+}
+
+message DeleteTemplateRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message CloneTemplateRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  string name = 2;
+}
+
+message CloneTemplateResponse {
+  Template template = 1;
+}
+
+message UpdateTemplateFieldsRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  repeated TemplateFieldDef fields = 2;
+}
+
+message UpdateTemplateFieldsResponse {
+  Template template = 1;
+}
+
+message GetTemplatePdfUrlRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetTemplatePdfUrlResponse {
+  string url = 1 [json_name = "url"];
+}

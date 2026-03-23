@@ -1,0 +1,39 @@
+server:
+  grpc:
+    addr: "0.0.0.0:10400"
+    timeout: 30s
+    middleware:
+      enable_logging: true
+      enable_recovery: true
+      enable_tracing: false
+      enable_validate: true
+      enable_metadata: true
+
+data:
+  database:
+    driver: postgres
+    source: "postgresql://postgres:*Abcd123456@localhost:5432/gwa?sslmode=disable"
+    max_idle_connections: 5
+    max_open_connections: 20
+    connection_max_lifetime: 3600s
+  redis:
+    network: tcp
+    addr: "localhost:6379"
+    password: "*Abcd123456"
+    read_timeout: 1s
+    write_timeout: 1s
+  # RustFS S3-compatible storage
+  storage:
+    endpoint: "localhost:9000"
+    bucket: "signing"
+    access_key: "rustfsadmin"
+    secret_key: "rustfsadmin"
+    use_ssl: false
+
+registration:
+  admin_endpoint: "localhost:9000"
+  module_id: "signing"
+  module_name: "Document Signing"
+  heartbeat_interval: 30s
+  retry_interval: 5s
+  max_retries: 10

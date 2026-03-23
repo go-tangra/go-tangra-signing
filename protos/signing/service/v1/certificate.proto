@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package signing.service.v1;
+
+import "buf/validate/validate.proto";
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+// Certificate Service - X.509 certificate management (generation, revocation, CRL)
+service SigningCertificateService {
+  rpc CreateCertificate(CreateCertificateRequest) returns (CreateCertificateResponse) {
+    option (google.api.http) = {
+      post: "/v1/signing/certificates"
+      body: "*"
+    };
+  }
+
+  rpc GetCertificate(GetCertificateRequest) returns (GetCertificateResponse) {
+    option (google.api.http) = {get: "/v1/signing/certificates/{id}"};
+  }
+
+  rpc ListCertificates(ListCertificatesRequest) returns (ListCertificatesResponse) {
+    option (google.api.http) = {get: "/v1/signing/certificates"};
+  }
+
+  rpc RevokeCertificate(RevokeCertificateRequest) returns (RevokeCertificateResponse) {
+    option (google.api.http) = {
+      post: "/v1/signing/certificates/{id}/revoke"
+      body: "*"
+    };
+  }
+}
+
+// Certificate entity
+message Certificate {
+  string id = 1 [json_name = "id"];
+  uint32 tenant_id = 2 [json_name = "tenantId"];
+  string subject_cn = 3 [json_name = "subjectCn"];
+  string subject_org = 4 [json_name = "subjectOrg"];
+  string serial_number = 5 [json_name = "serialNumber"];
+  google.protobuf.Timestamp not_before = 6 [json_name = "notBefore"];
+  google.protobuf.Timestamp not_after = 7 [json_name = "notAfter"];
+  bool is_ca = 8 [json_name = "isCa"];
+  optional string parent_id = 9 [json_name = "parentId"];
+  string status = 10 [json_name = "status"];
+  string cert_pem = 11 [json_name = "certPem"];
+  google.protobuf.Timestamp revoked_at = 12 [json_name = "revokedAt"];
+  google.protobuf.Timestamp create_time = 13 [json_name = "createTime"];
+}
+
+// Service messages
+message CreateCertificateRequest {
+  string subject_cn = 1 [(google.api.field_behavior) = REQUIRED, (buf.validate.field).string = {min_len: 1, max_len: 255}];
+  string subject_org = 2;
+  bool is_ca = 3;
+  string parent_id = 4;
+  int32 validity_years = 5;
+}
+
+message CreateCertificateResponse {
+  Certificate certificate = 1;
+}
+
+message GetCertificateRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetCertificateResponse {
+  Certificate certificate = 1;
+}
+
+message ListCertificatesRequest {
+  optional uint32 page = 1;
+  optional uint32 page_size = 2;
+  optional bool is_ca = 3;
+  optional string status = 4;
+}
+
+message ListCertificatesResponse {
+  repeated Certificate certificates = 1;
+  uint32 total = 2;
+}
+
+message RevokeCertificateRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  string reason = 2;
+}
+
+message RevokeCertificateResponse {
+  Certificate certificate = 1;
+}

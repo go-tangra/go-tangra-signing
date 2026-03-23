@@ -1,0 +1,155 @@
+syntax = "proto3";
+
+package signing.service.v1;
+
+import "buf/validate/validate.proto";
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+// Submission Service - manages signing workflows with sequential/parallel modes
+service SigningSubmissionService {
+  rpc CreateSubmission(CreateSubmissionRequest) returns (CreateSubmissionResponse) {
+    option (google.api.http) = {
+      post: "/v1/signing/submissions"
+      body: "*"
+    };
+  }
+
+  rpc GetSubmission(GetSubmissionRequest) returns (GetSubmissionResponse) {
+    option (google.api.http) = {get: "/v1/signing/submissions/{id}"};
+  }
+
+  rpc ListSubmissions(ListSubmissionsRequest) returns (ListSubmissionsResponse) {
+    option (google.api.http) = {get: "/v1/signing/submissions"};
+  }
+
+  rpc SendSubmission(SendSubmissionRequest) returns (SendSubmissionResponse) {
+    option (google.api.http) = {
+      post: "/v1/signing/submissions/{id}/send"
+      body: "*"
+    };
+  }
+
+  rpc CompleteSubmitter(CompleteSubmitterRequest) returns (CompleteSubmitterResponse) {
+    option (google.api.http) = {
+      post: "/v1/signing/submitters/{submitter_id}/complete"
+      body: "*"
+    };
+  }
+
+  rpc DeclineSubmitter(DeclineSubmitterRequest) returns (DeclineSubmitterResponse) {
+    option (google.api.http) = {
+      post: "/v1/signing/submitters/{submitter_id}/decline"
+      body: "*"
+    };
+  }
+}
+
+// Signing mode
+enum SigningMode {
+  SIGNING_MODE_UNSPECIFIED = 0;
+  SIGNING_MODE_SEQUENTIAL = 1;
+  SIGNING_MODE_PARALLEL = 2;
+}
+
+// Submission status
+enum SubmissionStatus {
+  SUBMISSION_STATUS_UNSPECIFIED = 0;
+  SUBMISSION_STATUS_DRAFT = 1;
+  SUBMISSION_STATUS_PENDING = 2;
+  SUBMISSION_STATUS_IN_PROGRESS = 3;
+  SUBMISSION_STATUS_COMPLETED = 4;
+  SUBMISSION_STATUS_EXPIRED = 5;
+  SUBMISSION_STATUS_CANCELLED = 6;
+}
+
+// Submitter status
+enum SubmitterStatus {
+  SUBMITTER_STATUS_UNSPECIFIED = 0;
+  SUBMITTER_STATUS_PENDING = 1;
+  SUBMITTER_STATUS_OPENED = 2;
+  SUBMITTER_STATUS_COMPLETED = 3;
+  SUBMITTER_STATUS_DECLINED = 4;
+}
+
+// Submission entity
+message Submission {
+  string id = 1 [json_name = "id"];
+  uint32 tenant_id = 2 [json_name = "tenantId"];
+  string template_id = 3 [json_name = "templateId"];
+  string slug = 4 [json_name = "slug"];
+  string signing_mode = 5 [json_name = "signingMode"];
+  string status = 6 [json_name = "status"];
+  string source = 7 [json_name = "source"];
+  optional uint32 created_by = 8 [json_name = "createdBy"];
+  google.protobuf.Timestamp completed_at = 9 [json_name = "completedAt"];
+  google.protobuf.Timestamp create_time = 10 [json_name = "createTime"];
+  string signed_document_key = 11 [json_name = "signedDocumentKey"];
+  string current_pdf_key = 12 [json_name = "currentPdfKey"];
+}
+
+// Submitter input for creating a submission
+message SubmitterInput {
+  string name = 1;
+  string email = 2;
+  string phone = 3;
+  string role = 4;
+}
+
+// Service messages
+message CreateSubmissionRequest {
+  string template_id = 1 [(google.api.field_behavior) = REQUIRED];
+  string signing_mode = 2;
+  string source = 3;
+  map<string, string> preferences = 4;
+  repeated SubmitterInput submitters = 5 [(buf.validate.field).repeated = {min_items: 1, max_items: 50}];
+}
+
+message CreateSubmissionResponse {
+  Submission submission = 1;
+}
+
+message GetSubmissionRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetSubmissionResponse {
+  Submission submission = 1;
+}
+
+message ListSubmissionsRequest {
+  optional uint32 page = 1;
+  optional uint32 page_size = 2;
+  optional string template_id = 3;
+  optional string status = 4;
+}
+
+message ListSubmissionsResponse {
+  repeated Submission submissions = 1;
+  uint32 total = 2;
+}
+
+message SendSubmissionRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message SendSubmissionResponse {
+  Submission submission = 1;
+}
+
+message CompleteSubmitterRequest {
+  string submitter_id = 1 [(google.api.field_behavior) = REQUIRED];
+  bytes values = 2;  // JSON-encoded field values
+  string ip = 3;
+  string user_agent = 4;
+}
+
+message CompleteSubmitterResponse {}
+
+message DeclineSubmitterRequest {
+  string submitter_id = 1 [(google.api.field_behavior) = REQUIRED];
+  string reason = 2;
+}
+
+message DeclineSubmitterResponse {}

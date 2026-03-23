@@ -1,0 +1,6 @@
+openapi: 3.0.3
+info:
+  title: Signing Service API
+  description: Document signing service with PKI, templates and multi-signer workflows
+  version: 1.0.0
+paths: {}

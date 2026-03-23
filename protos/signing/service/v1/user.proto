@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package signing.service.v1;
+
+import "google/api/annotations.proto";
+
+// Lightweight user representation for signing module dropdowns
+message SigningUser {
+  uint32 id = 1 [json_name = "id"];
+  string username = 2 [json_name = "username"];
+  string realname = 3 [json_name = "realname"];
+  string email = 4 [json_name = "email"];
+}
+
+message ListSigningUsersRequest {
+  optional bool no_paging = 1 [json_name = "noPaging"];
+}
+
+message ListSigningUsersResponse {
+  repeated SigningUser items = 1 [json_name = "items"];
+  int32 total = 2 [json_name = "total"];
+}
+
+// SigningUserService provides user listing for the signing module
+service SigningUserService {
+  rpc ListUsers(ListSigningUsersRequest) returns (ListSigningUsersResponse) {
+    option (google.api.http) = {
+      get: "/v1/signing/users"
+    };
+  }
+}

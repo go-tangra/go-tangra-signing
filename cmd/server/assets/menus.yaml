@@ -1,0 +1,121 @@
+# Signing Module Menu Definitions
+# This file defines the menu structure for the Signing (Document Signing) module
+# Used by admin service for dynamic menu registration
+
+module:
+  id: signing
+  name: Signing
+  description: Document Signing with PKI, Templates and Multi-Signer Workflows
+
+menus:
+  - id: signing
+    parent_id: null
+    type: CATALOG
+    name: Document Signing
+    path: /signing
+    icon: lucide:pen-tool
+    order: 600
+    authority:
+      - platform:admin
+      - tenant:manager
+
+  - id: signing-templates
+    parent_id: signing
+    type: MENU
+    name: Templates
+    path: templates
+    component: app/signing/template/index.vue
+    icon: lucide:file-signature
+    order: 1
+    authority:
+      - platform:admin
+      - tenant:manager
+
+  - id: signing-submissions
+    parent_id: signing
+    type: MENU
+    name: Submissions
+    path: submissions
+    component: app/signing/submission/index.vue
+    icon: lucide:send
+    order: 2
+    authority:
+      - platform:admin
+      - tenant:manager
+
+  - id: signing-certificates
+    parent_id: signing
+    type: MENU
+    name: Certificates
+    path: certificates
+    component: app/signing/certificate/index.vue
+    icon: lucide:shield-check
+    order: 3
+    authority:
+      - platform:admin
+
+permission_groups:
+  - name: Signing
+    module: signing
+    description: Document Signing Permissions
+    permissions:
+      - name: View Templates
+        code: signing.template.view
+        description: View template details and list
+      - name: Manage Templates
+        code: signing.template.manage
+        description: Create, update, and delete templates
+      - name: View Submissions
+        code: signing.submission.view
+        description: View submission details and list
+      - name: Create Submissions
+        code: signing.submission.create
+        description: Create new signing submissions
+      - name: Send Submissions
+        code: signing.submission.send
+        description: Send submissions to signers
+      - name: Sign Documents
+        code: signing.document.sign
+        description: Sign documents with digital certificates
+      - name: Verify Signatures
+        code: signing.document.verify
+        description: Verify document signatures
+      - name: Manage Certificates
+        code: signing.certificate.manage
+        description: Create, revoke, and manage certificates
+
+roles:
+  - name: Signing Administrator
+    code: signing.admin
+    description: Full access to Signing module
+    is_system: true
+    permissions:
+      - signing.template.view
+      - signing.template.manage
+      - signing.submission.view
+      - signing.submission.create
+      - signing.submission.send
+      - signing.document.sign
+      - signing.document.verify
+      - signing.certificate.manage
+
+  - name: Signing Operator
+    code: signing.operator
+    description: Can create and send submissions
+    is_system: true
+    permissions:
+      - signing.template.view
+      - signing.submission.view
+      - signing.submission.create
+      - signing.submission.send
+      - signing.document.sign
+      - signing.document.verify
+
+  - name: Signing Viewer
+    code: signing.viewer
+    description: Read-only access to Signing module
+    is_system: true
+    permissions:
+      - signing.template.view
+      - signing.submission.view
+      - signing.document.verify

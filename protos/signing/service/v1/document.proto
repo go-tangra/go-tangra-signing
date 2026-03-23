@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package signing.service.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+
+// Document Service - PDF signing and verification with X.509/PKCS7/PAdES
+service SigningDocumentService {
+  // Apply a digital signature to a PDF document
+  rpc SignDocument(SignDocumentRequest) returns (SignDocumentResponse) {
+    option (google.api.http) = {
+      post: "/v1/signing/documents/sign"
+      body: "*"
+    };
+  }
+
+  // Verify digital signatures on a PDF document
+  rpc VerifyDocument(VerifyDocumentRequest) returns (VerifyDocumentResponse) {
+    option (google.api.http) = {
+      post: "/v1/signing/documents/verify"
+      body: "*"
+    };
+  }
+}
+
+// Signer information extracted from a PDF signature
+message SignerInfo {
+  string name = 1 [json_name = "name"];
+  string reason = 2 [json_name = "reason"];
+  string location = 3 [json_name = "location"];
+  string contact_info = 4 [json_name = "contactInfo"];
+  bool valid_signature = 5 [json_name = "validSignature"];
+  bool trusted_issuer = 6 [json_name = "trustedIssuer"];
+  bool revoked_certificate = 7 [json_name = "revokedCertificate"];
+}
+
+// PDF document metadata
+message DocumentInfo {
+  string title = 1 [json_name = "title"];
+  string author = 2 [json_name = "author"];
+  int32 pages = 3 [json_name = "pages"];
+}
+
+// Service messages
+message SignDocumentRequest {
+  string certificate_id = 1 [(google.api.field_behavior) = REQUIRED];
+  string document_key = 2 [(google.api.field_behavior) = REQUIRED];
+  string signer_name = 3;
+  string location = 4;
+  string reason = 5;
+  string contact_info = 6;
+  string tsa_url = 7;
+  string tsa_username = 8;
+  string tsa_password = 9;
+}
+
+message SignDocumentResponse {
+  string signed_document_key = 1 [json_name = "signedDocumentKey"];
+}
+
+message VerifyDocumentRequest {
+  string document_key = 1;
+  bytes content = 2;
+}
+
+message VerifyDocumentResponse {
+  repeated SignerInfo signers = 1;
+  DocumentInfo document_info = 2 [json_name = "documentInfo"];
+}
