@@ -11,7 +11,14 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"io"
+
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/math/fixed"
 	"os"
 	"sync"
 	"time"
@@ -190,19 +197,64 @@ func (s *SessionService) PrepareForBissSigning(ctx context.Context, req *signing
 	// Fixed date for both passes (must be identical for digest to match)
 	fixedDate := time.Now().UTC().Truncate(time.Second)
 
+	// Extract signer name from certificate CN
+	signerName := signerCert.Subject.CommonName
+	if signerName == "" {
+		signerName = sub.Name
+	}
+
+	// Find the signature field position from the template snapshot
+	sigAppearance := sign.Appearance{Visible: false}
+	for _, f := range submission.TemplateFieldsSnapshot {
+		fType := getStringField(f, "type")
+		fIdx := getIntField(f, "submitter_index")
+		if (fType == "signature" || fType == "initials") && fIdx == sub.SigningOrder {
+			// Convert CSS percentage coords (top-left origin) to PDF points (bottom-left origin)
+			// A4: 595.28 x 841.89 points
+			const pageW, pageH = 595.28, 841.89
+			xPct := getFloat64Field(f, "x_percent")
+			yPct := getFloat64Field(f, "y_percent")
+			pgNum := getIntField(f, "page_number")
+			if pgNum <= 0 {
+				pgNum = 1
+			}
+
+			x := xPct / 100.0 * pageW
+			yTop := yPct / 100.0 * pageH
+			stampW := 200.0
+			stampH := 60.0
+			yBottom := pageH - yTop - stampH
+
+			// Generate signature stamp image with proper text rendering
+			stampImg := generateSignatureStampImage(signerName, signerCert.Issuer.CommonName, fixedDate)
+
+			sigAppearance = sign.Appearance{
+				Visible:     true,
+				Page:        uint32(pgNum),
+				LowerLeftX:  x,
+				LowerLeftY:  yBottom,
+				UpperRightX: x + stampW,
+				UpperRightY: yBottom + stampH,
+				Image:       stampImg,
+			}
+			break
+		}
+	}
+
 	signData := sign.SignData{
 		Certificate: signerCert,
 		Signature: sign.SignDataSignature{
 			CertType:   sign.ApprovalSignature,
 			DocMDPPerm: sign.AllowFillingExistingFormFieldsAndSignaturesPerms,
 			Info: sign.SignDataSignatureInfo{
-				Name:     sub.Name,
+				Name:     signerName,
 				Location: "GoTangra Signing",
 				Reason:   "Document signing",
 				Date:     fixedDate,
 			},
 		},
 		DigestAlgorithm: crypto.SHA256,
+		Appearance:      sigAppearance,
 	}
 
 	// Add certificate chain
@@ -373,6 +425,97 @@ func (s *SessionService) CompleteBissSigning(ctx context.Context, req *signingV1
 		Completed: true,
 		Message:   "Document signed with Qualified Electronic Signature (QES).",
 	}, nil
+}
+
+// generateSignatureStampImage creates a PNG image resembling Adobe's signature appearance:
+// Left side: signer name in large text (split into lines)
+// Right side: "Digitally signed by [name]" + "Date: [date]" in small text
+func generateSignatureStampImage(signerName, issuerName string, signDate time.Time) []byte {
+	width, height := 600, 180
+
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+
+	// Light gray background with thin border
+	bgColor := color.RGBA{R: 255, G: 255, B: 255, A: 255}
+	borderColor := color.RGBA{R: 180, G: 180, B: 180, A: 255}
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			if x == 0 || x == width-1 || y == 0 || y == height-1 {
+				img.Set(x, y, borderColor)
+			} else {
+				img.Set(x, y, bgColor)
+			}
+		}
+	}
+
+	// Use Go's built-in font for text rendering
+	textColor := color.RGBA{R: 0, G: 0, B: 0, A: 255}
+	smallColor := color.RGBA{R: 120, G: 40, B: 40, A: 255} // Dark red for "Digitally signed by"
+
+	// Draw text using golang.org/x/image/font/basicfont
+	drawBasicText(img, signerName, 10, 40, textColor, 3)     // Large name - left side
+
+	// Right side text
+	midX := width / 2
+	drawBasicText(img, "Digitally signed by", midX+10, 25, smallColor, 1)
+
+	// Split name into lines for the right side
+	nameParts := splitName(signerName)
+	yPos := 45
+	for _, part := range nameParts {
+		drawBasicText(img, part, midX+20, yPos, smallColor, 1)
+		yPos += 18
+	}
+
+	dateStr := "Date: " + signDate.Format("2006.01.02")
+	timeStr := signDate.Format("15:04:05 -07'00'")
+	drawBasicText(img, dateStr, midX+10, yPos, smallColor, 1)
+	drawBasicText(img, timeStr, midX+20, yPos+18, smallColor, 1)
+
+	// Vertical divider line
+	divColor := color.RGBA{R: 200, G: 200, B: 200, A: 255}
+	for y := 10; y < height-10; y++ {
+		img.Set(midX, y, divColor)
+	}
+
+	var buf bytes.Buffer
+	png.Encode(&buf, img)
+	return buf.Bytes()
+}
+
+// drawBasicText draws text using golang.org/x/image/font/basicfont at a given scale
+func drawBasicText(img *image.RGBA, text string, x, y int, c color.RGBA, scale int) {
+	face := basicfont.Face7x13
+	d := &font.Drawer{
+		Dst:  img,
+		Src:  image.NewUniform(c),
+		Face: face,
+		Dot:  fixed.P(x, y),
+	}
+	if scale > 1 {
+		// For larger text, draw multiple times offset by 1px
+		for dy := 0; dy < scale; dy++ {
+			for dx := 0; dx < scale; dx++ {
+				d.Dot = fixed.P(x+dx, y+dy)
+				d.DrawString(text)
+			}
+		}
+	} else {
+		d.DrawString(text)
+	}
+}
+
+// splitName splits a full name into parts for multi-line display
+func splitName(name string) []string {
+	words := bytes.Fields([]byte(name))
+	if len(words) <= 2 {
+		return []string{name}
+	}
+	var parts []string
+	for _, w := range words {
+		parts = append(parts, string(w))
+	}
+	return parts
 }
 
 // extractPKCS7FromPDF extracts the raw PKCS#7 DER bytes from a signed PDF's /Contents<hex>.
