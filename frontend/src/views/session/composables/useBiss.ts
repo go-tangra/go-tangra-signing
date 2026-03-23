@@ -152,7 +152,10 @@ export function useBiss(): UseBissReturn {
         signedHashBase64: string;
         serverCertBase64: string;
         sessionId: string;
-      }>(`/signing/sessions/${token}/prepare-biss`, { fieldValues });
+      }>(`/signing/sessions/${token}/prepare-biss`, {
+        fieldValues,
+        signerCertificateChain: certificate.value.chain,
+      });
 
       // Phase 2: Send hash to BISS for signing
       const bissResp = await fetch(`https://localhost:${status.value.port}/sign`, {
@@ -163,7 +166,7 @@ export function useBiss(): UseBissReturn {
           contents: [prepareResp.hashBase64],
           signedContents: [prepareResp.signedHashBase64],
           signedContentsCert: [prepareResp.serverCertBase64],
-          contentType: 'digest',
+          contentType: 'data',
           hashAlgorithm: 'SHA256',
           signatureType: 'signature',
           signerCertificateB64: certificate.value.certificate,

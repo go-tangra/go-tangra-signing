@@ -79,6 +79,7 @@ message SubmitSigningResponse {
 message PrepareForBissSigningRequest {
   string token = 1 [(google.api.field_behavior) = REQUIRED];
   repeated FieldValueSubmission field_values = 2 [json_name = "fieldValues"];
+  repeated string signer_certificate_chain = 3 [json_name = "signerCertificateChain"]; // Base64 DER certs from BISS /getsigner
 }
 
 message PrepareForBissSigningResponse {

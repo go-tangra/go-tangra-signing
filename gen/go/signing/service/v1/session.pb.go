@@ -464,11 +464,12 @@ func (x *SubmitSigningResponse) GetMessage() string {
 }
 
 type PrepareForBissSigningRequest struct {
-	state         protoimpl.MessageState  `protogen:"open.v1"`
-	Token         string                  `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
-	FieldValues   []*FieldValueSubmission `protobuf:"bytes,2,rep,name=field_values,json=fieldValues,proto3" json:"field_values,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState  `protogen:"open.v1"`
+	Token                  string                  `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	FieldValues            []*FieldValueSubmission `protobuf:"bytes,2,rep,name=field_values,json=fieldValues,proto3" json:"field_values,omitempty"`
+	SignerCertificateChain []string                `protobuf:"bytes,3,rep,name=signer_certificate_chain,json=signerCertificateChain,proto3" json:"signer_certificate_chain,omitempty"` // Base64 DER certs from BISS /getsigner
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *PrepareForBissSigningRequest) Reset() {
@@ -511,6 +512,13 @@ func (x *PrepareForBissSigningRequest) GetToken() string {
 func (x *PrepareForBissSigningRequest) GetFieldValues() []*FieldValueSubmission {
 	if x != nil {
 		return x.FieldValues
+	}
+	return nil
+}
+
+func (x *PrepareForBissSigningRequest) GetSignerCertificateChain() []string {
+	if x != nil {
+		return x.SignerCertificateChain
 	}
 	return nil
 }
@@ -744,10 +752,11 @@ const file_signing_service_v1_session_proto_rawDesc = "" +
 	"\x0fsignature_image\x18\x03 \x01(\fR\x0esignatureImage\"O\n" +
 	"\x15SubmitSigningResponse\x12\x1c\n" +
 	"\tcompleted\x18\x01 \x01(\bR\tcompleted\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\x86\x01\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xc0\x01\n" +
 	"\x1cPrepareForBissSigningRequest\x12\x19\n" +
 	"\x05token\x18\x01 \x01(\tB\x03\xe0A\x02R\x05token\x12K\n" +
-	"\ffield_values\x18\x02 \x03(\v2(.signing.service.v1.FieldValueSubmissionR\vfieldValues\"\xbb\x01\n" +
+	"\ffield_values\x18\x02 \x03(\v2(.signing.service.v1.FieldValueSubmissionR\vfieldValues\x128\n" +
+	"\x18signer_certificate_chain\x18\x03 \x03(\tR\x16signerCertificateChain\"\xbb\x01\n" +
 	"\x1dPrepareForBissSigningResponse\x12\x1f\n" +
 	"\vhash_base64\x18\x01 \x01(\tR\n" +
 	"hashBase64\x12,\n" +

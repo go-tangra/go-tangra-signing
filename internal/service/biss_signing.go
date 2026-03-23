@@ -5,36 +5,33 @@ import (
 	"context"
 	"crypto"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/asn1"
 	"encoding/base64"
 	"fmt"
 	"io"
-	"math/big"
 	"os"
 	"sync"
 	"time"
 
-	"github.com/digitorus/pkcs7"
+	"github.com/digitorus/pdf"
+	"github.com/digitorus/pdfsign/sign"
 
 	signingV1 "github.com/go-tangra/go-tangra-signing/gen/go/signing/service/v1"
 	"github.com/go-tangra/go-tangra-signing/internal/data/ent/submitter"
-	pdfsign "github.com/go-tangra/go-tangra-signing/pkg/pdf/sign"
 	appViewer "github.com/go-tangra/go-tangra-signing/pkg/viewer"
 )
 
-// bissSession stores the prepared PDF between PrepareForBissSigning and CompleteBissSigning.
+// bissSession stores state between PrepareForBissSigning and CompleteBissSigning.
 type bissSession struct {
-	preparedPDF    []byte
-	pdfHash        []byte   // SHA-256 hash of the PDF byte ranges
-	signedAttrsDER []byte   // DER-encoded signedAttrs (what BISS actually signs)
-	signContent    []byte   // PDF byte range content for PKCS#7
-	submitterID    string
-	submissionID   string
-	tenantID       uint32
-	createdAt      time.Time
+	draftPDF     []byte // Complete signed PDF from Pass 1 (with dummy signature)
+	dummySig     []byte // The dummy signature bytes to find and replace
+	submitterID  string
+	submissionID string
+	tenantID     uint32
+	createdAt    time.Time
 }
 
 var (
@@ -46,7 +43,6 @@ func storeBissSession(id string, session *bissSession) {
 	bissSessionsMu.Lock()
 	defer bissSessionsMu.Unlock()
 	bissSessions[id] = session
-	// Clean expired sessions (older than 10 minutes)
 	for k, v := range bissSessions {
 		if time.Since(v.createdAt) > 10*time.Minute {
 			delete(bissSessions, k)
@@ -71,49 +67,64 @@ func deleteBissSession(id string) {
 	delete(bissSessions, id)
 }
 
-// loadServerCert loads the server SSL certificate and private key for BISS signedContents.
-// Uses BISS_CERT_PATH / BISS_KEY_PATH env vars, falls back to CERTS_DIR/biss, then CERTS_DIR/signing-server.
 func loadServerCert() (*x509.Certificate, crypto.Signer, error) {
 	certPath := os.Getenv("BISS_CERT_PATH")
 	keyPath := os.Getenv("BISS_KEY_PATH")
-
 	if certPath == "" || keyPath == "" {
 		certsDir := os.Getenv("CERTS_DIR")
 		if certsDir == "" {
 			certsDir = "/app/certs"
 		}
-		// Try BISS-specific cert first (e.g., production SSL cert)
-		bissCert := certsDir + "/biss/cert.pem"
-		bissKey := certsDir + "/biss/key.pem"
-		if _, err := os.Stat(bissCert); err == nil {
-			certPath = bissCert
-			keyPath = bissKey
+		if _, err := os.Stat(certsDir + "/biss/cert.pem"); err == nil {
+			certPath = certsDir + "/biss/cert.pem"
+			keyPath = certsDir + "/biss/key.pem"
 		} else {
 			certPath = certsDir + "/signing-server/server.crt"
 			keyPath = certsDir + "/signing-server/server.key"
 		}
 	}
-
 	tlsCert, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("load server cert: %w", err)
 	}
-
 	x509Cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
 	if err != nil {
 		return nil, nil, fmt.Errorf("parse server cert: %w", err)
 	}
-
 	signer, ok := tlsCert.PrivateKey.(crypto.Signer)
 	if !ok {
 		return nil, nil, fmt.Errorf("private key does not implement crypto.Signer")
 	}
-
 	return x509Cert, signer, nil
 }
 
-// PrepareForBissSigning creates a PDF with field overlays and a PAdES signature placeholder,
-// computes the hash, signs it with the server cert, and returns everything needed for BISS.
+// captureSigner captures the digest and returns a deterministic dummy signature.
+type captureSigner struct {
+	publicKey crypto.PublicKey
+	dummySig  []byte
+	digest    []byte
+}
+
+func (s *captureSigner) Public() crypto.PublicKey { return s.publicKey }
+func (s *captureSigner) Sign(_ io.Reader, digest []byte, _ crypto.SignerOpts) ([]byte, error) {
+	s.digest = make([]byte, len(digest))
+	copy(s.digest, digest)
+	return s.dummySig, nil
+}
+
+// replaySigner returns a pre-computed signature (from BISS).
+type replaySigner struct {
+	publicKey crypto.PublicKey
+	signature []byte
+}
+
+func (s *replaySigner) Public() crypto.PublicKey { return s.publicKey }
+func (s *replaySigner) Sign(_ io.Reader, _ []byte, _ crypto.SignerOpts) ([]byte, error) {
+	return s.signature, nil
+}
+
+// PrepareForBissSigning: Pass 1 — overlay fields, call sign.Sign with captureSigner to get the
+// 32-byte digest (SHA256 of signedAttrs), then send it to the frontend for BISS signing.
 func (s *SessionService) PrepareForBissSigning(ctx context.Context, req *signingV1.PrepareForBissSigningRequest) (*signingV1.PrepareForBissSigningResponse, error) {
 	ctx = appViewer.NewSystemViewerContext(ctx)
 
@@ -121,7 +132,6 @@ func (s *SessionService) PrepareForBissSigning(ctx context.Context, req *signing
 		return nil, signingV1.ErrorBadRequest("token is required")
 	}
 
-	// Look up submitter
 	sub, err := s.submitterRepo.GetBySlug(ctx, req.Token)
 	if err != nil || sub == nil {
 		return nil, signingV1.ErrorSubmitterNotFound("signing session not found")
@@ -130,7 +140,6 @@ func (s *SessionService) PrepareForBissSigning(ctx context.Context, req *signing
 		return nil, signingV1.ErrorSubmitterAlreadyCompleted("already completed")
 	}
 
-	// Get submission and template
 	submission, err := s.submissionRepo.GetByID(ctx, sub.SubmissionID)
 	if err != nil || submission == nil {
 		return nil, signingV1.ErrorSubmissionNotFound("submission not found")
@@ -141,7 +150,6 @@ func (s *SessionService) PrepareForBissSigning(ctx context.Context, req *signing
 		return nil, signingV1.ErrorTemplateNotFound("template not found")
 	}
 
-	// Download the current PDF (with previous signers' data if any)
 	pdfKey := template.FileKey
 	if submission.CurrentPdfKey != "" {
 		pdfKey = submission.CurrentPdfKey
@@ -151,98 +159,123 @@ func (s *SessionService) PrepareForBissSigning(ctx context.Context, req *signing
 		return nil, fmt.Errorf("failed to download PDF: %w", err)
 	}
 
-	// Overlay this signer's field values onto the PDF
+	// Overlay field values
 	values := fieldValuesToMap(req.FieldValues)
 	fieldValues := buildFieldValuesForOverlay(submission.TemplateFieldsSnapshot, sub.SigningOrder, values)
 	if len(fieldValues) > 0 {
-		overlaidPDF, err := s.pdfGenerator.overlayFields(pdfContent, fieldValues)
-		if err != nil {
-			s.log.Warnf("failed to overlay fields for BISS signing: %v", err)
-		} else {
-			pdfContent = overlaidPDF
+		if overlaid, err := s.pdfGenerator.overlayFields(pdfContent, fieldValues); err == nil {
+			pdfContent = overlaid
 		}
 	}
 
-	// Prepare the PDF for external signing (create placeholder, compute hash)
-	signData := pdfsign.SignData{
-		Signature: pdfsign.SignDataSignature{
-			CertType:   pdfsign.ApprovalSignature,
-			DocMDPPerm: pdfsign.AllowFillingExistingFormFieldsAndSignaturesPerms,
-			Info: pdfsign.SignDataSignatureInfo{
+	// Parse signer certificate chain
+	var signerCert *x509.Certificate
+	var signerChain []*x509.Certificate
+	for _, certB64 := range req.SignerCertificateChain {
+		if certBytes, err := base64.StdEncoding.DecodeString(certB64); err == nil {
+			if cert, err := x509.ParseCertificate(certBytes); err == nil {
+				signerChain = append(signerChain, cert)
+			}
+		}
+	}
+	if len(signerChain) == 0 {
+		return nil, signingV1.ErrorBadRequest("signer certificate required")
+	}
+	signerCert = signerChain[0]
+
+	// Fixed date for both passes (must be identical for digest to match)
+	fixedDate := time.Now().UTC().Truncate(time.Second)
+
+	signData := sign.SignData{
+		Certificate: signerCert,
+		Signature: sign.SignDataSignature{
+			CertType:   sign.ApprovalSignature,
+			DocMDPPerm: sign.AllowFillingExistingFormFieldsAndSignaturesPerms,
+			Info: sign.SignDataSignatureInfo{
 				Name:     sub.Name,
 				Location: "GoTangra Signing",
 				Reason:   "Document signing",
+				Date:     fixedDate,
 			},
 		},
 		DigestAlgorithm: crypto.SHA256,
 	}
 
-	preparedPDF, hashBytes, err := pdfsign.PrepareForExternalSigning(
-		bytes.NewReader(pdfContent), int64(len(pdfContent)), signData,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare PDF for signing: %w", err)
+	// Add certificate chain
+	if len(signerChain) > 1 {
+		signData.CertificateChains = [][]*x509.Certificate{signerChain}
 	}
 
-	// Sign the hash with the server cert (for BISS signedContents verification)
+	// Use a deterministic dummy signature matching the signer's key size
+	sigSize := 256 // default RSA-2048
+	if pub, ok := signerCert.PublicKey.(*rsa.PublicKey); ok {
+		sigSize = (pub.N.BitLen() + 7) / 8
+	}
+	dummySig := bytes.Repeat([]byte{0xAB}, sigSize)
+	capture := &captureSigner{publicKey: signerCert.PublicKey, dummySig: dummySig}
+	signData.Signer = capture
+
+	rdr, err := pdf.NewReader(bytes.NewReader(pdfContent), int64(len(pdfContent)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read PDF: %w", err)
+	}
+
+	var draftOut bytes.Buffer
+	if err := sign.Sign(bytes.NewReader(pdfContent), &draftOut, rdr, int64(len(pdfContent)), signData); err != nil {
+		return nil, fmt.Errorf("pass 1 sign failed: %w", err)
+	}
+
+	if len(capture.digest) == 0 {
+		return nil, fmt.Errorf("failed to capture digest from pass 1")
+	}
+
+	// Extract the signedAttrs DER from the draft PDF's PKCS#7.
+	// Send it to BISS with contentType "data" — BISS signs SHA256(signedAttrs_DER)
+	// which is EXACTLY what PKCS#7 with signedAttributes expects.
+	draftPKCS7 := extractPKCS7FromPDF(draftOut.Bytes())
+	signedAttrsDER := extractSignedAttrsDER(draftPKCS7)
+	if len(signedAttrsDER) == 0 {
+		// Fallback to captured digest with contentType "digest"
+		signedAttrsDER = capture.digest
+	}
+	bissContent := signedAttrsDER
+
+	// Server cert signature for BISS signedContents verification
 	serverCert, serverSigner, err := loadServerCert()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load server certificate: %w", err)
 	}
 
-	// Build the PKCS#7 signedAttrs that will be signed by BISS.
-	// For PAdES, the signature must be over SHA256(DER_signedAttrs), not over the raw pdfHash.
-	// So we send DER_signedAttrs to BISS with contentType "data", and BISS signs SHA256(DER_signedAttrs).
-
-	// Extract byte range content from prepared PDF for PKCS#7
-	signContent, err := extractByteRangeContent(preparedPDF)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract byte range content: %w", err)
-	}
-
-	// Build signedAttrs DER using pkcs7 library (create a temp SignedData to extract attrs)
-	signedAttrsDER, err := buildSignedAttrsDER(signContent, hashBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build signedAttrs: %w", err)
-	}
-
-	// The content sent to BISS = DER_signedAttrs (with contentType "data", BISS signs SHA256(DER_signedAttrs))
-	bissContent := signedAttrsDER
-
-	// Sign for BISS signedContents verification: SHA256(SHA256(content) || content)
+	// BISS verifies: SHA256(SHA256(content) || content) signed with server cert
 	contentHash := sha256.Sum256(bissContent)
 	combined := append(contentHash[:], bissContent...)
 	finalDigest := sha256.Sum256(combined)
 	signedHash, err := serverSigner.Sign(rand.Reader, finalDigest[:], crypto.SHA256)
 	if err != nil {
-		return nil, fmt.Errorf("failed to sign hash with server cert: %w", err)
+		return nil, fmt.Errorf("failed to sign with server cert: %w", err)
 	}
 
 	sessionID := generateUUID()
 	tenantID := derefUint32(sub.TenantID)
 
 	storeBissSession(sessionID, &bissSession{
-		preparedPDF:    preparedPDF,
-		pdfHash:        hashBytes,
-		signedAttrsDER: signedAttrsDER,
-		signContent:    signContent,
-		submitterID:    sub.ID,
-		submissionID:   submission.ID,
-		tenantID:       tenantID,
-		createdAt:      time.Now(),
+		draftPDF:     draftOut.Bytes(),
+		dummySig:     dummySig,
+		submitterID:  sub.ID,
+		submissionID: submission.ID,
+		tenantID:     tenantID,
+		createdAt:    time.Now(),
 	})
 
-	serverCertB64 := base64.StdEncoding.EncodeToString(serverCert.Raw)
-
 	return &signingV1.PrepareForBissSigningResponse{
-		HashBase64:       base64.StdEncoding.EncodeToString(bissContent), // DER signedAttrs, not raw hash
+		HashBase64:       base64.StdEncoding.EncodeToString(bissContent),
 		SignedHashBase64: base64.StdEncoding.EncodeToString(signedHash),
-		ServerCertBase64: serverCertB64,
+		ServerCertBase64: base64.StdEncoding.EncodeToString(serverCert.Raw),
 		SessionId:        sessionID,
 	}, nil
 }
 
-// CompleteBissSigning receives the PKCS#7 signature from BISS and embeds it into the prepared PDF.
+// CompleteBissSigning: Pass 2 — call sign.Sign with replaySigner that returns the BISS signature.
 func (s *SessionService) CompleteBissSigning(ctx context.Context, req *signingV1.CompleteBissSigningRequest) (*signingV1.CompleteBissSigningResponse, error) {
 	ctx = appViewer.NewSystemViewerContext(ctx)
 
@@ -250,14 +283,12 @@ func (s *SessionService) CompleteBissSigning(ctx context.Context, req *signingV1
 		return nil, signingV1.ErrorBadRequest("token, session_id, and pkcs7_signature_base64 are required")
 	}
 
-	// Load the prepared PDF from the temporary store
 	session := loadBissSession(req.SessionId)
 	if session == nil {
 		return nil, signingV1.ErrorBadRequest("BISS session expired or not found")
 	}
 	deleteBissSession(req.SessionId)
 
-	// Verify the submitter matches
 	sub, err := s.submitterRepo.GetBySlug(ctx, req.Token)
 	if err != nil || sub == nil {
 		return nil, signingV1.ErrorSubmitterNotFound("signing session not found")
@@ -266,85 +297,72 @@ func (s *SessionService) CompleteBissSigning(ctx context.Context, req *signingV1
 		return nil, signingV1.ErrorBadRequest("token does not match BISS session")
 	}
 
-	// Decode the raw signature from BISS
 	rawSignature, err := base64.StdEncoding.DecodeString(req.Pkcs7SignatureBase64)
 	if err != nil {
 		return nil, signingV1.ErrorBadRequest("invalid signature encoding")
 	}
 
-	// Parse the signer's certificate chain from BISS
-	var signerCert *x509.Certificate
-	var certChain []*x509.Certificate
-	for _, certB64 := range req.CertificateChain {
-		certBytes, err := base64.StdEncoding.DecodeString(certB64)
-		if err != nil {
-			continue
+	// Patch the dummy signature in the draft PDF with the real BISS signature.
+	// The draft PDF has the exact same signedAttrs (same signingTime) that BISS signed.
+	signedPDF := make([]byte, len(session.draftPDF))
+	copy(signedPDF, session.draftPDF)
+
+	// The dummy signature is hex-encoded inside the PDF's /Contents<...>
+	// Find the hex-encoded dummy pattern
+	dummyHex := make([]byte, len(session.dummySig)*2)
+	for i, b := range session.dummySig {
+		dummyHex[i*2] = "0123456789abcdef"[b>>4]
+		dummyHex[i*2+1] = "0123456789abcdef"[b&0xf]
+	}
+
+	realHex := make([]byte, len(rawSignature)*2)
+	for i, b := range rawSignature {
+		realHex[i*2] = "0123456789abcdef"[b>>4]
+		realHex[i*2+1] = "0123456789abcdef"[b&0xf]
+	}
+
+	idx := bytes.Index(signedPDF, dummyHex)
+	if idx < 0 {
+		return nil, fmt.Errorf("could not find dummy signature in draft PDF")
+	}
+
+	// Replace dummy hex with real hex (pad with zeros if BISS sig is shorter)
+	copy(signedPDF[idx:], realHex)
+	if len(realHex) < len(dummyHex) {
+		for i := len(realHex); i < len(dummyHex); i++ {
+			signedPDF[idx+i] = '0'
 		}
-		cert, err := x509.ParseCertificate(certBytes)
-		if err != nil {
-			continue
-		}
-		certChain = append(certChain, cert)
-	}
-	if len(certChain) > 0 {
-		signerCert = certChain[0]
-	}
-	if signerCert == nil {
-		return nil, signingV1.ErrorBadRequest("no valid signer certificate provided")
 	}
 
-	// Build PKCS#7/CMS container using stored signContent + BISS signature
-	pkcs7Container, err := buildPKCS7Container(session.signContent, session.pdfHash, rawSignature, signerCert, certChain)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build PKCS#7 container: %w", err)
-	}
-
-	// Embed the PKCS#7 into the prepared PDF
-	signedPDF, err := pdfsign.EmbedExternalSignature(session.preparedPDF, pkcs7Container)
-	if err != nil {
-		return nil, fmt.Errorf("failed to embed signature: %w", err)
-	}
-
-	// Upload the signed PDF
+	// Upload
 	signedKey := fmt.Sprintf("%d/signed/%s/biss-signed.pdf", session.tenantID, session.submissionID)
-	if _, uploadErr := s.storage.UploadRaw(ctx, signedKey, signedPDF, "application/pdf"); uploadErr != nil {
-		return nil, fmt.Errorf("failed to upload signed PDF: %w", uploadErr)
+	if _, err := s.storage.UploadRaw(ctx, signedKey, signedPDF, "application/pdf"); err != nil {
+		return nil, fmt.Errorf("failed to upload signed PDF: %w", err)
 	}
 
-	// Mark submitter as completed
+	// Mark submitter completed
 	now := time.Now()
-	values := make(map[string]interface{})
-	values["_biss_signed"] = true
-	values["_signed_document_key"] = signedKey
-	if _, err := s.submitterRepo.Complete(ctx, sub.ID, values, "", "", now); err != nil {
+	valuesMap := map[string]interface{}{"_biss_signed": true, "_signed_document_key": signedKey}
+	if _, err := s.submitterRepo.Complete(ctx, sub.ID, valuesMap, "", "", now); err != nil {
 		return nil, err
 	}
 
-	// Update submission with signed document key
 	if err := s.submissionRepo.UpdateSignedDocumentKey(ctx, session.submissionID, signedKey); err != nil {
 		s.log.Errorf("failed to update signed document key: %v", err)
 	}
-
-	// Also update current_pdf_key for next signer
 	if err := s.submissionRepo.UpdateCurrentPdfKey(ctx, session.submissionID, signedKey); err != nil {
 		s.log.Errorf("failed to update current_pdf_key: %v", err)
 	}
 
-	tenantID := session.tenantID
-
-	// Log event
-	_ = s.eventRepo.Create(ctx, tenantID, "submitter.biss_signed", "",
+	_ = s.eventRepo.Create(ctx, session.tenantID, "submitter.biss_signed", "",
 		"submitter", sub.ID, map[string]interface{}{"signed_key": signedKey}, "")
 
-	// Handle sequential workflow
 	submission, _ := s.submissionRepo.GetByID(ctx, session.submissionID)
 	if submission != nil && submission.SigningMode.String() == "SIGNING_MODE_SEQUENTIAL" {
-		s.advanceSequentialWorkflow(ctx, tenantID, session.submissionID, sub.SigningOrder)
+		s.advanceSequentialWorkflow(ctx, session.tenantID, session.submissionID, sub.SigningOrder)
 	}
-
-	// Check completion
 	if submission != nil {
-		s.checkAndCompleteSubmission(ctx, tenantID, session.submissionID, submission)
+		s.checkAndCompleteSubmission(ctx, session.tenantID, session.submissionID, submission)
 	}
 
 	return &signingV1.CompleteBissSigningResponse{
@@ -353,153 +371,75 @@ func (s *SessionService) CompleteBissSigning(ctx context.Context, req *signingV1
 	}, nil
 }
 
-// precomputedSigner implements crypto.Signer using a pre-computed signature.
-// Used to wrap the BISS raw signature into the pkcs7 library's AddSignerChain API.
-type precomputedSigner struct {
-	signature []byte
-	publicKey crypto.PublicKey
-}
-
-func (s *precomputedSigner) Public() crypto.PublicKey {
-	return s.publicKey
-}
-
-func (s *precomputedSigner) Sign(_ io.Reader, _ []byte, _ crypto.SignerOpts) ([]byte, error) {
-	// Return the pre-computed BISS signature instead of computing one
-	return s.signature, nil
-}
-
-// extractByteRangeContent extracts the PDF byte range content (everything except the /Contents hex area).
-func extractByteRangeContent(preparedPDF []byte) ([]byte, error) {
+// extractPKCS7FromPDF extracts the raw PKCS#7 DER bytes from a signed PDF's /Contents<hex>.
+func extractPKCS7FromPDF(pdfData []byte) []byte {
 	contentsTag := []byte("/Contents<")
-	sigStart := -1
 	searchFrom := 0
 	for {
-		idx := bytes.Index(preparedPDF[searchFrom:], contentsTag)
+		idx := bytes.Index(pdfData[searchFrom:], contentsTag)
 		if idx < 0 {
-			break
+			return nil
 		}
 		pos := searchFrom + idx + len(contentsTag)
-		if pos+100 < len(preparedPDF) && preparedPDF[pos] == '0' && preparedPDF[pos+1] == '0' {
-			sigStart = pos
-			break
+		if pos < len(pdfData) && pdfData[pos] != '0' {
+			end := pos
+			for end < len(pdfData) && pdfData[end] != '>' {
+				end++
+			}
+			hexData := bytes.TrimRight(pdfData[pos:end], "0")
+			if len(hexData)%2 == 1 {
+				hexData = append(hexData, '0')
+			}
+			der := make([]byte, len(hexData)/2)
+			for i := 0; i < len(hexData); i += 2 {
+				der[i/2] = unhex(hexData[i])<<4 | unhex(hexData[i+1])
+			}
+			return der
 		}
 		searchFrom = searchFrom + idx + 1
 	}
-	if sigStart < 0 {
-		return nil, fmt.Errorf("could not find /Contents signature placeholder")
-	}
-	sigEnd := sigStart
-	for sigEnd < len(preparedPDF) && preparedPDF[sigEnd] != '>' {
-		sigEnd++
-	}
-
-	// Use copy to avoid modifying preparedPDF's underlying array
-	byteRange1 := make([]byte, sigStart)
-	copy(byteRange1, preparedPDF[:sigStart])
-	byteRange2 := make([]byte, len(preparedPDF)-(sigEnd+1))
-	copy(byteRange2, preparedPDF[sigEnd+1:])
-	return append(byteRange1, byteRange2...), nil
 }
 
-// buildSignedAttrsDER builds the DER-encoded signedAttrs for CMS/PKCS#7.
-// These attributes are what BISS actually signs (with contentType "data", BISS signs SHA256(DER_signedAttrs)).
-func buildSignedAttrsDER(signContent, pdfHash []byte) ([]byte, error) {
-	// Use pkcs7 library to build proper signedAttrs by creating a temp SignedData
-	sd, err := pkcs7.NewSignedData(signContent)
-	if err != nil {
-		return nil, err
+func unhex(b byte) byte {
+	switch {
+	case b >= '0' && b <= '9':
+		return b - '0'
+	case b >= 'a' && b <= 'f':
+		return b - 'a' + 10
+	case b >= 'A' && b <= 'F':
+		return b - 'A' + 10
 	}
-	sd.SetDigestAlgorithm(asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1})
+	return 0
+}
 
-	// Get the marshaled signedAttrs via the library's internal computation
-	// by using a signer that captures what it's asked to sign
-	_ = sd // not used further, just needed to verify digest
-	_ = big.NewInt(0) // ensure import is used
-
-	// Build signedAttrs manually
-	oidContentType := asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 3}
-	oidMessageDigest := asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 4}
-	oidData := asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 1}
-
-	type attribute struct {
-		Type  asn1.ObjectIdentifier
-		Value asn1.RawValue `asn1:"set"`
-	}
-
-	// Marshal content type value
-	ctValue, _ := asn1.Marshal(oidData)
-	// Marshal message digest value
-	mdValue, _ := asn1.Marshal(pdfHash)
-
-	attrs := []attribute{
-		{Type: oidContentType, Value: asn1.RawValue{FullBytes: ctValue}},
-		{Type: oidMessageDigest, Value: asn1.RawValue{FullBytes: mdValue}},
-	}
-
-	// Marshal as SET OF
-	var attrsBytes []byte
-	for _, attr := range attrs {
-		b, err := asn1.Marshal(attr)
-		if err != nil {
-			return nil, err
+// extractSignedAttrsDER extracts the DER-encoded signedAttrs from a PKCS#7 DER.
+// Returns with tag 0x31 (SET) for hash computation per CMS spec.
+func extractSignedAttrsDER(pkcs7DER []byte) []byte {
+	for i := 0; i < len(pkcs7DER)-10; i++ {
+		if pkcs7DER[i] == 0xA0 {
+			length := 0
+			headerLen := 0
+			if pkcs7DER[i+1] < 0x80 {
+				length = int(pkcs7DER[i+1])
+				headerLen = 2
+			} else if pkcs7DER[i+1] == 0x81 {
+				length = int(pkcs7DER[i+2])
+				headerLen = 3
+			} else if pkcs7DER[i+1] == 0x82 {
+				length = int(pkcs7DER[i+2])<<8 | int(pkcs7DER[i+3])
+				headerLen = 4
+			}
+			if length > 50 && length < 500 && i+headerLen+length <= len(pkcs7DER) {
+				attrs := pkcs7DER[i : i+headerLen+length]
+				contentTypeOID := []byte{0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x09, 0x03}
+				if bytes.Contains(attrs, contentTypeOID) {
+					result := make([]byte, len(attrs))
+					copy(result, attrs)
+					result[0] = 0x31 // Change [0] to SET for hash computation
+					return result
+				}
+			}
 		}
-		attrsBytes = append(attrsBytes, b...)
 	}
-
-	// Wrap in SET tag (0x31) for DER encoding of signedAttrs
-	signedAttrsDER, err := asn1.Marshal(asn1.RawValue{
-		Class:      asn1.ClassUniversal,
-		Tag:        asn1.TagSet,
-		IsCompound: true,
-		Bytes:      attrsBytes,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return signedAttrsDER, nil
+	return nil
 }
-
-// buildPKCS7Container builds a CMS/PKCS#7 SignedData container for PAdES.
-// With contentType "data", BISS signs SHA256(DER_signedAttrs), which is exactly
-// what PKCS#7 with signedAttributes expects.
-func buildPKCS7Container(signContent, pdfHash, rawSignature []byte, signerCert *x509.Certificate, certChain []*x509.Certificate) ([]byte, error) {
-	signedData, err := pkcs7.NewSignedData(signContent)
-	if err != nil {
-		return nil, fmt.Errorf("new signed data: %w", err)
-	}
-
-	signedData.SetDigestAlgorithm(asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1})
-
-	// The precomputedSigner returns the BISS signature.
-	// BISS signed SHA256(DER_signedAttrs) (since we sent signedAttrs as contents with "data" mode).
-	// pkcs7.AddSignerChain computes SHA256(signContent) for messageDigest, builds signedAttrs,
-	// then calls signer.Sign(SHA256(DER_signedAttrs)) → our precomputed BISS signature.
-	// The BISS signature matches because it was computed over the same signedAttrs DER.
-	fakeSigner := &precomputedSigner{
-		signature: rawSignature,
-		publicKey: signerCert.PublicKey,
-	}
-
-	var chainCerts []*x509.Certificate
-	if len(certChain) > 1 {
-		chainCerts = certChain[1:]
-	}
-
-	if err := signedData.AddSignerChain(signerCert, fakeSigner, chainCerts, pkcs7.SignerInfoConfig{}); err != nil {
-		return nil, fmt.Errorf("add signer chain: %w", err)
-	}
-
-	signedData.Detach()
-
-	return signedData.Finish()
-}
- 
- 
- 
- 
- 
- 
- 
- 

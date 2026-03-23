@@ -197,6 +197,8 @@ func (x *PrepareForBissSigningRequest) Redact() string {
 	// Safe field: Token
 
 	// Safe field: FieldValues
+
+	// Safe field: SignerCertificateChain
 	return x.String()
 }
 
