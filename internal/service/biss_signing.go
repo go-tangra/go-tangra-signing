@@ -159,12 +159,16 @@ func (s *SessionService) PrepareForBissSigning(ctx context.Context, req *signing
 		return nil, fmt.Errorf("failed to download PDF: %w", err)
 	}
 
-	// Overlay field values
-	values := fieldValuesToMap(req.FieldValues)
-	fieldValues := buildFieldValuesForOverlay(submission.TemplateFieldsSnapshot, sub.SigningOrder, values)
-	if len(fieldValues) > 0 {
-		if overlaid, err := s.pdfGenerator.overlayFields(pdfContent, fieldValues); err == nil {
-			pdfContent = overlaid
+	// Overlay field values — but SKIP if the PDF already has a PAdES signature.
+	// Modifying a PAdES-signed PDF with pdfcpu would invalidate the previous signer's signature.
+	hasPAdES := bytes.Contains(pdfContent, []byte("/Type /Sig")) && bytes.Contains(pdfContent, []byte("/SubFilter /adbe.pkcs7.detached"))
+	if !hasPAdES {
+		values := fieldValuesToMap(req.FieldValues)
+		fieldValues := buildFieldValuesForOverlay(submission.TemplateFieldsSnapshot, sub.SigningOrder, values)
+		if len(fieldValues) > 0 {
+			if overlaid, err := s.pdfGenerator.overlayFields(pdfContent, fieldValues); err == nil {
+				pdfContent = overlaid
+			}
 		}
 	}
 

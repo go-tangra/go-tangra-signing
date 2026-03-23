@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -299,6 +300,16 @@ func (s *SessionService) generateIntermediatePDF(ctx context.Context, tenantID u
 	if err != nil || template == nil {
 		s.log.Errorf("failed to get template for intermediate PDF: %v", err)
 		return
+	}
+
+	// Skip intermediate PDF generation if the current PDF has a PAdES signature.
+	// Modifying a PAdES-signed PDF with pdfcpu would invalidate previous signer's QES.
+	if submission.CurrentPdfKey != "" {
+		currentPDF, dlErr := s.storage.Download(ctx, submission.CurrentPdfKey)
+		if dlErr == nil && bytes.Contains(currentPDF, []byte("/SubFilter /adbe.pkcs7.detached")) {
+			s.log.Infof("skipping intermediate PDF: current PDF has PAdES signature")
+			return
+		}
 	}
 
 	fieldValues := buildFieldValuesForOverlay(submission.TemplateFieldsSnapshot, sub.SigningOrder, sub.Values)
