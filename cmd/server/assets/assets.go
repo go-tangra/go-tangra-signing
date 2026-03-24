@@ -17,5 +17,11 @@ var DescriptorData []byte
 //go:embed DejaVuSans.ttf
 var DejaVuSansFont []byte
 
+//go:embed DejaVuSans-Italic.ttf
+var DejaVuSansItalicFont []byte
+
+//go:embed GreatVibes-Regular.ttf
+var GreatVibesFont []byte
+
 //go:embed all:frontend-dist
 var FrontendDist embed.FS

@@ -15,10 +15,13 @@ import (
 	"image/color"
 	"image/png"
 	"io"
+	"strings"
 
 	"golang.org/x/image/font"
-	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
+
+	"github.com/go-tangra/go-tangra-signing/cmd/server/assets"
 	"os"
 	"sync"
 	"time"
@@ -214,19 +217,31 @@ func (s *SessionService) PrepareForBissSigning(ctx context.Context, req *signing
 			const pageW, pageH = 595.28, 841.89
 			xPct := getFloat64Field(f, "x_percent")
 			yPct := getFloat64Field(f, "y_percent")
+			hPct := getFloat64Field(f, "height_percent")
 			pgNum := getIntField(f, "page_number")
 			if pgNum <= 0 {
 				pgNum = 1
 			}
 
 			x := xPct / 100.0 * pageW
+			h := hPct / 100.0 * pageH
 			yTop := yPct / 100.0 * pageH
-			stampW := 200.0
-			stampH := 60.0
-			yBottom := pageH - yTop - stampH
 
-			// Generate signature stamp image with proper text rendering
-			stampImg := generateSignatureStampImage(signerName, signerCert.Issuer.CommonName, fixedDate)
+			// Render stamp image at fixed resolution, height determines scale
+			imgH := int(h) * 3 // 3x for crisp rendering
+			if imgH < 80 {
+				imgH = 80
+			}
+			// Width is proportional — roughly 3:1 aspect ratio for the text layout
+			imgW := imgH * 3
+			stampImg := generateSignatureStampImage(signerName, signerCert.Issuer.CommonName, fixedDate, imgW, imgH)
+
+			// PDF appearance: match the placeholder height, width auto from image aspect ratio
+			stampW := h * float64(imgW) / float64(imgH)
+
+			// Place stamp exactly at the field position
+			// yTop is distance from page top, convert to PDF bottom-left origin
+			yBottom := pageH - yTop - h
 
 			sigAppearance = sign.Appearance{
 				Visible:     true,
@@ -234,7 +249,7 @@ func (s *SessionService) PrepareForBissSigning(ctx context.Context, req *signing
 				LowerLeftX:  x,
 				LowerLeftY:  yBottom,
 				UpperRightX: x + stampW,
-				UpperRightY: yBottom + stampH,
+				UpperRightY: yBottom + h,
 				Image:       stampImg,
 			}
 			break
@@ -427,15 +442,47 @@ func (s *SessionService) CompleteBissSigning(ctx context.Context, req *signingV1
 	}, nil
 }
 
-// generateSignatureStampImage creates a PNG image resembling Adobe's signature appearance:
-// Left side: signer name in large text (split into lines)
-// Right side: "Digitally signed by [name]" + "Date: [date]" in small text
-func generateSignatureStampImage(signerName, issuerName string, signDate time.Time) []byte {
-	width, height := 600, 180
+// loadFontFace loads a TTF font at the given point size.
+func loadFontFace(fontData []byte, size float64) (font.Face, error) {
+	f, err := opentype.Parse(fontData)
+	if err != nil {
+		return nil, err
+	}
+	face, err := opentype.NewFace(f, &opentype.FaceOptions{
+		Size:    size,
+		DPI:     72,
+		Hinting: font.HintingFull,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return face, nil
+}
+
+// toTitleCase converts "VESELIN YORDANOV YORDANOV" to "Veselin Yordanov Yordanov"
+func toTitleCase(s string) string {
+	words := strings.Fields(s)
+	for i, w := range words {
+		if len(w) > 0 {
+			words[i] = strings.ToUpper(w[:1]) + strings.ToLower(w[1:])
+		}
+	}
+	return strings.Join(words, " ")
+}
+
+// generateSignatureStampImage creates a PNG image resembling Adobe's signature appearance.
+// Width and height are in pixels. Fonts are auto-scaled to fit.
+func generateSignatureStampImage(signerName, issuerName string, signDate time.Time, width, height int) []byte {
+	if width < 100 {
+		width = 300
+	}
+	if height < 40 {
+		height = 120
+	}
 
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 
-	// Light gray background with thin border
+	// White background with thin gray border
 	bgColor := color.RGBA{R: 255, G: 255, B: 255, A: 255}
 	borderColor := color.RGBA{R: 180, G: 180, B: 180, A: 255}
 	for y := 0; y < height; y++ {
@@ -448,64 +495,80 @@ func generateSignatureStampImage(signerName, issuerName string, signDate time.Ti
 		}
 	}
 
-	// Use Go's built-in font for text rendering
-	textColor := color.RGBA{R: 0, G: 0, B: 0, A: 255}
-	smallColor := color.RGBA{R: 120, G: 40, B: 40, A: 255} // Dark red for "Digitally signed by"
-
-	// Draw text using golang.org/x/image/font/basicfont
-	drawBasicText(img, signerName, 10, 40, textColor, 3)     // Large name - left side
-
-	// Right side text
-	midX := width / 2
-	drawBasicText(img, "Digitally signed by", midX+10, 25, smallColor, 1)
-
-	// Split name into lines for the right side
-	nameParts := splitName(signerName)
-	yPos := 45
-	for _, part := range nameParts {
-		drawBasicText(img, part, midX+20, yPos, smallColor, 1)
-		yPos += 18
+	// Font sizes scaled to image height
+	// Great Vibes 22pt equivalent at 3x scale
+	nameFontSize := float64(height) / 4.5
+	if nameFontSize < 14 {
+		nameFontSize = 14
+	}
+	if nameFontSize > 36 {
+		nameFontSize = 36
+	}
+	// DejaVu Italic 12pt equivalent at 3x scale
+	detailFontSize := float64(height) / 9.0
+	if detailFontSize < 8 {
+		detailFontSize = 8
+	}
+	if detailFontSize > 18 {
+		detailFontSize = 18
 	}
 
-	dateStr := "Date: " + signDate.Format("2006.01.02")
-	timeStr := signDate.Format("15:04:05 -07'00'")
-	drawBasicText(img, dateStr, midX+10, yPos, smallColor, 1)
-	drawBasicText(img, timeStr, midX+20, yPos+18, smallColor, 1)
-
-	// Vertical divider line
-	divColor := color.RGBA{R: 200, G: 200, B: 200, A: 255}
-	for y := 10; y < height-10; y++ {
-		img.Set(midX, y, divColor)
+	// Load Great Vibes for the signature name
+	nameFace, err := loadFontFace(assets.GreatVibesFont, nameFontSize)
+	if err != nil {
+		var buf bytes.Buffer
+		png.Encode(&buf, img)
+		return buf.Bytes()
 	}
+	// Load DejaVu Sans Italic for "Digitally Signed" and details
+	italicFace, err := loadFontFace(assets.DejaVuSansItalicFont, detailFontSize)
+	if err != nil {
+		var buf bytes.Buffer
+		png.Encode(&buf, img)
+		return buf.Bytes()
+	}
+
+	// Convert name to title case: "VESELIN YORDANOV" → "Veselin Yordanov"
+	displayName := toTitleCase(signerName)
+
+	greenColor := color.RGBA{R: 30, G: 100, B: 30, A: 255}     // Green for "Digitally Signed"
+	nameColor := color.RGBA{R: 0, G: 0, B: 0, A: 255}          // Black for signature name
+	grayColor := color.RGBA{R: 130, G: 130, B: 130, A: 255}    // Gray for date
+
+	detailLineHeight := int(detailFontSize * 1.5)
+
+	// Top: "Digitally Signed" in DejaVu Italic
+	yPos := int(detailFontSize) + 5
+	drawText(img, "Digitally Signed", 8, yPos, greenColor, italicFace)
+	yPos += int(detailFontSize * 0.8)
+
+	// Name in Great Vibes (cursive)
+	nameLineHeight := int(nameFontSize * 1.2)
+	drawText(img, displayName, 8, yPos+int(nameFontSize), nameColor, nameFace)
+	yPos += nameLineHeight + int(nameFontSize*0.3)
+
+	// Date below in DejaVu Italic
+	dateStr := "Date: " + signDate.Format("2006.01.02 15:04:05 -07'00'")
+	drawText(img, dateStr, 8, yPos+int(detailFontSize), grayColor, italicFace)
+	_ = detailLineHeight
 
 	var buf bytes.Buffer
 	png.Encode(&buf, img)
 	return buf.Bytes()
 }
 
-// drawBasicText draws text using golang.org/x/image/font/basicfont at a given scale
-func drawBasicText(img *image.RGBA, text string, x, y int, c color.RGBA, scale int) {
-	face := basicfont.Face7x13
+// drawText draws a string onto an image at (x, y) with the given color and font face.
+func drawText(img *image.RGBA, text string, x, y int, c color.RGBA, face font.Face) {
 	d := &font.Drawer{
 		Dst:  img,
 		Src:  image.NewUniform(c),
 		Face: face,
 		Dot:  fixed.P(x, y),
 	}
-	if scale > 1 {
-		// For larger text, draw multiple times offset by 1px
-		for dy := 0; dy < scale; dy++ {
-			for dx := 0; dx < scale; dx++ {
-				d.Dot = fixed.P(x+dx, y+dy)
-				d.DrawString(text)
-			}
-		}
-	} else {
-		d.DrawString(text)
-	}
+	d.DrawString(text)
 }
 
-// splitName splits a full name into parts for multi-line display
+// splitName splits a full name into individual words for multi-line display.
 func splitName(name string) []string {
 	words := bytes.Fields([]byte(name))
 	if len(words) <= 2 {
