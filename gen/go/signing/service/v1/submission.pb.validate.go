@@ -386,6 +386,8 @@ func (m *CreateSubmissionRequest) validate(all bool) error {
 
 	}
 
+	// no validation rules for PrefillValues
+
 	if len(errors) > 0 {
 		return CreateSubmissionRequestMultiError(errors)
 	}

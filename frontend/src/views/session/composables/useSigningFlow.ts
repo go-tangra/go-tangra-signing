@@ -171,9 +171,19 @@ export function useSigningFlow(): UseSigningFlowReturn {
       value: f.value,
     }));
 
+    // Strip data URL prefix for proto bytes field — transcoder expects raw base64
+    let sigImage: string | undefined;
+    if (signatureImage.value) {
+      const commaIdx = signatureImage.value.indexOf(',');
+      sigImage =
+        commaIdx >= 0
+          ? signatureImage.value.substring(commaIdx + 1)
+          : signatureImage.value;
+    }
+
     return {
       fieldValues,
-      ...(signatureImage.value ? { signatureImage: signatureImage.value } : {}),
+      ...(sigImage ? { signatureImage: sigImage } : {}),
     };
   }
 

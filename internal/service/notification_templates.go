@@ -18,6 +18,7 @@ const (
 	templateNameCompleted  = "signing-completed-template"
 	templateNameDeclined   = "signing-declined-template"
 	templateNameNextSigner = "signing-next-signer-template"
+	templateNameCertSetup  = "signing-cert-setup-template"
 	channelName            = "Default SMTP"
 )
 
@@ -108,6 +109,31 @@ var nextSignerBody = `<!DOCTYPE html>
 </body>
 </html>`
 
+// --- Certificate setup template ---
+
+var certSetupSubject = `Set up your signing certificate for "{{.TemplateName}}"`
+
+var certSetupBody = `<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+  <h2>Signing Certificate Setup Required</h2>
+  <p>Hello {{.SignerName}},</p>
+  <p>You've been invited to sign the document <strong>"{{.TemplateName}}"</strong>.
+     Before you can sign, you need to create your signing certificate and set a PIN.</p>
+  <p>Your PIN protects your signing certificate. You'll need to enter it each time you sign a document.</p>
+  <p style="margin: 24px 0;">
+    <a href="{{.SetupLink}}" style="background: #1677ff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+      Set Up Certificate
+    </a>
+  </p>
+  <p style="color: #666; font-size: 12px;">
+    If the button doesn't work, copy and paste this link: {{.SetupLink}}
+  </p>
+  <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
+  <p style="color: #999; font-size: 11px;">This is an automated message from GoTangra Document Signing.</p>
+</body>
+</html>`
+
 // templateDef defines a notification template to be lazily registered.
 type templateDef struct {
 	name      string
@@ -140,6 +166,12 @@ var templateDefs = map[string]templateDef{
 		subject:   nextSignerSubject,
 		body:      nextSignerBody,
 		variables: "SignerName,TemplateName,Role,SigningLink",
+	},
+	templateNameCertSetup: {
+		name:      templateNameCertSetup,
+		subject:   certSetupSubject,
+		body:      certSetupBody,
+		variables: "SignerName,TemplateName,SetupLink",
 	},
 }
 
@@ -358,6 +390,30 @@ func (h *NotificationHelper) SendCompletionNotification(ctx context.Context, rec
 		"RecipientName": recipientName,
 		"TemplateName":  templateName,
 		"DashboardLink": dashboardLink,
+	})
+	return err
+}
+
+// SendCertificateSetupNotification sends a "set up your certificate" email.
+func (h *NotificationHelper) SendCertificateSetupNotification(ctx context.Context, signerName, signerEmail, setupToken, templateName string) error {
+	recipient := h.resolveEmail(ctx, signerName, signerEmail)
+	if recipient == "" {
+		h.log.Warnf("Cannot send cert setup notification to %q: no email address", signerName)
+		return nil
+	}
+
+	templateID, err := h.EnsureTemplate(ctx, templateNameCertSetup)
+	if err != nil {
+		return err
+	}
+
+	setupLink := fmt.Sprintf("%s/#/signing/certificate-setup/%s", h.appHost, setupToken)
+
+	platformCtx := client.DetachedMetadataContext(ctx, 0)
+	_, err = h.notificationClient.SendNotification(platformCtx, templateID, recipient, map[string]string{
+		"SignerName":   signerName,
+		"TemplateName": templateName,
+		"SetupLink":    setupLink,
 	})
 	return err
 }

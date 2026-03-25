@@ -53,13 +53,23 @@ func (s *SigningService) SignDocument(ctx context.Context, req *signingV1.SignDo
 		return nil, signingV1.ErrorCertificateNotFound("certificate not found")
 	}
 
+	// Tenant ownership check
+	if derefUint32(cert.TenantID) != tenantID {
+		return nil, signingV1.ErrorAccessDenied("access denied")
+	}
+
+	// Validate document key belongs to this tenant's storage paths
+	if err := validateStorageKey(req.DocumentKey, tenantID); err != nil {
+		return nil, err
+	}
+
 	// Parse certificate and private key
 	x509Cert, err := securitycert.ParseCertificate([]byte(cert.CertPem))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse certificate: %w", err)
 	}
 
-	privateKey, err := securitycert.ParsePrivateKey([]byte(cert.KeyPemEncrypted))
+	privateKey, err := securitycert.ParsePrivateKeyAuto([]byte(cert.KeyPemEncrypted), s.certRepo.KEK())
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse private key: %w", err)
 	}
@@ -136,19 +146,29 @@ func (s *SigningService) SignDocument(ctx context.Context, req *signingV1.SignDo
 
 // VerifyDocument verifies the digital signatures on a PDF document.
 func (s *SigningService) VerifyDocument(ctx context.Context, req *signingV1.VerifyDocumentRequest) (*signingV1.VerifyDocumentResponse, error) {
+	tenantID := getTenantIDFromContext(ctx)
+
 	// Download the PDF to verify
 	var pdfContent []byte
 	var err error
 
+	const maxContentSize = 50 * 1024 * 1024 // 50 MB
 	if len(req.Content) > 0 {
+		if len(req.Content) > maxContentSize {
+			return nil, signingV1.ErrorBadRequest("document too large (max 50 MB)")
+		}
 		pdfContent = req.Content
 	} else if req.DocumentKey != "" {
+		// Validate document key belongs to this tenant
+		if valErr := validateStorageKey(req.DocumentKey, tenantID); valErr != nil {
+			return nil, valErr
+		}
 		pdfContent, err = s.storage.Download(ctx, req.DocumentKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download document: %w", err)
 		}
 	} else {
-		return nil, fmt.Errorf("either content or document_key must be provided")
+		return nil, signingV1.ErrorBadRequest("either content or document_key must be provided")
 	}
 
 	// Verify signatures

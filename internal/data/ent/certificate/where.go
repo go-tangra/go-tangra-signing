@@ -149,6 +149,26 @@ func RevocationReason(v string) predicate.Certificate {
 	return predicate.Certificate(sql.FieldEQ(FieldRevocationReason, v))
 }
 
+// UserEmail applies equality check predicate on the "user_email" field. It's identical to UserEmailEQ.
+func UserEmail(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldEQ(FieldUserEmail, v))
+}
+
+// UserID applies equality check predicate on the "user_id" field. It's identical to UserIDEQ.
+func UserID(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldEQ(FieldUserID, v))
+}
+
+// SetupToken applies equality check predicate on the "setup_token" field. It's identical to SetupTokenEQ.
+func SetupToken(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldEQ(FieldSetupToken, v))
+}
+
+// SetupCompleted applies equality check predicate on the "setup_completed" field. It's identical to SetupCompletedEQ.
+func SetupCompleted(v bool) predicate.Certificate {
+	return predicate.Certificate(sql.FieldEQ(FieldSetupCompleted, v))
+}
+
 // CreateByEQ applies the EQ predicate on the "create_by" field.
 func CreateByEQ(v uint32) predicate.Certificate {
 	return predicate.Certificate(sql.FieldEQ(FieldCreateBy, v))
@@ -1147,6 +1167,241 @@ func RevocationReasonEqualFold(v string) predicate.Certificate {
 // RevocationReasonContainsFold applies the ContainsFold predicate on the "revocation_reason" field.
 func RevocationReasonContainsFold(v string) predicate.Certificate {
 	return predicate.Certificate(sql.FieldContainsFold(FieldRevocationReason, v))
+}
+
+// UserEmailEQ applies the EQ predicate on the "user_email" field.
+func UserEmailEQ(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldEQ(FieldUserEmail, v))
+}
+
+// UserEmailNEQ applies the NEQ predicate on the "user_email" field.
+func UserEmailNEQ(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldNEQ(FieldUserEmail, v))
+}
+
+// UserEmailIn applies the In predicate on the "user_email" field.
+func UserEmailIn(vs ...string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldIn(FieldUserEmail, vs...))
+}
+
+// UserEmailNotIn applies the NotIn predicate on the "user_email" field.
+func UserEmailNotIn(vs ...string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldNotIn(FieldUserEmail, vs...))
+}
+
+// UserEmailGT applies the GT predicate on the "user_email" field.
+func UserEmailGT(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldGT(FieldUserEmail, v))
+}
+
+// UserEmailGTE applies the GTE predicate on the "user_email" field.
+func UserEmailGTE(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldGTE(FieldUserEmail, v))
+}
+
+// UserEmailLT applies the LT predicate on the "user_email" field.
+func UserEmailLT(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldLT(FieldUserEmail, v))
+}
+
+// UserEmailLTE applies the LTE predicate on the "user_email" field.
+func UserEmailLTE(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldLTE(FieldUserEmail, v))
+}
+
+// UserEmailContains applies the Contains predicate on the "user_email" field.
+func UserEmailContains(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldContains(FieldUserEmail, v))
+}
+
+// UserEmailHasPrefix applies the HasPrefix predicate on the "user_email" field.
+func UserEmailHasPrefix(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldHasPrefix(FieldUserEmail, v))
+}
+
+// UserEmailHasSuffix applies the HasSuffix predicate on the "user_email" field.
+func UserEmailHasSuffix(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldHasSuffix(FieldUserEmail, v))
+}
+
+// UserEmailIsNil applies the IsNil predicate on the "user_email" field.
+func UserEmailIsNil() predicate.Certificate {
+	return predicate.Certificate(sql.FieldIsNull(FieldUserEmail))
+}
+
+// UserEmailNotNil applies the NotNil predicate on the "user_email" field.
+func UserEmailNotNil() predicate.Certificate {
+	return predicate.Certificate(sql.FieldNotNull(FieldUserEmail))
+}
+
+// UserEmailEqualFold applies the EqualFold predicate on the "user_email" field.
+func UserEmailEqualFold(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldEqualFold(FieldUserEmail, v))
+}
+
+// UserEmailContainsFold applies the ContainsFold predicate on the "user_email" field.
+func UserEmailContainsFold(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldContainsFold(FieldUserEmail, v))
+}
+
+// UserIDEQ applies the EQ predicate on the "user_id" field.
+func UserIDEQ(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldEQ(FieldUserID, v))
+}
+
+// UserIDNEQ applies the NEQ predicate on the "user_id" field.
+func UserIDNEQ(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldNEQ(FieldUserID, v))
+}
+
+// UserIDIn applies the In predicate on the "user_id" field.
+func UserIDIn(vs ...string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldIn(FieldUserID, vs...))
+}
+
+// UserIDNotIn applies the NotIn predicate on the "user_id" field.
+func UserIDNotIn(vs ...string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldNotIn(FieldUserID, vs...))
+}
+
+// UserIDGT applies the GT predicate on the "user_id" field.
+func UserIDGT(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldGT(FieldUserID, v))
+}
+
+// UserIDGTE applies the GTE predicate on the "user_id" field.
+func UserIDGTE(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldGTE(FieldUserID, v))
+}
+
+// UserIDLT applies the LT predicate on the "user_id" field.
+func UserIDLT(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldLT(FieldUserID, v))
+}
+
+// UserIDLTE applies the LTE predicate on the "user_id" field.
+func UserIDLTE(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldLTE(FieldUserID, v))
+}
+
+// UserIDContains applies the Contains predicate on the "user_id" field.
+func UserIDContains(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldContains(FieldUserID, v))
+}
+
+// UserIDHasPrefix applies the HasPrefix predicate on the "user_id" field.
+func UserIDHasPrefix(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldHasPrefix(FieldUserID, v))
+}
+
+// UserIDHasSuffix applies the HasSuffix predicate on the "user_id" field.
+func UserIDHasSuffix(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldHasSuffix(FieldUserID, v))
+}
+
+// UserIDIsNil applies the IsNil predicate on the "user_id" field.
+func UserIDIsNil() predicate.Certificate {
+	return predicate.Certificate(sql.FieldIsNull(FieldUserID))
+}
+
+// UserIDNotNil applies the NotNil predicate on the "user_id" field.
+func UserIDNotNil() predicate.Certificate {
+	return predicate.Certificate(sql.FieldNotNull(FieldUserID))
+}
+
+// UserIDEqualFold applies the EqualFold predicate on the "user_id" field.
+func UserIDEqualFold(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldEqualFold(FieldUserID, v))
+}
+
+// UserIDContainsFold applies the ContainsFold predicate on the "user_id" field.
+func UserIDContainsFold(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldContainsFold(FieldUserID, v))
+}
+
+// SetupTokenEQ applies the EQ predicate on the "setup_token" field.
+func SetupTokenEQ(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldEQ(FieldSetupToken, v))
+}
+
+// SetupTokenNEQ applies the NEQ predicate on the "setup_token" field.
+func SetupTokenNEQ(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldNEQ(FieldSetupToken, v))
+}
+
+// SetupTokenIn applies the In predicate on the "setup_token" field.
+func SetupTokenIn(vs ...string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldIn(FieldSetupToken, vs...))
+}
+
+// SetupTokenNotIn applies the NotIn predicate on the "setup_token" field.
+func SetupTokenNotIn(vs ...string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldNotIn(FieldSetupToken, vs...))
+}
+
+// SetupTokenGT applies the GT predicate on the "setup_token" field.
+func SetupTokenGT(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldGT(FieldSetupToken, v))
+}
+
+// SetupTokenGTE applies the GTE predicate on the "setup_token" field.
+func SetupTokenGTE(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldGTE(FieldSetupToken, v))
+}
+
+// SetupTokenLT applies the LT predicate on the "setup_token" field.
+func SetupTokenLT(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldLT(FieldSetupToken, v))
+}
+
+// SetupTokenLTE applies the LTE predicate on the "setup_token" field.
+func SetupTokenLTE(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldLTE(FieldSetupToken, v))
+}
+
+// SetupTokenContains applies the Contains predicate on the "setup_token" field.
+func SetupTokenContains(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldContains(FieldSetupToken, v))
+}
+
+// SetupTokenHasPrefix applies the HasPrefix predicate on the "setup_token" field.
+func SetupTokenHasPrefix(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldHasPrefix(FieldSetupToken, v))
+}
+
+// SetupTokenHasSuffix applies the HasSuffix predicate on the "setup_token" field.
+func SetupTokenHasSuffix(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldHasSuffix(FieldSetupToken, v))
+}
+
+// SetupTokenIsNil applies the IsNil predicate on the "setup_token" field.
+func SetupTokenIsNil() predicate.Certificate {
+	return predicate.Certificate(sql.FieldIsNull(FieldSetupToken))
+}
+
+// SetupTokenNotNil applies the NotNil predicate on the "setup_token" field.
+func SetupTokenNotNil() predicate.Certificate {
+	return predicate.Certificate(sql.FieldNotNull(FieldSetupToken))
+}
+
+// SetupTokenEqualFold applies the EqualFold predicate on the "setup_token" field.
+func SetupTokenEqualFold(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldEqualFold(FieldSetupToken, v))
+}
+
+// SetupTokenContainsFold applies the ContainsFold predicate on the "setup_token" field.
+func SetupTokenContainsFold(v string) predicate.Certificate {
+	return predicate.Certificate(sql.FieldContainsFold(FieldSetupToken, v))
+}
+
+// SetupCompletedEQ applies the EQ predicate on the "setup_completed" field.
+func SetupCompletedEQ(v bool) predicate.Certificate {
+	return predicate.Certificate(sql.FieldEQ(FieldSetupCompleted, v))
+}
+
+// SetupCompletedNEQ applies the NEQ predicate on the "setup_completed" field.
+func SetupCompletedNEQ(v bool) predicate.Certificate {
+	return predicate.Certificate(sql.FieldNEQ(FieldSetupCompleted, v))
 }
 
 // And groups predicates with the AND operator between them.

@@ -214,7 +214,8 @@ func (s *SessionService) PrepareForBissSigning(ctx context.Context, req *signing
 		if (fType == "signature" || fType == "initials") && fIdx == sub.SigningOrder {
 			// Convert CSS percentage coords (top-left origin) to PDF points (bottom-left origin)
 			// A4: 595.28 x 841.89 points
-			const pageW, pageH = 595.28, 841.89
+			// Detect page dimensions from the PDF's MediaBox
+			pageW, pageH := detectPageSize(pdfContent)
 			xPct := getFloat64Field(f, "x_percent")
 			yPct := getFloat64Field(f, "y_percent")
 			hPct := getFloat64Field(f, "height_percent")
@@ -226,6 +227,9 @@ func (s *SessionService) PrepareForBissSigning(ctx context.Context, req *signing
 			x := xPct / 100.0 * pageW
 			h := hPct / 100.0 * pageH
 			yTop := yPct / 100.0 * pageH
+
+			s.log.Infof("BISS stamp: page=%.0fx%.0f field=(x=%.2f%% y=%.2f%% h=%.2f%%) → PDF x=%.1f yTop=%.1f h=%.1f",
+				pageW, pageH, xPct, yPct, hPct, x, yTop, h)
 
 			// Render stamp image at fixed resolution, height determines scale
 			imgH := int(h) * 3 // 3x for crisp rendering
@@ -411,11 +415,15 @@ func (s *SessionService) CompleteBissSigning(ctx context.Context, req *signingV1
 		return nil, fmt.Errorf("failed to upload signed PDF: %w", err)
 	}
 
-	// Mark submitter completed
+	// Mark submitter completed (atomic — prevents double-signing race)
 	now := time.Now()
 	valuesMap := map[string]interface{}{"_biss_signed": true, "_signed_document_key": signedKey}
-	if _, err := s.submitterRepo.Complete(ctx, sub.ID, valuesMap, "", "", now); err != nil {
+	completedSub, err := s.submitterRepo.Complete(ctx, sub.ID, valuesMap, "", "", now)
+	if err != nil {
 		return nil, err
+	}
+	if completedSub == nil {
+		return nil, signingV1.ErrorSubmitterAlreadyCompleted("this signing session has already been completed")
 	}
 
 	if err := s.submissionRepo.UpdateSignedDocumentKey(ctx, session.submissionID, signedKey); err != nil {
@@ -535,22 +543,30 @@ func generateSignatureStampImage(signerName, issuerName string, signDate time.Ti
 	nameColor := color.RGBA{R: 0, G: 0, B: 0, A: 255}          // Black for signature name
 	grayColor := color.RGBA{R: 130, G: 130, B: 130, A: 255}    // Gray for date
 
-	detailLineHeight := int(detailFontSize * 1.5)
+	// Calculate text block height, then center vertically.
+	// Line heights: "Digitally Signed" (detail) + gap + name (cursive) + gap + date (detail)
+	detailLineH := int(detailFontSize * 1.3) // ascent + descent for DejaVu Italic
+	nameLineH := int(nameFontSize * 1.4)     // Great Vibes has tall ascenders + descenders
+	lineGap := int(detailFontSize * 0.3)     // small gap between lines
+	totalH := detailLineH + lineGap + nameLineH + lineGap + detailLineH
 
-	// Top: "Digitally Signed" in DejaVu Italic
-	yPos := int(detailFontSize) + 5
-	drawText(img, "Digitally Signed", 8, yPos, greenColor, italicFace)
-	yPos += int(detailFontSize * 0.8)
+	// Center the block vertically, start from top of block
+	topY := (height - totalH) / 2
+	margin := 8
 
-	// Name in Great Vibes (cursive)
-	nameLineHeight := int(nameFontSize * 1.2)
-	drawText(img, displayName, 8, yPos+int(nameFontSize), nameColor, nameFace)
-	yPos += nameLineHeight + int(nameFontSize*0.3)
-
-	// Date below in DejaVu Italic
 	dateStr := "Date: " + signDate.Format("2006.01.02 15:04:05 -07'00'")
-	drawText(img, dateStr, 8, yPos+int(detailFontSize), grayColor, italicFace)
-	_ = detailLineHeight
+
+	// "Digitally Signed" — top line (y is baseline, so add ascent)
+	yPos := topY + detailLineH
+	drawText(img, "Digitally Signed", margin, yPos, greenColor, italicFace)
+
+	// Name — middle line
+	yPos += lineGap + nameLineH
+	drawText(img, displayName, margin, yPos, nameColor, nameFace)
+
+	// Date — bottom line
+	yPos += lineGap + detailLineH
+	drawText(img, dateStr, margin, yPos, grayColor, italicFace)
 
 	var buf bytes.Buffer
 	png.Encode(&buf, img)
@@ -579,6 +595,39 @@ func splitName(name string) []string {
 		parts = append(parts, string(w))
 	}
 	return parts
+}
+
+// detectPageSize extracts the page width and height from a PDF's MediaBox.
+func detectPageSize(pdfData []byte) (float64, float64) {
+	// Search for /MediaBox [x0 y0 x1 y1]
+	idx := bytes.Index(pdfData, []byte("/MediaBox"))
+	if idx < 0 {
+		return 612, 792 // US Letter default
+	}
+	// Find the opening bracket
+	start := idx + len("/MediaBox")
+	for start < len(pdfData) && pdfData[start] != '[' {
+		start++
+	}
+	start++ // skip '['
+	end := start
+	for end < len(pdfData) && pdfData[end] != ']' {
+		end++
+	}
+	// Parse "0 0 612 792" or similar
+	parts := bytes.Fields(pdfData[start:end])
+	if len(parts) >= 4 {
+		var vals [4]float64
+		for i := 0; i < 4; i++ {
+			fmt.Sscanf(string(parts[i]), "%f", &vals[i])
+		}
+		w := vals[2] - vals[0]
+		h := vals[3] - vals[1]
+		if w > 0 && h > 0 {
+			return w, h
+		}
+	}
+	return 612, 792 // US Letter default
 }
 
 // extractPKCS7FromPDF extracts the raw PKCS#7 DER bytes from a signed PDF's /Contents<hex>.

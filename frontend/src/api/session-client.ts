@@ -31,6 +31,8 @@ export interface SigningSession {
   readonly fields: readonly SessionField[];
   readonly message?: string;
   readonly status: string;
+  readonly signingMethod?: string; // LOCAL_CERT, BISS, SIMPLE
+  readonly certificateReady?: boolean;
 }
 
 export interface FieldValueSubmission {
@@ -54,10 +56,44 @@ export async function submitSigning(
   data: {
     readonly fieldValues: readonly FieldValueSubmission[];
     readonly signatureImage?: string;
+    readonly pin?: string;
   },
 ): Promise<SubmitSigningResponse> {
   return signingApi.post<SubmitSigningResponse>(
     `/signing/sessions/${token}/submit`,
     data,
+  );
+}
+
+// Certificate setup types and API calls
+
+export interface CertificateSetup {
+  readonly signerName: string;
+  readonly signerEmail: string;
+  readonly status: string; // PENDING_SETUP, COMPLETED, EXPIRED
+  readonly message: string;
+}
+
+export interface CompleteCertificateSetupResponse {
+  readonly completed: boolean;
+  readonly certificateCn: string;
+  readonly message: string;
+}
+
+export async function getCertificateSetup(
+  token: string,
+): Promise<CertificateSetup> {
+  return signingApi.get<CertificateSetup>(
+    `/signing/certificate-setup/${token}`,
+  );
+}
+
+export async function completeCertificateSetup(
+  token: string,
+  pin: string,
+): Promise<CompleteCertificateSetupResponse> {
+  return signingApi.post<CompleteCertificateSetupResponse>(
+    `/signing/certificate-setup/${token}`,
+    { pin },
   );
 }

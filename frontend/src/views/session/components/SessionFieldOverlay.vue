@@ -122,26 +122,28 @@ const inputStyle = computed(() => {
   min-height: 24px;
 }
 
+/* Field overlays sit on top of a PDF canvas — semantic colors stay fixed
+   for visual contrast regardless of light/dark theme */
 .session-field-area--empty {
-  border: 2px solid #fa8c16;
-  background: rgba(255, 165, 0, 0.08);
+  border: 2px solid hsl(33 95% 54%);
+  background: hsl(33 95% 54% / 0.08);
   z-index: 1;
 }
 
 .session-field-area--empty:hover {
-  background: rgba(255, 165, 0, 0.15);
+  background: hsl(33 95% 54% / 0.15);
 }
 
 .session-field-area--filled {
-  border: 2px solid #52c41a;
-  background: rgba(82, 196, 26, 0.06);
+  border: 2px solid hsl(143 72% 42%);
+  background: hsl(143 72% 42% / 0.06);
   z-index: 1;
 }
 
 .session-field-area--active {
-  border: 2px solid #1677ff;
-  background: rgba(22, 119, 255, 0.08);
-  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.25);
+  border: 2px solid hsl(var(--primary));
+  background: hsl(var(--primary) / 0.08);
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.25);
   z-index: 2;
 }
 
@@ -164,7 +166,7 @@ const inputStyle = computed(() => {
 
 .session-field-area__name {
   font-size: 0.75rem;
-  color: #d46b08;
+  color: hsl(33 80% 44%);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -172,12 +174,12 @@ const inputStyle = computed(() => {
 }
 
 .session-field-area--active .session-field-area__name {
-  color: #1677ff;
+  color: hsl(var(--primary));
 }
 
 .session-field-area__value {
   font-size: 0.8125rem;
-  color: #389e0d;
+  color: hsl(143 72% 32%);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;

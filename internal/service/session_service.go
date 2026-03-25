@@ -14,6 +14,7 @@ import (
 	"github.com/go-tangra/go-tangra-signing/internal/data"
 	"github.com/go-tangra/go-tangra-signing/internal/data/ent"
 	"github.com/go-tangra/go-tangra-signing/internal/data/ent/submitter"
+	securitycert "github.com/go-tangra/go-tangra-signing/pkg/security/cert"
 
 	signingV1 "github.com/go-tangra/go-tangra-signing/gen/go/signing/service/v1"
 	appViewer "github.com/go-tangra/go-tangra-signing/pkg/viewer"
@@ -28,6 +29,7 @@ type SessionService struct {
 	submissionRepo *data.SubmissionRepo
 	templateRepo   *data.TemplateRepo
 	eventRepo      *data.EventRepo
+	certRepo       *data.CertificateRepo
 	storage        *data.StorageClient
 	pdfGenerator   *PDFGenerator
 	notifHelper    *NotificationHelper
@@ -40,6 +42,7 @@ func NewSessionService(
 	submissionRepo *data.SubmissionRepo,
 	templateRepo *data.TemplateRepo,
 	eventRepo *data.EventRepo,
+	certRepo *data.CertificateRepo,
 	storage *data.StorageClient,
 	pdfGenerator *PDFGenerator,
 	notificationClient *client.NotificationClient,
@@ -63,6 +66,7 @@ func NewSessionService(
 		submissionRepo: submissionRepo,
 		templateRepo:   templateRepo,
 		eventRepo:      eventRepo,
+		certRepo:       certRepo,
 		storage:        storage,
 		pdfGenerator:   pdfGenerator,
 		notifHelper:    notifHelper,
@@ -147,15 +151,28 @@ func (s *SessionService) GetSigningSession(ctx context.Context, req *signingV1.G
 		status = "OPENED"
 	}
 
+	// Determine signing method and certificate readiness
+	signingMethod := "LOCAL_CERT"
+	certReady := false
+	if sub.Email != "" {
+		tenantID := derefUint32(sub.TenantID)
+		existingCert, certErr := s.certRepo.GetByEmail(ctx, tenantID, sub.Email)
+		if certErr == nil && existingCert != nil {
+			certReady = true
+		}
+	}
+
 	return &signingV1.GetSigningSessionResponse{
-		SubmissionName: submission.Slug,
-		TemplateName:   template.Name,
-		DocumentUrl:    documentURL,
-		SignerName:     sub.Name,
-		SignerEmail:    sub.Email,
-		Fields:         sessionFields,
-		Status:         status,
-		Message:        "Please review and sign the document.",
+		SubmissionName:   submission.Slug,
+		TemplateName:     template.Name,
+		DocumentUrl:      documentURL,
+		SignerName:       sub.Name,
+		SignerEmail:      sub.Email,
+		Fields:           sessionFields,
+		Status:           status,
+		Message:          "Please review and sign the document.",
+		SigningMethod:    signingMethod,
+		CertificateReady: certReady,
 	}, nil
 }
 
@@ -203,6 +220,15 @@ func (s *SessionService) SubmitSigning(ctx context.Context, req *signingV1.Submi
 
 	// Upload signature image if provided
 	if len(req.SignatureImage) > 0 {
+		const maxSignatureSize = 1 * 1024 * 1024 // 1 MB
+		if len(req.SignatureImage) > maxSignatureSize {
+			return nil, signingV1.ErrorBadRequest("signature image too large (max 1 MB)")
+		}
+		// Validate PNG magic bytes
+		if len(req.SignatureImage) < 8 || string(req.SignatureImage[:4]) != "\x89PNG" {
+			return nil, signingV1.ErrorBadRequest("signature image must be PNG format")
+		}
+
 		tenantID := derefUint32(sub.TenantID)
 		sigKey := fmt.Sprintf("%d/signatures/%s.png", tenantID, sub.ID)
 		_, uploadErr := s.storage.UploadRaw(ctx, sigKey, req.SignatureImage, "image/png")
@@ -213,11 +239,15 @@ func (s *SessionService) SubmitSigning(ctx context.Context, req *signingV1.Submi
 		values["_signature_key"] = sigKey
 	}
 
-	// Mark submitter as completed
+	// Mark submitter as completed (atomic — returns nil if already completed by another request)
 	now := time.Now()
 	sub, err = s.submitterRepo.Complete(ctx, sub.ID, values, "", "", now)
 	if err != nil {
 		return nil, err
+	}
+	if sub == nil {
+		// Lost race — another concurrent request already completed this submitter
+		return nil, signingV1.ErrorSubmitterAlreadyCompleted("this signing session has already been completed")
 	}
 
 	tenantID := derefUint32(sub.TenantID)
@@ -228,6 +258,11 @@ func (s *SessionService) SubmitSigning(ctx context.Context, req *signingV1.Submi
 
 	// Generate intermediate PDF with this signer's data overlaid
 	s.generateIntermediatePDF(ctx, tenantID, sub, submission)
+
+	// Apply local PAdES signature if PIN provided and certificate exists
+	if req.Pin != "" && sub.Email != "" {
+		s.applyLocalSignature(ctx, tenantID, sub, submission, req.Pin)
+	}
 
 	// Handle sequential workflow: advance to next submitter
 	if submission.SigningMode.String() == "SIGNING_MODE_SEQUENTIAL" {
@@ -282,7 +317,7 @@ func (s *SessionService) advanceSequentialWorkflow(ctx context.Context, tenantID
 				}
 			}()
 			if err := s.notifHelper.SendNextSignerNotification(sendCtx, nextSubmitter.Name, nextSubmitter.Email, nextSubmitter.Slug, nextSubmitter.Role, templateName); err != nil {
-				s.log.Errorf("Failed to send next-signer notification to %s: %v", nextSubmitter.Email, err)
+				s.log.Errorf("Failed to send next-signer notification to submitter %s: %v", nextSubmitter.ID, err)
 			}
 		}()
 	}
@@ -443,7 +478,7 @@ func (s *SessionService) checkAndCompleteSubmission(ctx context.Context, tenantI
 						}
 					}()
 					if err := s.notifHelper.SendCompletionNotification(sendCtx, sub.Name, sub.Email, templateName, submissionID); err != nil {
-						s.log.Errorf("Failed to send completion notification to %s: %v", sub.Email, err)
+						s.log.Errorf("Failed to send completion notification to submitter %s: %v", sub.ID, err)
 					}
 				}()
 			}
@@ -479,17 +514,18 @@ func buildSessionFields(fieldsSnapshot []map[string]interface{}, submitterOrder 
 		}
 
 		field := &signingV1.SessionField{
-			FieldId:       getStringField(f, "id"),
-			Name:          getStringField(f, "name"),
-			Type:          getStringField(f, "type"),
-			Required:      getBoolField(f, "required"),
-			PageNumber:    getInt32Field(f, "page_number"),
-			XPercent:      getFloat64Field(f, "x_percent"),
-			YPercent:      getFloat64Field(f, "y_percent"),
-			WidthPercent:  getFloat64Field(f, "width_percent"),
-			HeightPercent: getFloat64Field(f, "height_percent"),
-			Font:          getStringField(f, "font"),
-			FontSize:      getFloat64Field(f, "font_size"),
+			FieldId:        getStringField(f, "id"),
+			Name:           getStringField(f, "name"),
+			Type:           getStringField(f, "type"),
+			Required:       getBoolField(f, "required"),
+			PageNumber:     getInt32Field(f, "page_number"),
+			XPercent:       getFloat64Field(f, "x_percent"),
+			YPercent:       getFloat64Field(f, "y_percent"),
+			WidthPercent:   getFloat64Field(f, "width_percent"),
+			HeightPercent:  getFloat64Field(f, "height_percent"),
+			Font:           getStringField(f, "font"),
+			FontSize:       getFloat64Field(f, "font_size"),
+			PrefilledValue: getStringField(f, "prefilled_value"),
 		}
 		fields = append(fields, field)
 	}
@@ -555,6 +591,195 @@ func fieldValuesToMap(fieldValues []*signingV1.FieldValueSubmission) map[string]
 		result[fv.FieldId] = fv.Value
 	}
 	return result
+}
+
+// applyLocalSignature signs the current PDF with the submitter's local certificate.
+func (s *SessionService) applyLocalSignature(ctx context.Context, tenantID uint32, sub *ent.Submitter, submission *ent.Submission, pin string) {
+	// Look up the submitter's certificate
+	certEntity, err := s.certRepo.GetByEmail(ctx, tenantID, sub.Email)
+	if err != nil || certEntity == nil {
+		s.log.Errorf("no certificate found for submitter %s, skipping local signature", sub.ID)
+		return
+	}
+
+	// Decrypt private key with PIN
+	privateKey, err := securitycert.DecryptKeyWithPIN([]byte(certEntity.KeyPemEncrypted), pin)
+	if err != nil {
+		s.log.Errorf("failed to decrypt certificate key for submitter %s: %v", sub.ID, err)
+		return
+	}
+
+	// Get the current PDF (intermediate with overlaid fields, or template PDF)
+	// Re-read submission to get latest current_pdf_key after generateIntermediatePDF
+	submission, _ = s.submissionRepo.GetByID(ctx, submission.ID)
+
+	template, err := s.templateRepo.GetByID(ctx, submission.TemplateID)
+	if err != nil || template == nil {
+		s.log.Errorf("failed to get template for local signing: %v", err)
+		return
+	}
+
+	pdfKey := template.FileKey
+	if submission.CurrentPdfKey != "" {
+		pdfKey = submission.CurrentPdfKey
+	}
+	pdfContent, err := s.storage.Download(ctx, pdfKey)
+	if err != nil {
+		s.log.Errorf("failed to download PDF for local signing: %v", err)
+		return
+	}
+
+	signedPDF, err := applyLocalPAdESSignature(
+		ctx, certEntity, privateKey, s.certRepo, s.storage, pdfContent,
+		tenantID, submission.ID, sub.Name,
+		submission.TemplateFieldsSnapshot, sub.SigningOrder,
+	)
+	if err != nil {
+		s.log.Errorf("failed to apply local PAdES signature: %v", err)
+		return
+	}
+
+	// Upload signed PDF
+	signedKey := fmt.Sprintf("%d/signed/%s/local-signed.pdf", tenantID, submission.ID)
+	if _, err := s.storage.UploadRaw(ctx, signedKey, signedPDF, "application/pdf"); err != nil {
+		s.log.Errorf("failed to upload locally signed PDF: %v", err)
+		return
+	}
+
+	// Update submission keys
+	if err := s.submissionRepo.UpdateCurrentPdfKey(ctx, submission.ID, signedKey); err != nil {
+		s.log.Errorf("failed to update current_pdf_key after local signing: %v", err)
+	}
+	if err := s.submissionRepo.UpdateSignedDocumentKey(ctx, submission.ID, signedKey); err != nil {
+		s.log.Errorf("failed to update signed_document_key after local signing: %v", err)
+	}
+
+	_ = s.eventRepo.Create(ctx, tenantID, "submitter.local_signed", "",
+		"submitter", sub.ID, map[string]interface{}{"signed_key": signedKey, "certificate_id": certEntity.ID}, "")
+
+	s.log.Infof("Applied local PAdES signature for %s on submission %s", sub.Email, submission.ID)
+}
+
+// GetCertificateSetup returns certificate setup page data for a submitter.
+func (s *SessionService) GetCertificateSetup(ctx context.Context, req *signingV1.GetCertificateSetupRequest) (*signingV1.GetCertificateSetupResponse, error) {
+	ctx = appViewer.NewSystemViewerContext(ctx)
+
+	if req.Token == "" {
+		return nil, signingV1.ErrorBadRequest("token is required")
+	}
+
+	cert, err := s.certRepo.GetBySetupToken(ctx, req.Token)
+	if err != nil {
+		return nil, err
+	}
+	if cert == nil {
+		return nil, signingV1.ErrorCertificateNotFound("certificate setup not found")
+	}
+
+	if cert.SetupCompleted {
+		return &signingV1.GetCertificateSetupResponse{
+			SignerName:  cert.SubjectCn,
+			SignerEmail: cert.UserEmail,
+			Status:      "COMPLETED",
+			Message:     "Your certificate has already been set up.",
+		}, nil
+	}
+
+	return &signingV1.GetCertificateSetupResponse{
+		SignerName:  cert.SubjectCn,
+		SignerEmail: cert.UserEmail,
+		Status:      "PENDING_SETUP",
+		Message:     "Please set a PIN to create your signing certificate.",
+	}, nil
+}
+
+// CompleteCertificateSetup generates the certificate with PIN encryption.
+func (s *SessionService) CompleteCertificateSetup(ctx context.Context, req *signingV1.CompleteCertificateSetupRequest) (*signingV1.CompleteCertificateSetupResponse, error) {
+	ctx = appViewer.NewSystemViewerContext(ctx)
+
+	if req.Token == "" {
+		return nil, signingV1.ErrorBadRequest("token is required")
+	}
+	if len(req.Pin) < 4 {
+		return nil, signingV1.ErrorBadRequest("PIN must be at least 4 characters")
+	}
+	if len(req.Pin) > 32 {
+		return nil, signingV1.ErrorBadRequest("PIN must be at most 32 characters")
+	}
+
+	cert, err := s.certRepo.GetBySetupToken(ctx, req.Token)
+	if err != nil {
+		return nil, err
+	}
+	if cert == nil {
+		return nil, signingV1.ErrorCertificateNotFound("certificate setup not found")
+	}
+	if cert.SetupCompleted {
+		return nil, signingV1.ErrorBadRequest("certificate has already been set up")
+	}
+
+	tenantID := derefUint32(cert.TenantID)
+
+	// Generate certificate with PIN-encrypted private key
+	entity, err := generateUserCertificate(ctx, s.certRepo, tenantID,
+		cert.SubjectCn, cert.UserEmail, req.Pin, cert.ID)
+	if err != nil {
+		s.log.Errorf("failed to generate user certificate: %v", err)
+		return nil, signingV1.ErrorInternalServerError("failed to create certificate")
+	}
+
+	// Log event
+	_ = s.eventRepo.Create(ctx, tenantID, "certificate.setup_completed", "",
+		"certificate", entity.ID, nil, "")
+
+	// Now send the signing invitation — find pending submitters with this email
+	s.sendPendingInvitations(ctx, tenantID, cert.UserEmail)
+
+	return &signingV1.CompleteCertificateSetupResponse{
+		Completed:     true,
+		CertificateCn: entity.SubjectCn,
+		Message:       fmt.Sprintf("Certificate created for %s. You can now sign documents.", entity.SubjectCn),
+	}, nil
+}
+
+// sendPendingInvitations sends signing invitations to all pending submitters
+// with the given email who haven't received an invite yet.
+func (s *SessionService) sendPendingInvitations(ctx context.Context, tenantID uint32, email string) {
+	if s.notifHelper == nil || email == "" {
+		return
+	}
+
+	submitters, err := s.submitterRepo.ListPendingByEmail(ctx, tenantID, email)
+	if err != nil {
+		s.log.Errorf("failed to list pending submitters for %s: %v", email, err)
+		return
+	}
+
+	for _, sub := range submitters {
+		submission, subErr := s.submissionRepo.GetByID(ctx, sub.SubmissionID)
+		if subErr != nil || submission == nil {
+			continue
+		}
+
+		tmpl, tmplErr := s.templateRepo.GetByID(ctx, submission.TemplateID)
+		templateName := "Untitled Document"
+		if tmplErr == nil && tmpl != nil {
+			templateName = tmpl.Name
+		}
+
+		sendCtx := client.DetachedMetadataContext(ctx, tenantID)
+		subCopy := sub
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					s.log.Errorf("Panic in post-setup signing invite goroutine: %v", r)
+				}
+			}()
+			if err := s.notifHelper.SendInvitation(sendCtx, subCopy.Name, subCopy.Email, subCopy.Slug, subCopy.Role, templateName, "GoTangra Signing", ""); err != nil {
+				s.log.Errorf("Failed to send post-setup signing invite to submitter %s: %v", subCopy.ID, err)
+			}
+		}()
+	}
 }
 
 // Helper functions for extracting typed values from map[string]interface{}.

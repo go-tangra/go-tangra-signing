@@ -402,6 +402,7 @@ type CreateSubmissionRequest struct {
 	Source        string                 `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
 	Preferences   map[string]string      `protobuf:"bytes,4,rep,name=preferences,proto3" json:"preferences,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	Submitters    []*SubmitterInput      `protobuf:"bytes,5,rep,name=submitters,proto3" json:"submitters,omitempty"`
+	PrefillValues map[string]string      `protobuf:"bytes,6,rep,name=prefill_values,json=prefillValues,proto3" json:"prefill_values,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // field_id → value, merged into template snapshot
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -467,6 +468,13 @@ func (x *CreateSubmissionRequest) GetPreferences() map[string]string {
 func (x *CreateSubmissionRequest) GetSubmitters() []*SubmitterInput {
 	if x != nil {
 		return x.Submitters
+	}
+	return nil
+}
+
+func (x *CreateSubmissionRequest) GetPrefillValues() map[string]string {
+	if x != nil {
+		return x.PrefillValues
 	}
 	return nil
 }
@@ -1031,7 +1039,7 @@ const file_signing_service_v1_submission_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x14\n" +
 	"\x05phone\x18\x03 \x01(\tR\x05phone\x12\x12\n" +
-	"\x04role\x18\x04 \x01(\tR\x04role\"\xea\x02\n" +
+	"\x04role\x18\x04 \x01(\tR\x04role\"\x93\x04\n" +
 	"\x17CreateSubmissionRequest\x12$\n" +
 	"\vtemplate_id\x18\x01 \x01(\tB\x03\xe0A\x02R\n" +
 	"templateId\x12!\n" +
@@ -1041,8 +1049,12 @@ const file_signing_service_v1_submission_proto_rawDesc = "" +
 	"\n" +
 	"submitters\x18\x05 \x03(\v2\".signing.service.v1.SubmitterInputB\n" +
 	"\xbaH\a\x92\x01\x04\b\x01\x102R\n" +
-	"submitters\x1a>\n" +
+	"submitters\x12e\n" +
+	"\x0eprefill_values\x18\x06 \x03(\v2>.signing.service.v1.CreateSubmissionRequest.PrefillValuesEntryR\rprefillValues\x1a>\n" +
 	"\x10PreferencesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a@\n" +
+	"\x12PrefillValuesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"Z\n" +
 	"\x18CreateSubmissionResponse\x12>\n" +
@@ -1126,7 +1138,7 @@ func file_signing_service_v1_submission_proto_rawDescGZIP() []byte {
 }
 
 var file_signing_service_v1_submission_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_signing_service_v1_submission_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_signing_service_v1_submission_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_signing_service_v1_submission_proto_goTypes = []any{
 	(SigningMode)(0),                  // 0: signing.service.v1.SigningMode
 	(SubmissionStatus)(0),             // 1: signing.service.v1.SubmissionStatus
@@ -1146,34 +1158,36 @@ var file_signing_service_v1_submission_proto_goTypes = []any{
 	(*DeclineSubmitterRequest)(nil),   // 15: signing.service.v1.DeclineSubmitterRequest
 	(*DeclineSubmitterResponse)(nil),  // 16: signing.service.v1.DeclineSubmitterResponse
 	nil,                               // 17: signing.service.v1.CreateSubmissionRequest.PreferencesEntry
-	(*timestamppb.Timestamp)(nil),     // 18: google.protobuf.Timestamp
+	nil,                               // 18: signing.service.v1.CreateSubmissionRequest.PrefillValuesEntry
+	(*timestamppb.Timestamp)(nil),     // 19: google.protobuf.Timestamp
 }
 var file_signing_service_v1_submission_proto_depIdxs = []int32{
-	18, // 0: signing.service.v1.Submission.completed_at:type_name -> google.protobuf.Timestamp
-	18, // 1: signing.service.v1.Submission.create_time:type_name -> google.protobuf.Timestamp
+	19, // 0: signing.service.v1.Submission.completed_at:type_name -> google.protobuf.Timestamp
+	19, // 1: signing.service.v1.Submission.create_time:type_name -> google.protobuf.Timestamp
 	17, // 2: signing.service.v1.CreateSubmissionRequest.preferences:type_name -> signing.service.v1.CreateSubmissionRequest.PreferencesEntry
 	4,  // 3: signing.service.v1.CreateSubmissionRequest.submitters:type_name -> signing.service.v1.SubmitterInput
-	3,  // 4: signing.service.v1.CreateSubmissionResponse.submission:type_name -> signing.service.v1.Submission
-	3,  // 5: signing.service.v1.GetSubmissionResponse.submission:type_name -> signing.service.v1.Submission
-	3,  // 6: signing.service.v1.ListSubmissionsResponse.submissions:type_name -> signing.service.v1.Submission
-	3,  // 7: signing.service.v1.SendSubmissionResponse.submission:type_name -> signing.service.v1.Submission
-	5,  // 8: signing.service.v1.SigningSubmissionService.CreateSubmission:input_type -> signing.service.v1.CreateSubmissionRequest
-	7,  // 9: signing.service.v1.SigningSubmissionService.GetSubmission:input_type -> signing.service.v1.GetSubmissionRequest
-	9,  // 10: signing.service.v1.SigningSubmissionService.ListSubmissions:input_type -> signing.service.v1.ListSubmissionsRequest
-	11, // 11: signing.service.v1.SigningSubmissionService.SendSubmission:input_type -> signing.service.v1.SendSubmissionRequest
-	13, // 12: signing.service.v1.SigningSubmissionService.CompleteSubmitter:input_type -> signing.service.v1.CompleteSubmitterRequest
-	15, // 13: signing.service.v1.SigningSubmissionService.DeclineSubmitter:input_type -> signing.service.v1.DeclineSubmitterRequest
-	6,  // 14: signing.service.v1.SigningSubmissionService.CreateSubmission:output_type -> signing.service.v1.CreateSubmissionResponse
-	8,  // 15: signing.service.v1.SigningSubmissionService.GetSubmission:output_type -> signing.service.v1.GetSubmissionResponse
-	10, // 16: signing.service.v1.SigningSubmissionService.ListSubmissions:output_type -> signing.service.v1.ListSubmissionsResponse
-	12, // 17: signing.service.v1.SigningSubmissionService.SendSubmission:output_type -> signing.service.v1.SendSubmissionResponse
-	14, // 18: signing.service.v1.SigningSubmissionService.CompleteSubmitter:output_type -> signing.service.v1.CompleteSubmitterResponse
-	16, // 19: signing.service.v1.SigningSubmissionService.DeclineSubmitter:output_type -> signing.service.v1.DeclineSubmitterResponse
-	14, // [14:20] is the sub-list for method output_type
-	8,  // [8:14] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	18, // 4: signing.service.v1.CreateSubmissionRequest.prefill_values:type_name -> signing.service.v1.CreateSubmissionRequest.PrefillValuesEntry
+	3,  // 5: signing.service.v1.CreateSubmissionResponse.submission:type_name -> signing.service.v1.Submission
+	3,  // 6: signing.service.v1.GetSubmissionResponse.submission:type_name -> signing.service.v1.Submission
+	3,  // 7: signing.service.v1.ListSubmissionsResponse.submissions:type_name -> signing.service.v1.Submission
+	3,  // 8: signing.service.v1.SendSubmissionResponse.submission:type_name -> signing.service.v1.Submission
+	5,  // 9: signing.service.v1.SigningSubmissionService.CreateSubmission:input_type -> signing.service.v1.CreateSubmissionRequest
+	7,  // 10: signing.service.v1.SigningSubmissionService.GetSubmission:input_type -> signing.service.v1.GetSubmissionRequest
+	9,  // 11: signing.service.v1.SigningSubmissionService.ListSubmissions:input_type -> signing.service.v1.ListSubmissionsRequest
+	11, // 12: signing.service.v1.SigningSubmissionService.SendSubmission:input_type -> signing.service.v1.SendSubmissionRequest
+	13, // 13: signing.service.v1.SigningSubmissionService.CompleteSubmitter:input_type -> signing.service.v1.CompleteSubmitterRequest
+	15, // 14: signing.service.v1.SigningSubmissionService.DeclineSubmitter:input_type -> signing.service.v1.DeclineSubmitterRequest
+	6,  // 15: signing.service.v1.SigningSubmissionService.CreateSubmission:output_type -> signing.service.v1.CreateSubmissionResponse
+	8,  // 16: signing.service.v1.SigningSubmissionService.GetSubmission:output_type -> signing.service.v1.GetSubmissionResponse
+	10, // 17: signing.service.v1.SigningSubmissionService.ListSubmissions:output_type -> signing.service.v1.ListSubmissionsResponse
+	12, // 18: signing.service.v1.SigningSubmissionService.SendSubmission:output_type -> signing.service.v1.SendSubmissionResponse
+	14, // 19: signing.service.v1.SigningSubmissionService.CompleteSubmitter:output_type -> signing.service.v1.CompleteSubmitterResponse
+	16, // 20: signing.service.v1.SigningSubmissionService.DeclineSubmitter:output_type -> signing.service.v1.DeclineSubmitterResponse
+	15, // [15:21] is the sub-list for method output_type
+	9,  // [9:15] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_signing_service_v1_submission_proto_init() }
@@ -1189,7 +1203,7 @@ func file_signing_service_v1_submission_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_signing_service_v1_submission_proto_rawDesc), len(file_signing_service_v1_submission_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   15,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -91,6 +91,22 @@ func init() {
 	certificateDescRevocationReason := certificateFields[14].Descriptor()
 	// certificate.RevocationReasonValidator is a validator for the "revocation_reason" field. It is called by the builders before save.
 	certificate.RevocationReasonValidator = certificateDescRevocationReason.Validators[0].(func(string) error)
+	// certificateDescUserEmail is the schema descriptor for user_email field.
+	certificateDescUserEmail := certificateFields[15].Descriptor()
+	// certificate.UserEmailValidator is a validator for the "user_email" field. It is called by the builders before save.
+	certificate.UserEmailValidator = certificateDescUserEmail.Validators[0].(func(string) error)
+	// certificateDescUserID is the schema descriptor for user_id field.
+	certificateDescUserID := certificateFields[16].Descriptor()
+	// certificate.UserIDValidator is a validator for the "user_id" field. It is called by the builders before save.
+	certificate.UserIDValidator = certificateDescUserID.Validators[0].(func(string) error)
+	// certificateDescSetupToken is the schema descriptor for setup_token field.
+	certificateDescSetupToken := certificateFields[17].Descriptor()
+	// certificate.SetupTokenValidator is a validator for the "setup_token" field. It is called by the builders before save.
+	certificate.SetupTokenValidator = certificateDescSetupToken.Validators[0].(func(string) error)
+	// certificateDescSetupCompleted is the schema descriptor for setup_completed field.
+	certificateDescSetupCompleted := certificateFields[18].Descriptor()
+	// certificate.DefaultSetupCompleted holds the default value on creation for the setup_completed field.
+	certificate.DefaultSetupCompleted = certificateDescSetupCompleted.Default.(bool)
 	// certificateDescID is the schema descriptor for id field.
 	certificateDescID := certificateFields[0].Descriptor()
 	// certificate.IDValidator is a validator for the "id" field. It is called by the builders before save.

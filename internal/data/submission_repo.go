@@ -30,8 +30,9 @@ func NewSubmissionRepo(ctx *bootstrap.Context, entClient *entCrud.EntClient[*ent
 }
 
 // Create creates a new submission with a snapshot of the template state.
-func (r *SubmissionRepo) Create(ctx context.Context, tenantID uint32, id, templateID string, signingMode, source string, preferences map[string]interface{}, tmpl *ent.Template, createdBy *uint32) (*ent.Submission, error) {
-	slug := uuid.New().String()[:8]
+// prefillValues is an optional map of field_id → value to pre-populate into the snapshot.
+func (r *SubmissionRepo) Create(ctx context.Context, tenantID uint32, id, templateID string, signingMode, source string, preferences map[string]interface{}, tmpl *ent.Template, prefillValues map[string]string, createdBy *uint32) (*ent.Submission, error) {
+	slug := uuid.New().String()[:32] // 128-bit entropy (32 hex chars)
 
 	builder := r.entClient.Client().Submission.Create().
 		SetID(id).
@@ -53,11 +54,11 @@ func (r *SubmissionRepo) Create(ctx context.Context, tenantID uint32, id, templa
 		builder.SetCreateBy(*createdBy)
 	}
 
-	// Snapshot template state (includes font/fontSize)
+	// Snapshot template state (includes font/fontSize) and merge prefill values
 	if tmpl != nil {
 		fieldsSnapshot := make([]map[string]interface{}, 0, len(tmpl.Fields))
 		for _, f := range tmpl.Fields {
-			fieldsSnapshot = append(fieldsSnapshot, map[string]interface{}{
+			snap := map[string]interface{}{
 				"id":              f.ID,
 				"name":            f.Name,
 				"type":            f.Type,
@@ -70,7 +71,14 @@ func (r *SubmissionRepo) Create(ctx context.Context, tenantID uint32, id, templa
 				"submitter_index": f.SubmitterIndex,
 				"font":            f.Font,
 				"font_size":       f.FontSize,
-			})
+			}
+			// Merge prefill value if provided for this field
+			if prefillValues != nil {
+				if val, ok := prefillValues[f.ID]; ok && val != "" {
+					snap["prefilled_value"] = val
+				}
+			}
+			fieldsSnapshot = append(fieldsSnapshot, snap)
 		}
 		builder.SetTemplateFieldsSnapshot(fieldsSnapshot)
 	}
@@ -98,7 +106,8 @@ func (r *SubmissionRepo) GetByID(ctx context.Context, id string) (*ent.Submissio
 }
 
 // List lists submissions with optional filters.
-func (r *SubmissionRepo) List(ctx context.Context, tenantID uint32, templateID, status *string, page, pageSize uint32) ([]*ent.Submission, int, error) {
+// createdBy filters to submissions created by a specific user (for signing:user role).
+func (r *SubmissionRepo) List(ctx context.Context, tenantID uint32, templateID, status *string, createdBy *uint32, page, pageSize uint32) ([]*ent.Submission, int, error) {
 	query := r.entClient.Client().Submission.Query().
 		Where(submission.TenantIDEQ(tenantID))
 
@@ -107,6 +116,9 @@ func (r *SubmissionRepo) List(ctx context.Context, tenantID uint32, templateID, 
 	}
 	if status != nil && *status != "" {
 		query = query.Where(submission.StatusEQ(submission.Status(*status)))
+	}
+	if createdBy != nil {
+		query = query.Where(submission.CreateByEQ(*createdBy))
 	}
 
 	total, err := query.Clone().Count(ctx)

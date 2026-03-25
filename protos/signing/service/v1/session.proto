@@ -3,6 +3,7 @@ package signing.service.v1;
 
 import "google/api/annotations.proto";
 import "google/api/field_behavior.proto";
+import "redact/v3/redact.proto";
 
 // Public signing session service — no auth required, accessed via unique token
 service SigningSessionService {
@@ -24,6 +25,16 @@ service SigningSessionService {
   // Complete BISS signing — embeds external PKCS#7 signature into the PDF
   rpc CompleteBissSigning(CompleteBissSigningRequest) returns (CompleteBissSigningResponse) {
     option (google.api.http) = { post: "/v1/signing/sessions/{token}/complete-biss" body: "*" };
+  }
+
+  // Get certificate setup page data (public, by setup token)
+  rpc GetCertificateSetup(GetCertificateSetupRequest) returns (GetCertificateSetupResponse) {
+    option (google.api.http) = { get: "/v1/signing/certificate-setup/{token}" };
+  }
+
+  // Submit PIN and create certificate (public, by setup token)
+  rpc CompleteCertificateSetup(CompleteCertificateSetupRequest) returns (CompleteCertificateSetupResponse) {
+    option (google.api.http) = { post: "/v1/signing/certificate-setup/{token}" body: "*" };
   }
 }
 
@@ -56,6 +67,8 @@ message GetSigningSessionResponse {
   repeated SessionField fields = 6;
   string message = 7;
   string status = 8;  // PENDING, OPENED, COMPLETED, DECLINED
+  string signing_method = 9 [json_name = "signingMethod"];  // LOCAL_CERT, BISS, SIMPLE
+  bool certificate_ready = 10 [json_name = "certificateReady"];  // true if cert exists and setup complete
 }
 
 message FieldValueSubmission {
@@ -67,6 +80,7 @@ message SubmitSigningRequest {
   string token = 1 [(google.api.field_behavior) = REQUIRED];
   repeated FieldValueSubmission field_values = 2 [json_name = "fieldValues"];
   bytes signature_image = 3 [json_name = "signatureImage"];  // Base64-encoded PNG
+  string pin = 4 [(redact.v3.value).string = ""];  // PIN to decrypt the local signing certificate
 }
 
 message SubmitSigningResponse {
@@ -99,4 +113,28 @@ message CompleteBissSigningRequest {
 message CompleteBissSigningResponse {
   bool completed = 1;
   string message = 2;
+}
+
+// Certificate setup messages (public, token-based)
+
+message GetCertificateSetupRequest {
+  string token = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetCertificateSetupResponse {
+  string signer_name = 1 [json_name = "signerName"];
+  string signer_email = 2 [json_name = "signerEmail"];
+  string status = 3;  // PENDING_SETUP, COMPLETED, EXPIRED
+  string message = 4;
+}
+
+message CompleteCertificateSetupRequest {
+  string token = 1 [(google.api.field_behavior) = REQUIRED];
+  string pin = 2 [(google.api.field_behavior) = REQUIRED, (redact.v3.value).string = ""];  // User-chosen PIN (min 4 chars)
+}
+
+message CompleteCertificateSetupResponse {
+  bool completed = 1;
+  string certificate_cn = 2 [json_name = "certificateCn"];
+  string message = 3;
 }

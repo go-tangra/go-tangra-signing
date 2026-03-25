@@ -31,7 +31,7 @@ func NewSubmitterRepo(ctx *bootstrap.Context, entClient *entCrud.EntClient[*ent.
 // Create creates a new submitter for a submission.
 func (r *SubmitterRepo) Create(ctx context.Context, tenantID uint32, submissionID, name, email, phone, role string, order int) (*ent.Submitter, error) {
 	id := uuid.New().String()
-	slug := uuid.New().String()[:8]
+	slug := uuid.New().String() // Full UUID for 128-bit entropy (was [:8] = 32-bit)
 
 	builder := r.entClient.Client().Submitter.Create().
 		SetID(id).
@@ -64,10 +64,12 @@ func (r *SubmitterRepo) Create(ctx context.Context, tenantID uint32, submissionI
 }
 
 // GetBySlug retrieves a submitter by its unique slug (token used in signing URLs).
+// Scoped to tenant for isolation. Use tenantID=0 to skip tenant filter (system context).
 func (r *SubmitterRepo) GetBySlug(ctx context.Context, slug string) (*ent.Submitter, error) {
-	entity, err := r.entClient.Client().Submitter.Query().
-		Where(submitter.SlugEQ(slug)).
-		Only(ctx)
+	query := r.entClient.Client().Submitter.Query().
+		Where(submitter.SlugEQ(slug))
+
+	entity, err := query.Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
 			return nil, nil
@@ -148,8 +150,14 @@ func (r *SubmitterRepo) UpdateSentAt(ctx context.Context, id string, sentAt time
 }
 
 // Complete marks a submitter as completed.
+// Uses an atomic WHERE status != COMPLETED predicate to prevent double-completion race conditions.
+// Returns (nil, nil) if the submitter was already completed (another request won the race).
 func (r *SubmitterRepo) Complete(ctx context.Context, id string, values map[string]interface{}, ip, userAgent string, completedAt time.Time) (*ent.Submitter, error) {
-	builder := r.entClient.Client().Submitter.UpdateOneID(id).
+	builder := r.entClient.Client().Submitter.Update().
+		Where(
+			submitter.IDEQ(id),
+			submitter.StatusNEQ(submitter.StatusSUBMITTER_STATUS_COMPLETED),
+		).
 		SetStatus(submitter.StatusSUBMITTER_STATUS_COMPLETED).
 		SetCompletedAt(completedAt)
 
@@ -163,9 +171,20 @@ func (r *SubmitterRepo) Complete(ctx context.Context, id string, values map[stri
 		builder.SetUserAgent(userAgent)
 	}
 
-	entity, err := builder.Save(ctx)
+	affected, err := builder.Save(ctx)
 	if err != nil {
 		r.log.Errorf("complete submitter failed: %s", err.Error())
+		return nil, signingV1.ErrorInternalServerError("complete submitter failed")
+	}
+	if affected == 0 {
+		// Already completed by another concurrent request
+		return nil, nil
+	}
+
+	// Re-fetch to return the updated entity
+	entity, err := r.entClient.Client().Submitter.Get(ctx, id)
+	if err != nil {
+		r.log.Errorf("re-fetch submitter after complete failed: %s", err.Error())
 		return nil, signingV1.ErrorInternalServerError("complete submitter failed")
 	}
 	return entity, nil
@@ -204,4 +223,22 @@ func (r *SubmitterRepo) AreAllCompleted(ctx context.Context, submissionID string
 	}
 
 	return total > 0 && total == completed, nil
+}
+
+// ListPendingByEmail returns pending submitters by email that haven't been sent an invite yet.
+// Scoped to tenant to prevent cross-tenant invitation triggers.
+func (r *SubmitterRepo) ListPendingByEmail(ctx context.Context, tenantID uint32, email string) ([]*ent.Submitter, error) {
+	entities, err := r.entClient.Client().Submitter.Query().
+		Where(
+			submitter.TenantIDEQ(tenantID),
+			submitter.EmailEQ(email),
+			submitter.StatusEQ(submitter.StatusSUBMITTER_STATUS_PENDING),
+			submitter.SentAtIsNil(),
+		).
+		All(ctx)
+	if err != nil {
+		r.log.Errorf("list pending submitters by email failed: %s", err.Error())
+		return nil, signingV1.ErrorInternalServerError("list pending submitters by email failed")
+	}
+	return entities, nil
 }

@@ -39,7 +39,10 @@ function initCanvas(): void {
   canvas.height = props.height;
   ctx = canvas.getContext('2d');
   if (!ctx) return;
-  ctx.strokeStyle = '#1a1a1a';
+  // Use foreground color from theme for the drawing stroke
+  const rootStyles = getComputedStyle(document.documentElement);
+  const fg = rootStyles.getPropertyValue('--foreground').trim();
+  ctx.strokeStyle = fg ? `hsl(${fg})` : '#1a1a1a';
   ctx.lineWidth = 2.5;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
@@ -132,6 +135,7 @@ function renderTypedSignature(): string {
   tempCanvas.height = 100;
   const tCtx = tempCanvas.getContext('2d')!;
   tCtx.font = 'italic 36px "Brush Script MT", "Segoe Script", "Dancing Script", cursive';
+  // Typed signature always renders as dark text (it becomes a PNG image on the PDF)
   tCtx.fillStyle = '#1a1a1a';
   tCtx.textBaseline = 'middle';
   tCtx.fillText(typedText.value, 10, 50);
@@ -330,22 +334,22 @@ onUnmounted(() => {
 .sig-component__tab {
   padding: 6px 14px;
   font-size: 0.8125rem;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  background: #fff;
-  color: #374151;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .sig-component__tab:hover {
-  background: #f3f4f6;
+  background: hsl(var(--muted));
 }
 
 .sig-component__tab--active {
-  background: #1677ff;
-  color: #fff;
-  border-color: #1677ff;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-color: hsl(var(--primary));
 }
 
 .sig-component__content {
@@ -356,9 +360,9 @@ onUnmounted(() => {
 
 /* Draw */
 .sig-component__canvas-wrap {
-  border: 2px dashed #d1d5db;
-  border-radius: 8px;
-  background: #fff;
+  border: 2px dashed hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--background));
   padding: 4px;
 }
 
@@ -378,16 +382,16 @@ onUnmounted(() => {
 .sig-component__btn {
   padding: 4px 14px;
   font-size: 0.8125rem;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  background: #fff;
-  color: #374151;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .sig-component__btn:hover:not(:disabled) {
-  background: #f3f4f6;
+  background: hsl(var(--muted));
 }
 
 .sig-component__btn:disabled {
@@ -396,37 +400,38 @@ onUnmounted(() => {
 }
 
 .sig-component__btn--primary {
-  background: #1677ff;
-  color: #fff;
-  border-color: #1677ff;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-color: hsl(var(--primary));
 }
 
 .sig-component__btn--primary:hover:not(:disabled) {
-  background: #4096ff;
+  opacity: 0.9;
 }
 
 /* Type */
 .sig-component__type-input {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
+  border: 1px solid hsl(var(--input));
+  border-radius: var(--radius);
+  background: hsl(var(--background));
   font-family: 'Brush Script MT', 'Segoe Script', 'Dancing Script', cursive;
   font-size: 24px;
   font-style: italic;
-  color: #1a1a1a;
+  color: hsl(var(--foreground));
   outline: none;
 }
 
 .sig-component__type-input:focus {
-  border-color: #1677ff;
-  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.1);
 }
 
 .sig-component__type-preview {
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  background: #fff;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--background));
   padding: 16px;
   text-align: center;
 }
@@ -435,7 +440,7 @@ onUnmounted(() => {
   font-family: 'Brush Script MT', 'Segoe Script', 'Dancing Script', cursive;
   font-size: 36px;
   font-style: italic;
-  color: #1a1a1a;
+  color: hsl(var(--foreground));
   margin: 0;
 }
 
@@ -448,7 +453,7 @@ onUnmounted(() => {
 
 .sig-component__biss-status {
   text-align: center;
-  color: #6b7280;
+  color: hsl(var(--muted-foreground));
   font-size: 0.875rem;
   padding: 20px;
 }
@@ -463,14 +468,14 @@ onUnmounted(() => {
 }
 
 .sig-component__biss-error {
-  color: #ef4444;
+  color: hsl(var(--destructive));
   font-weight: 600;
   font-size: 0.875rem;
   margin: 0;
 }
 
 .sig-component__biss-hint {
-  color: #6b7280;
+  color: hsl(var(--muted-foreground));
   font-size: 0.8125rem;
   margin: 0;
 }
@@ -488,8 +493,8 @@ onUnmounted(() => {
 }
 
 .sig-component__biss-badge {
-  background: #ecfdf5;
-  color: #059669;
+  background: hsl(143 72% 42% / 0.1);
+  color: hsl(143 72% 42%);
   padding: 4px 10px;
   border-radius: 12px;
   font-size: 0.75rem;
@@ -497,21 +502,21 @@ onUnmounted(() => {
 }
 
 .sig-component__biss-port {
-  color: #9ca3af;
+  color: hsl(var(--muted-foreground));
   font-size: 0.75rem;
 }
 
 .sig-component__biss-step {
   padding: 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  background: #f9fafb;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--muted));
 }
 
 .sig-component__biss-step p {
   margin: 0 0 8px;
   font-size: 0.8125rem;
-  color: #374151;
+  color: hsl(var(--foreground));
 }
 
 .sig-component__biss-step p:last-child {
@@ -519,10 +524,10 @@ onUnmounted(() => {
 }
 
 .sig-component__biss-error-msg {
-  color: #ef4444;
+  color: hsl(var(--destructive));
   font-size: 0.8125rem;
   padding: 8px;
-  background: #fef2f2;
-  border-radius: 4px;
+  background: hsl(var(--destructive) / 0.08);
+  border-radius: var(--radius);
 }
 </style>

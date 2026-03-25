@@ -30,6 +30,15 @@ data:
     secret_key: "rustfsadmin"
     use_ssl: false
 
+signing:
+  local_cert:
+    enabled: true
+    validity_years: 2
+    default_org: "GoTangra Signing"
+    auto_create_tenant_ca: true
+    pin_min_length: 4
+    pin_max_length: 32
+
 registration:
   admin_endpoint: "localhost:9000"
   module_id: "signing"

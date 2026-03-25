@@ -104,6 +104,7 @@ message CreateSubmissionRequest {
   string source = 3;
   map<string, string> preferences = 4;
   repeated SubmitterInput submitters = 5 [(buf.validate.field).repeated = {min_items: 1, max_items: 50}];
+  map<string, string> prefill_values = 6;  // field_id → value, merged into template snapshot
 }
 
 message CreateSubmissionResponse {

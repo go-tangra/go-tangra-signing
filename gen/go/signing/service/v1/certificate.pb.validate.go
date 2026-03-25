@@ -189,6 +189,12 @@ func (m *Certificate) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for UserEmail
+
+	// no validation rules for UserId
+
+	// no validation rules for SetupCompleted
+
 	if m.ParentId != nil {
 		// no validation rules for ParentId
 	}

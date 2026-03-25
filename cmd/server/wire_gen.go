@@ -38,6 +38,7 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	submissionRepo := data.NewSubmissionRepo(context, entClient)
 	submitterRepo := data.NewSubmitterRepo(context, entClient)
 	eventRepo := data.NewEventRepo(context, entClient)
+	certificateRepo := data.NewCertificateRepo(context, entClient)
 	registrationClient, err := client.NewRegistrationClient(context)
 	if err != nil {
 		cleanup2()
@@ -58,13 +59,12 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	submissionService := service.NewSubmissionService(context, submissionRepo, submitterRepo, templateRepo, eventRepo, storageClient, notificationClient, adminClient)
-	certificateRepo := data.NewCertificateRepo(context, entClient)
+	submissionService := service.NewSubmissionService(context, submissionRepo, submitterRepo, templateRepo, eventRepo, certificateRepo, storageClient, notificationClient, adminClient)
 	signingService := service.NewSigningService(context, certificateRepo, storageClient, eventRepo)
 	certificateService := service.NewCertificateService(context, certificateRepo)
 	userService := service.NewUserService(context, adminClient)
 	pdfGenerator := service.NewPDFGenerator(context, storageClient)
-	sessionService := service.NewSessionService(context, submitterRepo, submissionRepo, templateRepo, eventRepo, storageClient, pdfGenerator, notificationClient, adminClient)
+	sessionService := service.NewSessionService(context, submitterRepo, submissionRepo, templateRepo, eventRepo, certificateRepo, storageClient, pdfGenerator, notificationClient, adminClient)
 	grpcServer := server.NewGRPCServer(context, certManager, templateService, submissionService, signingService, certificateService, userService, sessionService)
 	httpServer := server.NewHTTPServer(context, storageClient, templateRepo)
 	app := newApp(context, grpcServer, httpServer)

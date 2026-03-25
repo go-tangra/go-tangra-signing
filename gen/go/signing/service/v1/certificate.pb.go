@@ -26,22 +26,25 @@ const (
 
 // Certificate entity
 type Certificate struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	TenantId      uint32                 `protobuf:"varint,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	SubjectCn     string                 `protobuf:"bytes,3,opt,name=subject_cn,json=subjectCn,proto3" json:"subject_cn,omitempty"`
-	SubjectOrg    string                 `protobuf:"bytes,4,opt,name=subject_org,json=subjectOrg,proto3" json:"subject_org,omitempty"`
-	SerialNumber  string                 `protobuf:"bytes,5,opt,name=serial_number,json=serialNumber,proto3" json:"serial_number,omitempty"`
-	NotBefore     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=not_before,json=notBefore,proto3" json:"not_before,omitempty"`
-	NotAfter      *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=not_after,json=notAfter,proto3" json:"not_after,omitempty"`
-	IsCa          bool                   `protobuf:"varint,8,opt,name=is_ca,json=isCa,proto3" json:"is_ca,omitempty"`
-	ParentId      *string                `protobuf:"bytes,9,opt,name=parent_id,json=parentId,proto3,oneof" json:"parent_id,omitempty"`
-	Status        string                 `protobuf:"bytes,10,opt,name=status,proto3" json:"status,omitempty"`
-	CertPem       string                 `protobuf:"bytes,11,opt,name=cert_pem,json=certPem,proto3" json:"cert_pem,omitempty"`
-	RevokedAt     *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=revoked_at,json=revokedAt,proto3" json:"revoked_at,omitempty"`
-	CreateTime    *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId       uint32                 `protobuf:"varint,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SubjectCn      string                 `protobuf:"bytes,3,opt,name=subject_cn,json=subjectCn,proto3" json:"subject_cn,omitempty"`
+	SubjectOrg     string                 `protobuf:"bytes,4,opt,name=subject_org,json=subjectOrg,proto3" json:"subject_org,omitempty"`
+	SerialNumber   string                 `protobuf:"bytes,5,opt,name=serial_number,json=serialNumber,proto3" json:"serial_number,omitempty"`
+	NotBefore      *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=not_before,json=notBefore,proto3" json:"not_before,omitempty"`
+	NotAfter       *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=not_after,json=notAfter,proto3" json:"not_after,omitempty"`
+	IsCa           bool                   `protobuf:"varint,8,opt,name=is_ca,json=isCa,proto3" json:"is_ca,omitempty"`
+	ParentId       *string                `protobuf:"bytes,9,opt,name=parent_id,json=parentId,proto3,oneof" json:"parent_id,omitempty"`
+	Status         string                 `protobuf:"bytes,10,opt,name=status,proto3" json:"status,omitempty"`
+	CertPem        string                 `protobuf:"bytes,11,opt,name=cert_pem,json=certPem,proto3" json:"cert_pem,omitempty"`
+	RevokedAt      *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=revoked_at,json=revokedAt,proto3" json:"revoked_at,omitempty"`
+	CreateTime     *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
+	UserEmail      string                 `protobuf:"bytes,14,opt,name=user_email,json=userEmail,proto3" json:"user_email,omitempty"`
+	UserId         string                 `protobuf:"bytes,15,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	SetupCompleted bool                   `protobuf:"varint,16,opt,name=setup_completed,json=setupCompleted,proto3" json:"setup_completed,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Certificate) Reset() {
@@ -163,6 +166,27 @@ func (x *Certificate) GetCreateTime() *timestamppb.Timestamp {
 		return x.CreateTime
 	}
 	return nil
+}
+
+func (x *Certificate) GetUserEmail() string {
+	if x != nil {
+		return x.UserEmail
+	}
+	return ""
+}
+
+func (x *Certificate) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *Certificate) GetSetupCompleted() bool {
+	if x != nil {
+		return x.SetupCompleted
+	}
+	return false
 }
 
 // Service messages
@@ -594,7 +618,7 @@ var File_signing_service_v1_certificate_proto protoreflect.FileDescriptor
 
 const file_signing_service_v1_certificate_proto_rawDesc = "" +
 	"\n" +
-	"$signing/service/v1/certificate.proto\x12\x12signing.service.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x83\x04\n" +
+	"$signing/service/v1/certificate.proto\x12\x12signing.service.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe4\x04\n" +
 	"\vCertificate\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\rR\btenantId\x12\x1d\n" +
@@ -614,7 +638,11 @@ const file_signing_service_v1_certificate_proto_rawDesc = "" +
 	"\n" +
 	"revoked_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\trevokedAt\x12;\n" +
 	"\vcreate_time\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"createTimeB\f\n" +
+	"createTime\x12\x1d\n" +
+	"\n" +
+	"user_email\x18\x0e \x01(\tR\tuserEmail\x12\x17\n" +
+	"\auser_id\x18\x0f \x01(\tR\x06userId\x12'\n" +
+	"\x0fsetup_completed\x18\x10 \x01(\bR\x0esetupCompletedB\f\n" +
 	"\n" +
 	"_parent_id\"\xc2\x01\n" +
 	"\x18CreateCertificateRequest\x12,\n" +

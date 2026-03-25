@@ -23,6 +23,7 @@ type SubmissionService struct {
 	submitterRepo  *data.SubmitterRepo
 	templateRepo   *data.TemplateRepo
 	eventRepo      *data.EventRepo
+	certRepo       *data.CertificateRepo
 	storage        *data.StorageClient
 	notifHelper    *NotificationHelper
 }
@@ -33,6 +34,7 @@ func NewSubmissionService(
 	submitterRepo *data.SubmitterRepo,
 	templateRepo *data.TemplateRepo,
 	eventRepo *data.EventRepo,
+	certRepo *data.CertificateRepo,
 	storage *data.StorageClient,
 	notificationClient *client.NotificationClient,
 	adminClient *client.AdminClient,
@@ -55,6 +57,7 @@ func NewSubmissionService(
 		submitterRepo:  submitterRepo,
 		templateRepo:   templateRepo,
 		eventRepo:      eventRepo,
+		certRepo:       certRepo,
 		storage:        storage,
 		notifHelper:    notifHelper,
 	}
@@ -80,10 +83,10 @@ func (s *SubmissionService) CreateSubmission(ctx context.Context, req *signingV1
 		preferences[k] = v
 	}
 
-	// Create submission with template snapshot
+	// Create submission with template snapshot + prefill values
 	submissionID := generateUUID()
 	submission, err := s.submissionRepo.Create(ctx, tenantID, submissionID, req.TemplateId,
-		req.SigningMode, req.Source, preferences, template, createdBy)
+		req.SigningMode, req.Source, preferences, template, req.PrefillValues, createdBy)
 	if err != nil {
 		return nil, err
 	}
@@ -108,12 +111,27 @@ func (s *SubmissionService) CreateSubmission(ctx context.Context, req *signingV1
 
 // GetSubmission gets a submission by ID.
 func (s *SubmissionService) GetSubmission(ctx context.Context, req *signingV1.GetSubmissionRequest) (*signingV1.GetSubmissionResponse, error) {
+	tenantID := getTenantIDFromContext(ctx)
+
 	submission, err := s.submissionRepo.GetByID(ctx, req.Id)
 	if err != nil {
 		return nil, err
 	}
 	if submission == nil {
 		return nil, signingV1.ErrorSubmissionNotFound("submission not found")
+	}
+
+	// Cross-tenant isolation (applies to all roles)
+	if derefUint32(submission.TenantID) != tenantID {
+		return nil, signingV1.ErrorAccessDenied("access denied")
+	}
+
+	// Signing users can only view their own submissions
+	if isSigningUser(ctx) {
+		uid := getUserIDAsUint32(ctx)
+		if uid == nil || submission.CreateBy == nil || *uid != *submission.CreateBy {
+			return nil, signingV1.ErrorAccessDenied("you can only view your own submissions")
+		}
 	}
 
 	return &signingV1.GetSubmissionResponse{
@@ -134,7 +152,14 @@ func (s *SubmissionService) ListSubmissions(ctx context.Context, req *signingV1.
 		pageSize = *req.PageSize
 	}
 
-	submissions, total, err := s.submissionRepo.List(ctx, tenantID, req.TemplateId, req.Status, page, pageSize)
+	// Signing users can only see their own submissions
+	var createdByFilter *uint32
+	if isSigningUser(ctx) {
+		uid := getUserIDAsUint32(ctx)
+		createdByFilter = uid
+	}
+
+	submissions, total, err := s.submissionRepo.List(ctx, tenantID, req.TemplateId, req.Status, createdByFilter, page, pageSize)
 	if err != nil {
 		return nil, err
 	}
@@ -162,6 +187,19 @@ func (s *SubmissionService) SendSubmission(ctx context.Context, req *signingV1.S
 		return nil, signingV1.ErrorSubmissionNotFound("submission not found")
 	}
 
+	// Cross-tenant isolation (applies to all roles)
+	if derefUint32(submission.TenantID) != tenantID {
+		return nil, signingV1.ErrorAccessDenied("access denied")
+	}
+
+	// Signing users can only send their own submissions
+	if isSigningUser(ctx) {
+		uid := getUserIDAsUint32(ctx)
+		if uid == nil || submission.CreateBy == nil || *uid != *submission.CreateBy {
+			return nil, signingV1.ErrorAccessDenied("you can only send your own submissions")
+		}
+	}
+
 	// Update status to IN_PROGRESS
 	submission, err = s.submissionRepo.UpdateStatus(ctx, req.Id, "SUBMISSION_STATUS_IN_PROGRESS")
 	if err != nil {
@@ -182,13 +220,11 @@ func (s *SubmissionService) SendSubmission(ctx context.Context, req *signingV1.S
 	case "SIGNING_MODE_SEQUENTIAL":
 		// Send invitation only to first submitter (order=0)
 		if len(submitters) > 0 {
-			_ = s.submitterRepo.UpdateSentAt(ctx, submitters[0].ID, now)
 			sentSubmitters = append(sentSubmitters, 0)
 		}
 	case "SIGNING_MODE_PARALLEL":
 		// Send invitations to all submitters
-		for i, sub := range submitters {
-			_ = s.submitterRepo.UpdateSentAt(ctx, sub.ID, now)
+		for i := range submitters {
 			sentSubmitters = append(sentSubmitters, i)
 		}
 	}
@@ -197,35 +233,80 @@ func (s *SubmissionService) SendSubmission(ctx context.Context, req *signingV1.S
 	_ = s.eventRepo.Create(ctx, tenantID, "submission.sent", getUserIDFromContext(ctx),
 		"submission", req.Id, nil, "")
 
-	// Send email notifications asynchronously
+	// Get template name for the email
+	tmpl, tmplErr := s.templateRepo.GetByID(ctx, submission.TemplateID)
+	templateName := "Untitled Document"
+	if tmplErr == nil && tmpl != nil {
+		templateName = tmpl.Name
+	}
+
+	senderName := getUsernameFromContext(ctx)
+	if senderName == "" {
+		senderName = "A user"
+	}
+
+	// For each submitter to invite: check if they have a certificate.
+	// If yes → send signing invite. If no → create pending cert + send setup email.
 	if s.notifHelper != nil && len(sentSubmitters) > 0 {
-		// Get template name for the email
-		tmpl, tmplErr := s.templateRepo.GetByID(ctx, submission.TemplateID)
-		templateName := "Untitled Document"
-		if tmplErr == nil && tmpl != nil {
-			templateName = tmpl.Name
-		}
-
-		senderName := getUsernameFromContext(ctx)
-		if senderName == "" {
-			senderName = "A user"
-		}
-
-		// Use detached context — gRPC cancels the request context after handler returns
 		sendCtx := client.DetachedMetadataContext(ctx, tenantID)
 
 		for _, idx := range sentSubmitters {
 			sub := submitters[idx]
-			go func() {
-				defer func() {
-					if r := recover(); r != nil {
-						s.log.Errorf("Panic in signing invitation goroutine: %v", r)
+
+			// Check if submitter already has a completed certificate
+			existingCert, certErr := s.certRepo.GetByEmail(ctx, tenantID, sub.Email)
+			if certErr != nil {
+				s.log.Errorf("failed to check certificate for submitter %s: %v", sub.ID, certErr)
+			}
+
+			if existingCert != nil {
+				// Certificate exists → send normal signing invitation
+				_ = s.submitterRepo.UpdateSentAt(ctx, sub.ID, now)
+				subCopy := sub
+				go func() {
+					defer func() {
+						if r := recover(); r != nil {
+							s.log.Errorf("Panic in signing invitation goroutine: %v", r)
+						}
+					}()
+					if err := s.notifHelper.SendInvitation(sendCtx, subCopy.Name, subCopy.Email, subCopy.Slug, subCopy.Role, templateName, senderName, ""); err != nil {
+						s.log.Errorf("Failed to send signing invitation to submitter %s: %v", subCopy.ID, err)
 					}
 				}()
-				if err := s.notifHelper.SendInvitation(sendCtx, sub.Name, sub.Email, sub.Slug, sub.Role, templateName, senderName, ""); err != nil {
-					s.log.Errorf("Failed to send signing invitation to %s: %v", sub.Email, err)
+			} else {
+				// No certificate → check if pending cert setup already exists
+				pendingCert, pendErr := s.certRepo.GetPendingByEmail(ctx, tenantID, sub.Email)
+				if pendErr != nil {
+					s.log.Errorf("failed to check pending cert for submitter %s: %v", sub.ID, pendErr)
 				}
-			}()
+
+				var setupToken string
+				if pendingCert != nil {
+					setupToken = pendingCert.SetupToken
+				} else {
+					// Create pending certificate record
+					setupToken = generateUUID()
+					_, createErr := s.certRepo.CreatePending(ctx, tenantID, sub.Name, defaultCertOrg, sub.Email, setupToken, nil)
+					if createErr != nil {
+						s.log.Errorf("failed to create pending cert for submitter %s: %v", sub.ID, createErr)
+						continue
+					}
+				}
+
+				// Send certificate setup email
+				subCopy := sub
+				tokenCopy := setupToken
+				go func() {
+					defer func() {
+						if r := recover(); r != nil {
+							s.log.Errorf("Panic in cert setup notification goroutine: %v", r)
+						}
+					}()
+					if err := s.notifHelper.SendCertificateSetupNotification(sendCtx, subCopy.Name, subCopy.Email, tokenCopy, templateName); err != nil {
+						s.log.Errorf("Failed to send cert setup notification to submitter %s: %v", subCopy.ID, err)
+					}
+				}()
+			}
 		}
 	}
 
@@ -246,6 +327,11 @@ func (s *SubmissionService) CompleteSubmitter(ctx context.Context, req *signingV
 		return nil, signingV1.ErrorSubmitterNotFound("submitter not found")
 	}
 
+	// Cross-tenant ownership check
+	if derefUint32(submitter.TenantID) != tenantID {
+		return nil, signingV1.ErrorAccessDenied("access denied")
+	}
+
 	// Unmarshal JSON-encoded values from []byte to map[string]interface{}
 	var values map[string]interface{}
 	if len(req.Values) > 0 {
@@ -254,11 +340,14 @@ func (s *SubmissionService) CompleteSubmitter(ctx context.Context, req *signingV
 		}
 	}
 
-	// Mark submitter as completed
+	// Mark submitter as completed (atomic — prevents double-completion race)
 	now := time.Now()
 	submitter, err = s.submitterRepo.Complete(ctx, req.SubmitterId, values, req.Ip, req.UserAgent, now)
 	if err != nil {
 		return nil, err
+	}
+	if submitter == nil {
+		return nil, signingV1.ErrorSubmitterAlreadyCompleted("submitter has already been completed")
 	}
 
 	// Log event
@@ -285,13 +374,29 @@ func (s *SubmissionService) CompleteSubmitter(ctx context.Context, req *signingV
 func (s *SubmissionService) DeclineSubmitter(ctx context.Context, req *signingV1.DeclineSubmitterRequest) (*signingV1.DeclineSubmitterResponse, error) {
 	tenantID := getTenantIDFromContext(ctx)
 
-	_, err := s.submitterRepo.Decline(ctx, req.SubmitterId, req.Reason)
+	// Load submitter first to check tenant ownership BEFORE mutating state
+	submitter, err := s.submitterRepo.GetByID(ctx, req.SubmitterId)
 	if err != nil {
 		return nil, err
 	}
+	if submitter == nil {
+		return nil, signingV1.ErrorSubmitterNotFound("submitter not found")
+	}
 
-	// Get submission and cancel it
-	submitter, err := s.submitterRepo.GetByID(ctx, req.SubmitterId)
+	// Cross-tenant ownership check
+	if derefUint32(submitter.TenantID) != tenantID {
+		return nil, signingV1.ErrorAccessDenied("access denied")
+	}
+
+	// Prevent double-decline
+	if submitter.Status == "SUBMITTER_STATUS_DECLINED" {
+		return nil, signingV1.ErrorBadRequest("submitter has already been declined")
+	}
+	if submitter.Status == "SUBMITTER_STATUS_COMPLETED" {
+		return nil, signingV1.ErrorSubmitterAlreadyCompleted("submitter has already completed signing")
+	}
+
+	_, err = s.submitterRepo.Decline(ctx, req.SubmitterId, req.Reason)
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +437,7 @@ func (s *SubmissionService) DeclineSubmitter(ctx context.Context, req *signingV1
 							}
 						}()
 						if err := s.notifHelper.SendDeclineNotification(sendCtx, other.Name, other.Email, submitter.Name, templateName, req.Reason); err != nil {
-							s.log.Errorf("Failed to send decline notification to %s: %v", other.Email, err)
+							s.log.Errorf("Failed to send decline notification to submitter %s: %v", other.ID, err)
 						}
 					}()
 				}
@@ -378,7 +483,7 @@ func (s *SubmissionService) advanceSequentialWorkflow(ctx context.Context, tenan
 				}
 			}()
 			if err := s.notifHelper.SendNextSignerNotification(sendCtx, nextSubmitter.Name, nextSubmitter.Email, nextSubmitter.Slug, nextSubmitter.Role, templateName); err != nil {
-				s.log.Errorf("Failed to send next-signer notification to %s: %v", nextSubmitter.Email, err)
+				s.log.Errorf("Failed to send next-signer notification to submitter %s: %v", nextSubmitter.ID, err)
 			}
 		}()
 	}

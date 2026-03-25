@@ -4,6 +4,8 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"regexp"
+	"strings"
 
 	kratosHttp "github.com/go-kratos/kratos/v2/transport/http"
 	"github.com/tx7do/kratos-bootstrap/bootstrap"
@@ -13,6 +15,18 @@ import (
 	"github.com/go-tangra/go-tangra-signing/internal/service"
 	appViewer "github.com/go-tangra/go-tangra-signing/pkg/viewer"
 )
+
+// allowedKeyPattern matches storage keys for signing PDFs:
+// {tenantID}/signing-templates/{...} or {tenantID}/signed/{...}
+var allowedKeyPattern = regexp.MustCompile(`^\d+/(signing-templates|signed)/`)
+
+// isAllowedStorageKey validates that a storage key matches allowed PDF paths.
+func isAllowedStorageKey(key string) bool {
+	if strings.Contains(key, "..") {
+		return false
+	}
+	return allowedKeyPattern.MatchString(key)
+}
 
 // NewHTTPServer creates an HTTP server for serving frontend assets and PDF proxy.
 func NewHTTPServer(ctx *bootstrap.Context, storage *data.StorageClient, templateRepo *data.TemplateRepo) *kratosHttp.Server {
@@ -30,11 +44,26 @@ func NewHTTPServer(ctx *bootstrap.Context, storage *data.StorageClient, template
 		return ctx.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	// PDF proxy endpoint — streams PDF from RustFS to browser
+	// PDF proxy endpoint — streams PDF from RustFS to browser.
+	// Validates that the key belongs to an allowed path prefix (templates or signed docs)
+	// and that the key path starts with a valid tenant ID prefix.
 	route.GET("/api/v1/signing/templates/pdf", func(ctx kratosHttp.Context) error {
 		key := ctx.Request().URL.Query().Get("key")
 		if key == "" {
 			return ctx.JSON(http.StatusBadRequest, map[string]string{"error": "missing key"})
+		}
+
+		// Reject path traversal attempts
+		if strings.Contains(key, "..") {
+			return ctx.JSON(http.StatusBadRequest, map[string]string{"error": "invalid key"})
+		}
+
+		// Validate key matches allowed patterns:
+		// {tenantID}/signing-templates/{templateID}/{filename}
+		// {tenantID}/signed/{...}
+		if !isAllowedStorageKey(key) {
+			l.Warnf("rejected PDF proxy request for key: %s", key)
+			return ctx.JSON(http.StatusForbidden, map[string]string{"error": "access denied"})
 		}
 
 		content, err := storage.Download(ctx.Request().Context(), key)
@@ -45,15 +74,14 @@ func NewHTTPServer(ctx *bootstrap.Context, storage *data.StorageClient, template
 
 		ctx.Response().Header().Set("Content-Type", "application/pdf")
 		ctx.Response().Header().Set("Cache-Control", "private, max-age=3600")
-		ctx.Response().Header().Set("Access-Control-Allow-Origin", "*")
 		_, writeErr := ctx.Response().Write(content)
 		return writeErr
 	})
 
 	// Detect fields endpoint — analyzes PDF with go-pdfplumber to find placeholders
+	// TODO: This endpoint should require authentication via admin-service gateway.
+	// Currently accessible only on the internal HTTP port (10401), not exposed via gateway.
 	route.GET("/api/v1/signing/templates/detect-fields", func(ctx kratosHttp.Context) error {
-		ctx.Response().Header().Set("Access-Control-Allow-Origin", "*")
-
 		templateID := ctx.Request().URL.Query().Get("id")
 		if templateID == "" {
 			return ctx.JSON(http.StatusBadRequest, map[string]string{"error": "id query parameter is required"})

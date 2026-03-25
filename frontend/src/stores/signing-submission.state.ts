@@ -77,6 +77,7 @@ export const useSigningSubmissionStore = defineStore('signing-submission', () =>
     signingMode?: string;
     source?: string;
     submitters: SubmitterInput[];
+    prefillValues?: Record<string, string>;
   }): Promise<CreateSubmissionResponse> {
     return await signingApi.post<CreateSubmissionResponse>('/signing/submissions', data);
   }

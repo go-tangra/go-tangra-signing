@@ -44,10 +44,17 @@ func (p *PrivateKey) String() string {
 }
 
 // ParsePrivateKey parses a PEM-encoded ECDSA private key.
+// Supports plain EC PRIVATE KEY, KEK-encrypted, and PIN-encrypted formats.
+// For KEK-encrypted keys, provide the KEK via ParsePrivateKeyWithKEK instead.
 func ParsePrivateKey(pkey []byte) (*ecdsa.PrivateKey, error) {
 	b, _ := pem.Decode(pkey)
 	if b == nil {
 		return nil, fmt.Errorf("no PEM data found")
+	}
+
+	// Reject encrypted keys — caller must use DecryptKeyWithPIN or DecryptKeyWithKEK
+	if b.Type == "ENCRYPTED PRIVATE KEY" || b.Type == "KEK ENCRYPTED PRIVATE KEY" {
+		return nil, fmt.Errorf("key is encrypted, use appropriate decryption function")
 	}
 
 	u, err := x509.ParseECPrivateKey(b.Bytes)
@@ -56,4 +63,23 @@ func ParsePrivateKey(pkey []byte) (*ecdsa.PrivateKey, error) {
 	}
 
 	return u, nil
+}
+
+// ParsePrivateKeyAuto parses a private key PEM, auto-detecting the encryption type.
+// For KEK-encrypted keys, provide the KEK. For plaintext keys, kek can be nil.
+// PIN-encrypted keys cannot be parsed with this function (use DecryptKeyWithPIN).
+func ParsePrivateKeyAuto(pkey []byte, kek []byte) (*ecdsa.PrivateKey, error) {
+	b, _ := pem.Decode(pkey)
+	if b == nil {
+		return nil, fmt.Errorf("no PEM data found")
+	}
+
+	switch b.Type {
+	case "KEK ENCRYPTED PRIVATE KEY":
+		return DecryptKeyWithKEK(pkey, kek)
+	case "ENCRYPTED PRIVATE KEY":
+		return nil, fmt.Errorf("PIN-encrypted key requires user PIN")
+	default:
+		return x509.ParseECPrivateKey(b.Bytes)
+	}
 }

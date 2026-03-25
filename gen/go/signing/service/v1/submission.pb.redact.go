@@ -173,6 +173,8 @@ func (x *CreateSubmissionRequest) Redact() string {
 	// Safe field: Preferences
 
 	// Safe field: Submitters
+
+	// Safe field: PrefillValues
 	return x.String()
 }
 

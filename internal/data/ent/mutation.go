@@ -65,6 +65,10 @@ type CertificateMutation struct {
 	key_algorithm     *certificate.KeyAlgorithm
 	revoked_at        *time.Time
 	revocation_reason *string
+	user_email        *string
+	user_id           *string
+	setup_token       *string
+	setup_completed   *bool
 	clearedFields     map[string]struct{}
 	done              bool
 	oldValue          func(context.Context) (*Certificate, error)
@@ -1044,6 +1048,189 @@ func (m *CertificateMutation) ResetRevocationReason() {
 	delete(m.clearedFields, certificate.FieldRevocationReason)
 }
 
+// SetUserEmail sets the "user_email" field.
+func (m *CertificateMutation) SetUserEmail(s string) {
+	m.user_email = &s
+}
+
+// UserEmail returns the value of the "user_email" field in the mutation.
+func (m *CertificateMutation) UserEmail() (r string, exists bool) {
+	v := m.user_email
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserEmail returns the old "user_email" field's value of the Certificate entity.
+// If the Certificate object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CertificateMutation) OldUserEmail(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserEmail is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserEmail requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserEmail: %w", err)
+	}
+	return oldValue.UserEmail, nil
+}
+
+// ClearUserEmail clears the value of the "user_email" field.
+func (m *CertificateMutation) ClearUserEmail() {
+	m.user_email = nil
+	m.clearedFields[certificate.FieldUserEmail] = struct{}{}
+}
+
+// UserEmailCleared returns if the "user_email" field was cleared in this mutation.
+func (m *CertificateMutation) UserEmailCleared() bool {
+	_, ok := m.clearedFields[certificate.FieldUserEmail]
+	return ok
+}
+
+// ResetUserEmail resets all changes to the "user_email" field.
+func (m *CertificateMutation) ResetUserEmail() {
+	m.user_email = nil
+	delete(m.clearedFields, certificate.FieldUserEmail)
+}
+
+// SetUserID sets the "user_id" field.
+func (m *CertificateMutation) SetUserID(s string) {
+	m.user_id = &s
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *CertificateMutation) UserID() (r string, exists bool) {
+	v := m.user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the Certificate entity.
+// If the Certificate object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CertificateMutation) OldUserID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// ClearUserID clears the value of the "user_id" field.
+func (m *CertificateMutation) ClearUserID() {
+	m.user_id = nil
+	m.clearedFields[certificate.FieldUserID] = struct{}{}
+}
+
+// UserIDCleared returns if the "user_id" field was cleared in this mutation.
+func (m *CertificateMutation) UserIDCleared() bool {
+	_, ok := m.clearedFields[certificate.FieldUserID]
+	return ok
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *CertificateMutation) ResetUserID() {
+	m.user_id = nil
+	delete(m.clearedFields, certificate.FieldUserID)
+}
+
+// SetSetupToken sets the "setup_token" field.
+func (m *CertificateMutation) SetSetupToken(s string) {
+	m.setup_token = &s
+}
+
+// SetupToken returns the value of the "setup_token" field in the mutation.
+func (m *CertificateMutation) SetupToken() (r string, exists bool) {
+	v := m.setup_token
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSetupToken returns the old "setup_token" field's value of the Certificate entity.
+// If the Certificate object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CertificateMutation) OldSetupToken(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSetupToken is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSetupToken requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSetupToken: %w", err)
+	}
+	return oldValue.SetupToken, nil
+}
+
+// ClearSetupToken clears the value of the "setup_token" field.
+func (m *CertificateMutation) ClearSetupToken() {
+	m.setup_token = nil
+	m.clearedFields[certificate.FieldSetupToken] = struct{}{}
+}
+
+// SetupTokenCleared returns if the "setup_token" field was cleared in this mutation.
+func (m *CertificateMutation) SetupTokenCleared() bool {
+	_, ok := m.clearedFields[certificate.FieldSetupToken]
+	return ok
+}
+
+// ResetSetupToken resets all changes to the "setup_token" field.
+func (m *CertificateMutation) ResetSetupToken() {
+	m.setup_token = nil
+	delete(m.clearedFields, certificate.FieldSetupToken)
+}
+
+// SetSetupCompleted sets the "setup_completed" field.
+func (m *CertificateMutation) SetSetupCompleted(b bool) {
+	m.setup_completed = &b
+}
+
+// SetupCompleted returns the value of the "setup_completed" field in the mutation.
+func (m *CertificateMutation) SetupCompleted() (r bool, exists bool) {
+	v := m.setup_completed
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSetupCompleted returns the old "setup_completed" field's value of the Certificate entity.
+// If the Certificate object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CertificateMutation) OldSetupCompleted(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSetupCompleted is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSetupCompleted requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSetupCompleted: %w", err)
+	}
+	return oldValue.SetupCompleted, nil
+}
+
+// ResetSetupCompleted resets all changes to the "setup_completed" field.
+func (m *CertificateMutation) ResetSetupCompleted() {
+	m.setup_completed = nil
+}
+
 // Where appends a list predicates to the CertificateMutation builder.
 func (m *CertificateMutation) Where(ps ...predicate.Certificate) {
 	m.predicates = append(m.predicates, ps...)
@@ -1078,7 +1265,7 @@ func (m *CertificateMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *CertificateMutation) Fields() []string {
-	fields := make([]string, 0, 19)
+	fields := make([]string, 0, 23)
 	if m.create_by != nil {
 		fields = append(fields, certificate.FieldCreateBy)
 	}
@@ -1136,6 +1323,18 @@ func (m *CertificateMutation) Fields() []string {
 	if m.revocation_reason != nil {
 		fields = append(fields, certificate.FieldRevocationReason)
 	}
+	if m.user_email != nil {
+		fields = append(fields, certificate.FieldUserEmail)
+	}
+	if m.user_id != nil {
+		fields = append(fields, certificate.FieldUserID)
+	}
+	if m.setup_token != nil {
+		fields = append(fields, certificate.FieldSetupToken)
+	}
+	if m.setup_completed != nil {
+		fields = append(fields, certificate.FieldSetupCompleted)
+	}
 	return fields
 }
 
@@ -1182,6 +1381,14 @@ func (m *CertificateMutation) Field(name string) (ent.Value, bool) {
 		return m.RevokedAt()
 	case certificate.FieldRevocationReason:
 		return m.RevocationReason()
+	case certificate.FieldUserEmail:
+		return m.UserEmail()
+	case certificate.FieldUserID:
+		return m.UserID()
+	case certificate.FieldSetupToken:
+		return m.SetupToken()
+	case certificate.FieldSetupCompleted:
+		return m.SetupCompleted()
 	}
 	return nil, false
 }
@@ -1229,6 +1436,14 @@ func (m *CertificateMutation) OldField(ctx context.Context, name string) (ent.Va
 		return m.OldRevokedAt(ctx)
 	case certificate.FieldRevocationReason:
 		return m.OldRevocationReason(ctx)
+	case certificate.FieldUserEmail:
+		return m.OldUserEmail(ctx)
+	case certificate.FieldUserID:
+		return m.OldUserID(ctx)
+	case certificate.FieldSetupToken:
+		return m.OldSetupToken(ctx)
+	case certificate.FieldSetupCompleted:
+		return m.OldSetupCompleted(ctx)
 	}
 	return nil, fmt.Errorf("unknown Certificate field %s", name)
 }
@@ -1371,6 +1586,34 @@ func (m *CertificateMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetRevocationReason(v)
 		return nil
+	case certificate.FieldUserEmail:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserEmail(v)
+		return nil
+	case certificate.FieldUserID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case certificate.FieldSetupToken:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSetupToken(v)
+		return nil
+	case certificate.FieldSetupCompleted:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSetupCompleted(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Certificate field %s", name)
 }
@@ -1461,6 +1704,15 @@ func (m *CertificateMutation) ClearedFields() []string {
 	if m.FieldCleared(certificate.FieldRevocationReason) {
 		fields = append(fields, certificate.FieldRevocationReason)
 	}
+	if m.FieldCleared(certificate.FieldUserEmail) {
+		fields = append(fields, certificate.FieldUserEmail)
+	}
+	if m.FieldCleared(certificate.FieldUserID) {
+		fields = append(fields, certificate.FieldUserID)
+	}
+	if m.FieldCleared(certificate.FieldSetupToken) {
+		fields = append(fields, certificate.FieldSetupToken)
+	}
 	return fields
 }
 
@@ -1507,6 +1759,15 @@ func (m *CertificateMutation) ClearField(name string) error {
 		return nil
 	case certificate.FieldRevocationReason:
 		m.ClearRevocationReason()
+		return nil
+	case certificate.FieldUserEmail:
+		m.ClearUserEmail()
+		return nil
+	case certificate.FieldUserID:
+		m.ClearUserID()
+		return nil
+	case certificate.FieldSetupToken:
+		m.ClearSetupToken()
 		return nil
 	}
 	return fmt.Errorf("unknown Certificate nullable field %s", name)
@@ -1572,6 +1833,18 @@ func (m *CertificateMutation) ResetField(name string) error {
 		return nil
 	case certificate.FieldRevocationReason:
 		m.ResetRevocationReason()
+		return nil
+	case certificate.FieldUserEmail:
+		m.ResetUserEmail()
+		return nil
+	case certificate.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case certificate.FieldSetupToken:
+		m.ResetSetupToken()
+		return nil
+	case certificate.FieldSetupCompleted:
+		m.ResetSetupCompleted()
 		return nil
 	}
 	return fmt.Errorf("unknown Certificate field %s", name)

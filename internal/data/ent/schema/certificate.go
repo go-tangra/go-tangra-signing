@@ -103,6 +103,25 @@ func (Certificate) Fields() []ent.Field {
 			Optional().
 			MaxLen(255).
 			Comment("Reason for revocation"),
+
+		field.String("user_email").
+			Optional().
+			MaxLen(255).
+			Comment("Email of the user this certificate belongs to"),
+
+		field.String("user_id").
+			Optional().
+			MaxLen(255).
+			Comment("Platform user ID this certificate belongs to"),
+
+		field.String("setup_token").
+			Optional().
+			MaxLen(255).
+			Comment("Unique token for certificate setup page"),
+
+		field.Bool("setup_completed").
+			Default(false).
+			Comment("Whether the certificate PIN setup has been completed"),
 	}
 }
 
@@ -130,5 +149,8 @@ func (Certificate) Indexes() []ent.Index {
 		index.Fields("is_ca").StorageKey("idx_signing_cert_is_ca"),
 		index.Fields("parent_id").StorageKey("idx_signing_cert_parent"),
 		index.Fields("not_after").StorageKey("idx_signing_cert_not_after"),
+		index.Fields("tenant_id", "user_email").StorageKey("idx_signing_cert_tenant_email"),
+		index.Fields("tenant_id", "user_id").StorageKey("idx_signing_cert_tenant_user"),
+		index.Fields("setup_token").Unique().StorageKey("idx_signing_cert_setup_token"),
 	}
 }

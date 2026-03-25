@@ -230,9 +230,9 @@ function handleSizeChange(event: Event): void {
   position: sticky;
   bottom: 0;
   z-index: 30;
-  background: #fff;
-  border-top: 1px solid #e5e7eb;
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+  background: hsl(var(--card));
+  border-top: 1px solid hsl(var(--border));
+  box-shadow: 0 -4px 12px hsl(var(--foreground) / 0.08);
 }
 
 .signing-panel__progress {
@@ -243,26 +243,26 @@ function handleSizeChange(event: Event): void {
   display: flex;
   justify-content: space-between;
   font-size: 0.75rem;
-  color: #6b7280;
+  color: hsl(var(--muted-foreground));
   margin-bottom: 4px;
 }
 
 .signing-panel__progress-bar {
   height: 4px;
   border-radius: 2px;
-  background: #e5e7eb;
+  background: hsl(var(--muted));
   overflow: hidden;
 }
 
 .signing-panel__progress-fill {
   height: 100%;
   border-radius: 2px;
-  background: #1677ff;
+  background: hsl(var(--primary));
   transition: width 0.3s ease;
 }
 
 .signing-panel__progress-fill--done {
-  background: #52c41a;
+  background: hsl(143 72% 42%);
 }
 
 .signing-panel__input-area {
@@ -272,12 +272,12 @@ function handleSizeChange(event: Event): void {
 .signing-panel__field-label {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #374151;
+  color: hsl(var(--foreground));
   margin-bottom: 6px;
 }
 
 .signing-panel__required {
-  color: #ef4444;
+  color: hsl(var(--destructive));
 }
 
 .signing-panel__input-row {
@@ -288,10 +288,10 @@ function handleSizeChange(event: Event): void {
 
 .signing-panel__font-select,
 .signing-panel__size-select {
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  background: #fff;
-  color: #374151;
+  border: 1px solid hsl(var(--input));
+  border-radius: var(--radius);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
   font-size: 0.8125rem;
   padding: 6px 8px;
   outline: none;
@@ -309,28 +309,28 @@ function handleSizeChange(event: Event): void {
 
 .signing-panel__font-select:focus,
 .signing-panel__size-select:focus {
-  border-color: #1677ff;
-  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.1);
 }
 
 .signing-panel__text-input {
   flex: 1;
   min-width: 0;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  background: #fff;
-  color: #1a1a1a;
+  border: 1px solid hsl(var(--input));
+  border-radius: var(--radius);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
   padding: 6px 10px;
   outline: none;
 }
 
 .signing-panel__text-input:focus {
-  border-color: #1677ff;
-  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.1);
 }
 
 .signing-panel__text-input::placeholder {
-  color: #9ca3af;
+  color: hsl(var(--muted-foreground));
 }
 
 .signing-panel__checkbox-label {
@@ -338,24 +338,24 @@ function handleSizeChange(event: Event): void {
   align-items: center;
   gap: 8px;
   font-size: 0.875rem;
-  color: #374151;
+  color: hsl(var(--foreground));
   cursor: pointer;
 }
 
 .signing-panel__checkbox {
   width: 18px;
   height: 18px;
-  accent-color: #1677ff;
+  accent-color: hsl(var(--primary));
   cursor: pointer;
 }
 
 .signing-panel__signature-btn {
   flex: 1;
   padding: 10px 16px;
-  border: 2px dashed #d1d5db;
-  border-radius: 6px;
-  background: #f9fafb;
-  color: #1677ff;
+  border: 2px dashed hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--muted));
+  color: hsl(var(--primary));
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
@@ -363,8 +363,8 @@ function handleSizeChange(event: Event): void {
 }
 
 .signing-panel__signature-btn:hover {
-  background: #eff6ff;
-  border-color: #93c5fd;
+  background: hsl(var(--primary) / 0.08);
+  border-color: hsl(var(--primary) / 0.4);
 }
 
 .signing-panel__nav {
@@ -383,16 +383,16 @@ function handleSizeChange(event: Event): void {
 .signing-panel__nav-btn {
   padding: 6px 14px;
   font-size: 0.8125rem;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  background: #fff;
-  color: #374151;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .signing-panel__nav-btn:hover:not(:disabled) {
-  background: #f3f4f6;
+  background: hsl(var(--muted));
 }
 
 .signing-panel__nav-btn:disabled {
@@ -401,28 +401,28 @@ function handleSizeChange(event: Event): void {
 }
 
 .signing-panel__nav-btn--primary {
-  background: #1677ff;
-  color: #fff;
-  border-color: #1677ff;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-color: hsl(var(--primary));
 }
 
 .signing-panel__nav-btn--primary:hover:not(:disabled) {
-  background: #4096ff;
+  opacity: 0.9;
 }
 
 .signing-panel__clear-btn {
   padding: 6px 14px;
   font-size: 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  background: #fff;
-  color: #6b7280;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--background));
+  color: hsl(var(--muted-foreground));
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .signing-panel__clear-btn:hover {
-  background: #f3f4f6;
+  background: hsl(var(--muted));
 }
 
 .signing-panel__submit-btn {
@@ -430,9 +430,9 @@ function handleSizeChange(event: Event): void {
   font-size: 0.8125rem;
   font-weight: 600;
   border: none;
-  border-radius: 6px;
-  background: #1677ff;
-  color: #fff;
+  border-radius: var(--radius);
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
   cursor: pointer;
   transition: opacity 0.15s;
 }

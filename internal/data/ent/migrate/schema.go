@@ -31,6 +31,10 @@ var (
 		{Name: "key_algorithm", Type: field.TypeEnum, Comment: "Key algorithm used", Enums: []string{"KEY_ALGO_UNSPECIFIED", "KEY_ALGO_ECDSA_P256", "KEY_ALGO_ECDSA_P384", "KEY_ALGO_RSA_2048", "KEY_ALGO_RSA_4096"}, Default: "KEY_ALGO_ECDSA_P256"},
 		{Name: "revoked_at", Type: field.TypeTime, Nullable: true, Comment: "When the certificate was revoked"},
 		{Name: "revocation_reason", Type: field.TypeString, Nullable: true, Size: 255, Comment: "Reason for revocation"},
+		{Name: "user_email", Type: field.TypeString, Nullable: true, Size: 255, Comment: "Email of the user this certificate belongs to"},
+		{Name: "user_id", Type: field.TypeString, Nullable: true, Size: 255, Comment: "Platform user ID this certificate belongs to"},
+		{Name: "setup_token", Type: field.TypeString, Nullable: true, Size: 255, Comment: "Unique token for certificate setup page"},
+		{Name: "setup_completed", Type: field.TypeBool, Comment: "Whether the certificate PIN setup has been completed", Default: false},
 	}
 	// SigningCertificatesTable holds the schema information for the "signing_certificates" table.
 	SigningCertificatesTable = &schema.Table{
@@ -72,6 +76,21 @@ var (
 				Name:    "idx_signing_cert_not_after",
 				Unique:  false,
 				Columns: []*schema.Column{SigningCertificatesColumns[10]},
+			},
+			{
+				Name:    "idx_signing_cert_tenant_email",
+				Unique:  false,
+				Columns: []*schema.Column{SigningCertificatesColumns[5], SigningCertificatesColumns[20]},
+			},
+			{
+				Name:    "idx_signing_cert_tenant_user",
+				Unique:  false,
+				Columns: []*schema.Column{SigningCertificatesColumns[5], SigningCertificatesColumns[21]},
+			},
+			{
+				Name:    "idx_signing_cert_setup_token",
+				Unique:  true,
+				Columns: []*schema.Column{SigningCertificatesColumns[22]},
 			},
 		},
 	}

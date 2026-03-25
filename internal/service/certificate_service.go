@@ -74,12 +74,17 @@ func (s *CertificateService) CreateCertificate(ctx context.Context, req *signing
 			return nil, signingV1.ErrorCertificateNotFound("parent CA not found")
 		}
 
+		// Tenant ownership check on parent CA
+		if derefUint32(parentCert.TenantID) != tenantID {
+			return nil, signingV1.ErrorAccessDenied("access denied")
+		}
+
 		// Parse parent certificate and key
 		parentX509, err := securitycert.ParseCertificate([]byte(parentCert.CertPem))
 		if err != nil {
 			return nil, signingV1.ErrorInternalServerError("failed to parse parent certificate")
 		}
-		parentPrivKey, err := securitycert.ParsePrivateKey([]byte(parentCert.KeyPemEncrypted))
+		parentPrivKey, err := securitycert.ParsePrivateKeyAuto([]byte(parentCert.KeyPemEncrypted), s.certRepo.KEK())
 		if err != nil {
 			return nil, signingV1.ErrorInternalServerError("failed to parse parent key")
 		}
@@ -112,12 +117,19 @@ func (s *CertificateService) CreateCertificate(ctx context.Context, req *signing
 
 // GetCertificate gets a certificate by ID.
 func (s *CertificateService) GetCertificate(ctx context.Context, req *signingV1.GetCertificateRequest) (*signingV1.GetCertificateResponse, error) {
+	tenantID := getTenantIDFromContext(ctx)
+
 	cert, err := s.certRepo.GetByID(ctx, req.Id)
 	if err != nil {
 		return nil, err
 	}
 	if cert == nil {
 		return nil, signingV1.ErrorCertificateNotFound("certificate not found")
+	}
+
+	// Tenant ownership check
+	if derefUint32(cert.TenantID) != tenantID {
+		return nil, signingV1.ErrorAccessDenied("access denied")
 	}
 
 	return &signingV1.GetCertificateResponse{
@@ -138,7 +150,13 @@ func (s *CertificateService) ListCertificates(ctx context.Context, req *signingV
 		pageSize = *req.PageSize
 	}
 
-	certs, total, err := s.certRepo.List(ctx, tenantID, req.IsCa, req.Status, page, pageSize)
+	// Signing users can only see their own certificates
+	var createdByFilter *uint32
+	if isSigningUser(ctx) {
+		createdByFilter = getUserIDAsUint32(ctx)
+	}
+
+	certs, total, err := s.certRepo.List(ctx, tenantID, req.IsCa, req.Status, createdByFilter, page, pageSize)
 	if err != nil {
 		return nil, err
 	}
@@ -156,12 +174,19 @@ func (s *CertificateService) ListCertificates(ctx context.Context, req *signingV
 
 // RevokeCertificate revokes a certificate and updates the CRL.
 func (s *CertificateService) RevokeCertificate(ctx context.Context, req *signingV1.RevokeCertificateRequest) (*signingV1.RevokeCertificateResponse, error) {
+	tenantID := getTenantIDFromContext(ctx)
+
 	cert, err := s.certRepo.GetByID(ctx, req.Id)
 	if err != nil {
 		return nil, err
 	}
 	if cert == nil {
 		return nil, signingV1.ErrorCertificateNotFound("certificate not found")
+	}
+
+	// Tenant ownership check
+	if derefUint32(cert.TenantID) != tenantID {
+		return nil, signingV1.ErrorAccessDenied("access denied")
 	}
 
 	// Update certificate status
@@ -197,7 +222,7 @@ func (s *CertificateService) updateCRL(ctx context.Context, caID string, revoked
 		s.log.Errorf("failed to parse CA certificate for CRL update: %v", err)
 		return
 	}
-	caPrivKey, err := securitycert.ParsePrivateKey([]byte(caCert.KeyPemEncrypted))
+	caPrivKey, err := securitycert.ParsePrivateKeyAuto([]byte(caCert.KeyPemEncrypted), s.certRepo.KEK())
 	if err != nil {
 		s.log.Errorf("failed to parse CA private key for CRL update: %v", err)
 		return

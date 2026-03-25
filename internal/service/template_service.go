@@ -44,6 +44,10 @@ func (s *TemplateService) CreateTemplate(ctx context.Context, req *signingV1.Cre
 	if len(req.FileContent) == 0 {
 		return nil, signingV1.ErrorInvalidTemplatePdf("file content is required")
 	}
+	const maxPdfSize = 50 * 1024 * 1024 // 50 MB
+	if len(req.FileContent) > maxPdfSize {
+		return nil, signingV1.ErrorInvalidTemplatePdf("PDF too large (max 50 MB)")
+	}
 	mimeType := http.DetectContentType(req.FileContent)
 	if mimeType != "application/pdf" {
 		return nil, signingV1.ErrorInvalidTemplatePdf("file must be a PDF document, got %s", mimeType)
@@ -80,12 +84,19 @@ func (s *TemplateService) CreateTemplate(ctx context.Context, req *signingV1.Cre
 
 // GetTemplate gets a template by ID.
 func (s *TemplateService) GetTemplate(ctx context.Context, req *signingV1.GetTemplateRequest) (*signingV1.GetTemplateResponse, error) {
+	tenantID := getTenantIDFromContext(ctx)
+
 	template, err := s.templateRepo.GetByID(ctx, req.Id)
 	if err != nil {
 		return nil, err
 	}
 	if template == nil {
 		return nil, signingV1.ErrorTemplateNotFound("template not found")
+	}
+
+	// Tenant ownership check
+	if derefUint32(template.TenantID) != tenantID {
+		return nil, signingV1.ErrorAccessDenied("access denied")
 	}
 
 	return &signingV1.GetTemplateResponse{
@@ -124,7 +135,20 @@ func (s *TemplateService) ListTemplates(ctx context.Context, req *signingV1.List
 
 // UpdateTemplate updates template metadata (name, description, status).
 func (s *TemplateService) UpdateTemplate(ctx context.Context, req *signingV1.UpdateTemplateRequest) (*signingV1.UpdateTemplateResponse, error) {
+	tenantID := getTenantIDFromContext(ctx)
 	updatedBy := getUserIDAsUint32(ctx)
+
+	// Verify ownership before update
+	existing, err := s.templateRepo.GetByID(ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, signingV1.ErrorTemplateNotFound("template not found")
+	}
+	if derefUint32(existing.TenantID) != tenantID {
+		return nil, signingV1.ErrorAccessDenied("access denied")
+	}
 
 	template, err := s.templateRepo.Update(ctx, req.Id, req.Name, req.Description, req.Status, updatedBy)
 	if err != nil {
@@ -138,6 +162,8 @@ func (s *TemplateService) UpdateTemplate(ctx context.Context, req *signingV1.Upd
 
 // DeleteTemplate deletes a template and its PDF from storage.
 func (s *TemplateService) DeleteTemplate(ctx context.Context, req *signingV1.DeleteTemplateRequest) (*emptypb.Empty, error) {
+	tenantID := getTenantIDFromContext(ctx)
+
 	// Get template to retrieve file key for storage cleanup
 	template, err := s.templateRepo.GetByID(ctx, req.Id)
 	if err != nil {
@@ -145,6 +171,11 @@ func (s *TemplateService) DeleteTemplate(ctx context.Context, req *signingV1.Del
 	}
 	if template == nil {
 		return nil, signingV1.ErrorTemplateNotFound("template not found")
+	}
+
+	// Tenant ownership check
+	if derefUint32(template.TenantID) != tenantID {
+		return nil, signingV1.ErrorAccessDenied("access denied")
 	}
 
 	// Delete from database
@@ -165,6 +196,18 @@ func (s *TemplateService) CloneTemplate(ctx context.Context, req *signingV1.Clon
 	createdBy := getUserIDAsUint32(ctx)
 	tenantID := getTenantIDFromContext(ctx)
 
+	// Verify source template exists and belongs to this tenant
+	source, err := s.templateRepo.GetByID(ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+	if source == nil {
+		return nil, signingV1.ErrorTemplateNotFound("template not found")
+	}
+	if derefUint32(source.TenantID) != tenantID {
+		return nil, signingV1.ErrorAccessDenied("access denied")
+	}
+
 	template, err := s.templateRepo.Clone(ctx, tenantID, req.Id, req.Name, s.storage, createdBy)
 	if err != nil {
 		return nil, err
@@ -177,6 +220,7 @@ func (s *TemplateService) CloneTemplate(ctx context.Context, req *signingV1.Clon
 
 // UpdateTemplateFields updates the field definitions of a template (from the visual builder).
 func (s *TemplateService) UpdateTemplateFields(ctx context.Context, req *signingV1.UpdateTemplateFieldsRequest) (*signingV1.UpdateTemplateFieldsResponse, error) {
+	tenantID := getTenantIDFromContext(ctx)
 	updatedBy := getUserIDAsUint32(ctx)
 
 	// Verify template exists
@@ -186,6 +230,11 @@ func (s *TemplateService) UpdateTemplateFields(ctx context.Context, req *signing
 	}
 	if existing == nil {
 		return nil, signingV1.ErrorTemplateNotFound("template not found")
+	}
+
+	// Tenant ownership check
+	if derefUint32(existing.TenantID) != tenantID {
+		return nil, signingV1.ErrorAccessDenied("access denied")
 	}
 
 	// Convert proto fields to schema format

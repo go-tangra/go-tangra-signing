@@ -11,7 +11,7 @@ const routes: RouteRecordRaw[] = [
       icon: 'lucide:pen-tool',
       title: 'signing.menu.signing',
       keepAlive: true,
-      authority: ['platform:admin', 'tenant:manager'],
+      authority: ['platform:admin', 'tenant:manager', 'signing:user'],
     },
     children: [
       {
@@ -20,7 +20,7 @@ const routes: RouteRecordRaw[] = [
         meta: {
           icon: 'lucide:send',
           title: 'signing.menu.submissions',
-          authority: ['platform:admin', 'tenant:manager'],
+          authority: ['platform:admin', 'tenant:manager', 'signing:user'],
         },
         component: () => import('./views/submission/index.vue'),
       },
@@ -30,7 +30,7 @@ const routes: RouteRecordRaw[] = [
         meta: {
           icon: 'lucide:file-signature',
           title: 'signing.menu.templates',
-          authority: ['platform:admin', 'tenant:manager'],
+          authority: ['platform:admin', 'tenant:manager', 'signing:user'],
         },
         component: () => import('./views/template/index.vue'),
       },
@@ -65,9 +65,22 @@ const routes: RouteRecordRaw[] = [
       hideInTab: true,
       hideInBreadcrumb: true,
       title: 'Sign Document',
-      authority: ['platform:admin', 'tenant:manager', 'tenant:member'],
+      authority: ['platform:admin', 'tenant:manager', 'tenant:member', 'signing:user'],
     },
     component: () => import('./views/session/index.vue'),
+  },
+  // Certificate setup — public page (no admin layout, token-based)
+  {
+    path: '/signing/certificate-setup/:token',
+    name: 'CertificateSetup',
+    meta: {
+      hideInMenu: true,
+      hideInTab: true,
+      hideInBreadcrumb: true,
+      title: 'Certificate Setup',
+      authority: ['platform:admin', 'tenant:manager', 'tenant:member', 'signing:user'],
+    },
+    component: () => import('./views/session/certificate-setup.vue'),
   },
 ];
 

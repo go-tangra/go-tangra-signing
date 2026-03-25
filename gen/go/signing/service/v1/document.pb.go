@@ -7,6 +7,7 @@
 package signingpb
 
 import (
+	_ "github.com/menta2k/protoc-gen-redact/v3/redact/v3"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -437,7 +438,7 @@ var File_signing_service_v1_document_proto protoreflect.FileDescriptor
 
 const file_signing_service_v1_document_proto_rawDesc = "" +
 	"\n" +
-	"!signing/service/v1/document.proto\x12\x12signing.service.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\"\xf8\x01\n" +
+	"!signing/service/v1/document.proto\x12\x12signing.service.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x16redact/v3/redact.proto\"\xf8\x01\n" +
 	"\n" +
 	"SignerInfo\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x16\n" +
@@ -450,7 +451,7 @@ const file_signing_service_v1_document_proto_rawDesc = "" +
 	"\fDocumentInfo\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12\x16\n" +
 	"\x06author\x18\x02 \x01(\tR\x06author\x12\x14\n" +
-	"\x05pages\x18\x03 \x01(\x05R\x05pages\"\xc0\x02\n" +
+	"\x05pages\x18\x03 \x01(\x05R\x05pages\"\xc8\x02\n" +
 	"\x13SignDocumentRequest\x12*\n" +
 	"\x0ecertificate_id\x18\x01 \x01(\tB\x03\xe0A\x02R\rcertificateId\x12&\n" +
 	"\fdocument_key\x18\x02 \x01(\tB\x03\xe0A\x02R\vdocumentKey\x12\x1f\n" +
@@ -460,8 +461,8 @@ const file_signing_service_v1_document_proto_rawDesc = "" +
 	"\x06reason\x18\x05 \x01(\tR\x06reason\x12!\n" +
 	"\fcontact_info\x18\x06 \x01(\tR\vcontactInfo\x12\x17\n" +
 	"\atsa_url\x18\a \x01(\tR\x06tsaUrl\x12!\n" +
-	"\ftsa_username\x18\b \x01(\tR\vtsaUsername\x12!\n" +
-	"\ftsa_password\x18\t \x01(\tR\vtsaPassword\"F\n" +
+	"\ftsa_username\x18\b \x01(\tR\vtsaUsername\x12)\n" +
+	"\ftsa_password\x18\t \x01(\tB\x06ڶ\x1a\x02z\x00R\vtsaPassword\"F\n" +
 	"\x14SignDocumentResponse\x12.\n" +
 	"\x13signed_document_key\x18\x01 \x01(\tR\x11signedDocumentKey\"T\n" +
 	"\x15VerifyDocumentRequest\x12!\n" +

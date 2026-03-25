@@ -328,6 +328,80 @@ func (_u *CertificateUpdate) ClearRevocationReason() *CertificateUpdate {
 	return _u
 }
 
+// SetUserEmail sets the "user_email" field.
+func (_u *CertificateUpdate) SetUserEmail(v string) *CertificateUpdate {
+	_u.mutation.SetUserEmail(v)
+	return _u
+}
+
+// SetNillableUserEmail sets the "user_email" field if the given value is not nil.
+func (_u *CertificateUpdate) SetNillableUserEmail(v *string) *CertificateUpdate {
+	if v != nil {
+		_u.SetUserEmail(*v)
+	}
+	return _u
+}
+
+// ClearUserEmail clears the value of the "user_email" field.
+func (_u *CertificateUpdate) ClearUserEmail() *CertificateUpdate {
+	_u.mutation.ClearUserEmail()
+	return _u
+}
+
+// SetUserID sets the "user_id" field.
+func (_u *CertificateUpdate) SetUserID(v string) *CertificateUpdate {
+	_u.mutation.SetUserID(v)
+	return _u
+}
+
+// SetNillableUserID sets the "user_id" field if the given value is not nil.
+func (_u *CertificateUpdate) SetNillableUserID(v *string) *CertificateUpdate {
+	if v != nil {
+		_u.SetUserID(*v)
+	}
+	return _u
+}
+
+// ClearUserID clears the value of the "user_id" field.
+func (_u *CertificateUpdate) ClearUserID() *CertificateUpdate {
+	_u.mutation.ClearUserID()
+	return _u
+}
+
+// SetSetupToken sets the "setup_token" field.
+func (_u *CertificateUpdate) SetSetupToken(v string) *CertificateUpdate {
+	_u.mutation.SetSetupToken(v)
+	return _u
+}
+
+// SetNillableSetupToken sets the "setup_token" field if the given value is not nil.
+func (_u *CertificateUpdate) SetNillableSetupToken(v *string) *CertificateUpdate {
+	if v != nil {
+		_u.SetSetupToken(*v)
+	}
+	return _u
+}
+
+// ClearSetupToken clears the value of the "setup_token" field.
+func (_u *CertificateUpdate) ClearSetupToken() *CertificateUpdate {
+	_u.mutation.ClearSetupToken()
+	return _u
+}
+
+// SetSetupCompleted sets the "setup_completed" field.
+func (_u *CertificateUpdate) SetSetupCompleted(v bool) *CertificateUpdate {
+	_u.mutation.SetSetupCompleted(v)
+	return _u
+}
+
+// SetNillableSetupCompleted sets the "setup_completed" field if the given value is not nil.
+func (_u *CertificateUpdate) SetNillableSetupCompleted(v *bool) *CertificateUpdate {
+	if v != nil {
+		_u.SetSetupCompleted(*v)
+	}
+	return _u
+}
+
 // Mutation returns the CertificateMutation object of the builder.
 func (_u *CertificateUpdate) Mutation() *CertificateMutation {
 	return _u.mutation
@@ -395,6 +469,21 @@ func (_u *CertificateUpdate) check() error {
 	if v, ok := _u.mutation.RevocationReason(); ok {
 		if err := certificate.RevocationReasonValidator(v); err != nil {
 			return &ValidationError{Name: "revocation_reason", err: fmt.Errorf(`ent: validator failed for field "Certificate.revocation_reason": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.UserEmail(); ok {
+		if err := certificate.UserEmailValidator(v); err != nil {
+			return &ValidationError{Name: "user_email", err: fmt.Errorf(`ent: validator failed for field "Certificate.user_email": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.UserID(); ok {
+		if err := certificate.UserIDValidator(v); err != nil {
+			return &ValidationError{Name: "user_id", err: fmt.Errorf(`ent: validator failed for field "Certificate.user_id": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.SetupToken(); ok {
+		if err := certificate.SetupTokenValidator(v); err != nil {
+			return &ValidationError{Name: "setup_token", err: fmt.Errorf(`ent: validator failed for field "Certificate.setup_token": %w`, err)}
 		}
 	}
 	return nil
@@ -504,6 +593,27 @@ func (_u *CertificateUpdate) sqlSave(ctx context.Context) (_node int, err error)
 	}
 	if _u.mutation.RevocationReasonCleared() {
 		_spec.ClearField(certificate.FieldRevocationReason, field.TypeString)
+	}
+	if value, ok := _u.mutation.UserEmail(); ok {
+		_spec.SetField(certificate.FieldUserEmail, field.TypeString, value)
+	}
+	if _u.mutation.UserEmailCleared() {
+		_spec.ClearField(certificate.FieldUserEmail, field.TypeString)
+	}
+	if value, ok := _u.mutation.UserID(); ok {
+		_spec.SetField(certificate.FieldUserID, field.TypeString, value)
+	}
+	if _u.mutation.UserIDCleared() {
+		_spec.ClearField(certificate.FieldUserID, field.TypeString)
+	}
+	if value, ok := _u.mutation.SetupToken(); ok {
+		_spec.SetField(certificate.FieldSetupToken, field.TypeString, value)
+	}
+	if _u.mutation.SetupTokenCleared() {
+		_spec.ClearField(certificate.FieldSetupToken, field.TypeString)
+	}
+	if value, ok := _u.mutation.SetupCompleted(); ok {
+		_spec.SetField(certificate.FieldSetupCompleted, field.TypeBool, value)
 	}
 	_spec.AddModifiers(_u.modifiers...)
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
@@ -826,6 +936,80 @@ func (_u *CertificateUpdateOne) ClearRevocationReason() *CertificateUpdateOne {
 	return _u
 }
 
+// SetUserEmail sets the "user_email" field.
+func (_u *CertificateUpdateOne) SetUserEmail(v string) *CertificateUpdateOne {
+	_u.mutation.SetUserEmail(v)
+	return _u
+}
+
+// SetNillableUserEmail sets the "user_email" field if the given value is not nil.
+func (_u *CertificateUpdateOne) SetNillableUserEmail(v *string) *CertificateUpdateOne {
+	if v != nil {
+		_u.SetUserEmail(*v)
+	}
+	return _u
+}
+
+// ClearUserEmail clears the value of the "user_email" field.
+func (_u *CertificateUpdateOne) ClearUserEmail() *CertificateUpdateOne {
+	_u.mutation.ClearUserEmail()
+	return _u
+}
+
+// SetUserID sets the "user_id" field.
+func (_u *CertificateUpdateOne) SetUserID(v string) *CertificateUpdateOne {
+	_u.mutation.SetUserID(v)
+	return _u
+}
+
+// SetNillableUserID sets the "user_id" field if the given value is not nil.
+func (_u *CertificateUpdateOne) SetNillableUserID(v *string) *CertificateUpdateOne {
+	if v != nil {
+		_u.SetUserID(*v)
+	}
+	return _u
+}
+
+// ClearUserID clears the value of the "user_id" field.
+func (_u *CertificateUpdateOne) ClearUserID() *CertificateUpdateOne {
+	_u.mutation.ClearUserID()
+	return _u
+}
+
+// SetSetupToken sets the "setup_token" field.
+func (_u *CertificateUpdateOne) SetSetupToken(v string) *CertificateUpdateOne {
+	_u.mutation.SetSetupToken(v)
+	return _u
+}
+
+// SetNillableSetupToken sets the "setup_token" field if the given value is not nil.
+func (_u *CertificateUpdateOne) SetNillableSetupToken(v *string) *CertificateUpdateOne {
+	if v != nil {
+		_u.SetSetupToken(*v)
+	}
+	return _u
+}
+
+// ClearSetupToken clears the value of the "setup_token" field.
+func (_u *CertificateUpdateOne) ClearSetupToken() *CertificateUpdateOne {
+	_u.mutation.ClearSetupToken()
+	return _u
+}
+
+// SetSetupCompleted sets the "setup_completed" field.
+func (_u *CertificateUpdateOne) SetSetupCompleted(v bool) *CertificateUpdateOne {
+	_u.mutation.SetSetupCompleted(v)
+	return _u
+}
+
+// SetNillableSetupCompleted sets the "setup_completed" field if the given value is not nil.
+func (_u *CertificateUpdateOne) SetNillableSetupCompleted(v *bool) *CertificateUpdateOne {
+	if v != nil {
+		_u.SetSetupCompleted(*v)
+	}
+	return _u
+}
+
 // Mutation returns the CertificateMutation object of the builder.
 func (_u *CertificateUpdateOne) Mutation() *CertificateMutation {
 	return _u.mutation
@@ -906,6 +1090,21 @@ func (_u *CertificateUpdateOne) check() error {
 	if v, ok := _u.mutation.RevocationReason(); ok {
 		if err := certificate.RevocationReasonValidator(v); err != nil {
 			return &ValidationError{Name: "revocation_reason", err: fmt.Errorf(`ent: validator failed for field "Certificate.revocation_reason": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.UserEmail(); ok {
+		if err := certificate.UserEmailValidator(v); err != nil {
+			return &ValidationError{Name: "user_email", err: fmt.Errorf(`ent: validator failed for field "Certificate.user_email": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.UserID(); ok {
+		if err := certificate.UserIDValidator(v); err != nil {
+			return &ValidationError{Name: "user_id", err: fmt.Errorf(`ent: validator failed for field "Certificate.user_id": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.SetupToken(); ok {
+		if err := certificate.SetupTokenValidator(v); err != nil {
+			return &ValidationError{Name: "setup_token", err: fmt.Errorf(`ent: validator failed for field "Certificate.setup_token": %w`, err)}
 		}
 	}
 	return nil
@@ -1032,6 +1231,27 @@ func (_u *CertificateUpdateOne) sqlSave(ctx context.Context) (_node *Certificate
 	}
 	if _u.mutation.RevocationReasonCleared() {
 		_spec.ClearField(certificate.FieldRevocationReason, field.TypeString)
+	}
+	if value, ok := _u.mutation.UserEmail(); ok {
+		_spec.SetField(certificate.FieldUserEmail, field.TypeString, value)
+	}
+	if _u.mutation.UserEmailCleared() {
+		_spec.ClearField(certificate.FieldUserEmail, field.TypeString)
+	}
+	if value, ok := _u.mutation.UserID(); ok {
+		_spec.SetField(certificate.FieldUserID, field.TypeString, value)
+	}
+	if _u.mutation.UserIDCleared() {
+		_spec.ClearField(certificate.FieldUserID, field.TypeString)
+	}
+	if value, ok := _u.mutation.SetupToken(); ok {
+		_spec.SetField(certificate.FieldSetupToken, field.TypeString, value)
+	}
+	if _u.mutation.SetupTokenCleared() {
+		_spec.ClearField(certificate.FieldSetupToken, field.TypeString)
+	}
+	if value, ok := _u.mutation.SetupCompleted(); ok {
+		_spec.SetField(certificate.FieldSetupCompleted, field.TypeBool, value)
 	}
 	_spec.AddModifiers(_u.modifiers...)
 	_node = &Certificate{config: _u.config}

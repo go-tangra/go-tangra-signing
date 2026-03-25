@@ -18,6 +18,7 @@ menus:
     authority:
       - platform:admin
       - tenant:manager
+      - signing:user
 
   - id: signing-templates
     parent_id: signing
@@ -30,6 +31,7 @@ menus:
     authority:
       - platform:admin
       - tenant:manager
+      - signing:user
 
   - id: signing-submissions
     parent_id: signing
@@ -42,6 +44,7 @@ menus:
     authority:
       - platform:admin
       - tenant:manager
+      - signing:user
 
   - id: signing-certificates
     parent_id: signing
@@ -67,7 +70,10 @@ permission_groups:
         description: Create, update, and delete templates
       - name: View Submissions
         code: signing.submission.view
-        description: View submission details and list
+        description: View all submission details and list
+      - name: View Own Submissions
+        code: signing.submission.own
+        description: View and manage own submissions only
       - name: Create Submissions
         code: signing.submission.create
         description: Create new signing submissions
@@ -80,9 +86,15 @@ permission_groups:
       - name: Verify Signatures
         code: signing.document.verify
         description: Verify document signatures
+      - name: Download Own Documents
+        code: signing.document.download
+        description: Download and preview own signed documents
       - name: Manage Certificates
         code: signing.certificate.manage
-        description: Create, revoke, and manage certificates
+        description: Create, revoke, and manage all certificates
+      - name: Manage Own Certificate
+        code: signing.certificate.own
+        description: Create and manage own signing certificate
 
 roles:
   - name: Signing Administrator
@@ -97,7 +109,9 @@ roles:
       - signing.submission.send
       - signing.document.sign
       - signing.document.verify
+      - signing.document.download
       - signing.certificate.manage
+      - signing.certificate.own
 
   - name: Signing Operator
     code: signing.operator
@@ -110,6 +124,7 @@ roles:
       - signing.submission.send
       - signing.document.sign
       - signing.document.verify
+      - signing.document.download
 
   - name: Signing Viewer
     code: signing.viewer
@@ -119,3 +134,15 @@ roles:
       - signing.template.view
       - signing.submission.view
       - signing.document.verify
+
+  - name: Signing User
+    code: signing.user
+    description: Can view templates, create submissions, sign documents, and manage own certificate
+    is_system: true
+    permissions:
+      - signing.template.view
+      - signing.submission.own
+      - signing.submission.create
+      - signing.document.sign
+      - signing.document.download
+      - signing.certificate.own

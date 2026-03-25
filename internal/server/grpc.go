@@ -90,6 +90,8 @@ func NewGRPCServer(
 			"/signing.service.v1.SigningSessionService/SubmitSigning",
 			"/signing.service.v1.SigningSessionService/PrepareForBissSigning",
 			"/signing.service.v1.SigningSessionService/CompleteBissSigning",
+			"/signing.service.v1.SigningSessionService/GetCertificateSetup",
+			"/signing.service.v1.SigningSessionService/CompleteCertificateSetup",
 		),
 	))
 

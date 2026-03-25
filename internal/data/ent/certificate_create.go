@@ -249,6 +249,62 @@ func (_c *CertificateCreate) SetNillableRevocationReason(v *string) *Certificate
 	return _c
 }
 
+// SetUserEmail sets the "user_email" field.
+func (_c *CertificateCreate) SetUserEmail(v string) *CertificateCreate {
+	_c.mutation.SetUserEmail(v)
+	return _c
+}
+
+// SetNillableUserEmail sets the "user_email" field if the given value is not nil.
+func (_c *CertificateCreate) SetNillableUserEmail(v *string) *CertificateCreate {
+	if v != nil {
+		_c.SetUserEmail(*v)
+	}
+	return _c
+}
+
+// SetUserID sets the "user_id" field.
+func (_c *CertificateCreate) SetUserID(v string) *CertificateCreate {
+	_c.mutation.SetUserID(v)
+	return _c
+}
+
+// SetNillableUserID sets the "user_id" field if the given value is not nil.
+func (_c *CertificateCreate) SetNillableUserID(v *string) *CertificateCreate {
+	if v != nil {
+		_c.SetUserID(*v)
+	}
+	return _c
+}
+
+// SetSetupToken sets the "setup_token" field.
+func (_c *CertificateCreate) SetSetupToken(v string) *CertificateCreate {
+	_c.mutation.SetSetupToken(v)
+	return _c
+}
+
+// SetNillableSetupToken sets the "setup_token" field if the given value is not nil.
+func (_c *CertificateCreate) SetNillableSetupToken(v *string) *CertificateCreate {
+	if v != nil {
+		_c.SetSetupToken(*v)
+	}
+	return _c
+}
+
+// SetSetupCompleted sets the "setup_completed" field.
+func (_c *CertificateCreate) SetSetupCompleted(v bool) *CertificateCreate {
+	_c.mutation.SetSetupCompleted(v)
+	return _c
+}
+
+// SetNillableSetupCompleted sets the "setup_completed" field if the given value is not nil.
+func (_c *CertificateCreate) SetNillableSetupCompleted(v *bool) *CertificateCreate {
+	if v != nil {
+		_c.SetSetupCompleted(*v)
+	}
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *CertificateCreate) SetID(v string) *CertificateCreate {
 	_c.mutation.SetID(v)
@@ -307,6 +363,10 @@ func (_c *CertificateCreate) defaults() error {
 	if _, ok := _c.mutation.KeyAlgorithm(); !ok {
 		v := certificate.DefaultKeyAlgorithm
 		_c.mutation.SetKeyAlgorithm(v)
+	}
+	if _, ok := _c.mutation.SetupCompleted(); !ok {
+		v := certificate.DefaultSetupCompleted
+		_c.mutation.SetSetupCompleted(v)
 	}
 	return nil
 }
@@ -371,6 +431,24 @@ func (_c *CertificateCreate) check() error {
 		if err := certificate.RevocationReasonValidator(v); err != nil {
 			return &ValidationError{Name: "revocation_reason", err: fmt.Errorf(`ent: validator failed for field "Certificate.revocation_reason": %w`, err)}
 		}
+	}
+	if v, ok := _c.mutation.UserEmail(); ok {
+		if err := certificate.UserEmailValidator(v); err != nil {
+			return &ValidationError{Name: "user_email", err: fmt.Errorf(`ent: validator failed for field "Certificate.user_email": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.UserID(); ok {
+		if err := certificate.UserIDValidator(v); err != nil {
+			return &ValidationError{Name: "user_id", err: fmt.Errorf(`ent: validator failed for field "Certificate.user_id": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.SetupToken(); ok {
+		if err := certificate.SetupTokenValidator(v); err != nil {
+			return &ValidationError{Name: "setup_token", err: fmt.Errorf(`ent: validator failed for field "Certificate.setup_token": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.SetupCompleted(); !ok {
+		return &ValidationError{Name: "setup_completed", err: errors.New(`ent: missing required field "Certificate.setup_completed"`)}
 	}
 	if v, ok := _c.mutation.ID(); ok {
 		if err := certificate.IDValidator(v); err != nil {
@@ -488,6 +566,22 @@ func (_c *CertificateCreate) createSpec() (*Certificate, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RevocationReason(); ok {
 		_spec.SetField(certificate.FieldRevocationReason, field.TypeString, value)
 		_node.RevocationReason = value
+	}
+	if value, ok := _c.mutation.UserEmail(); ok {
+		_spec.SetField(certificate.FieldUserEmail, field.TypeString, value)
+		_node.UserEmail = value
+	}
+	if value, ok := _c.mutation.UserID(); ok {
+		_spec.SetField(certificate.FieldUserID, field.TypeString, value)
+		_node.UserID = value
+	}
+	if value, ok := _c.mutation.SetupToken(); ok {
+		_spec.SetField(certificate.FieldSetupToken, field.TypeString, value)
+		_node.SetupToken = value
+	}
+	if value, ok := _c.mutation.SetupCompleted(); ok {
+		_spec.SetField(certificate.FieldSetupCompleted, field.TypeBool, value)
+		_node.SetupCompleted = value
 	}
 	return _node, _spec
 }
@@ -802,6 +896,72 @@ func (u *CertificateUpsert) UpdateRevocationReason() *CertificateUpsert {
 // ClearRevocationReason clears the value of the "revocation_reason" field.
 func (u *CertificateUpsert) ClearRevocationReason() *CertificateUpsert {
 	u.SetNull(certificate.FieldRevocationReason)
+	return u
+}
+
+// SetUserEmail sets the "user_email" field.
+func (u *CertificateUpsert) SetUserEmail(v string) *CertificateUpsert {
+	u.Set(certificate.FieldUserEmail, v)
+	return u
+}
+
+// UpdateUserEmail sets the "user_email" field to the value that was provided on create.
+func (u *CertificateUpsert) UpdateUserEmail() *CertificateUpsert {
+	u.SetExcluded(certificate.FieldUserEmail)
+	return u
+}
+
+// ClearUserEmail clears the value of the "user_email" field.
+func (u *CertificateUpsert) ClearUserEmail() *CertificateUpsert {
+	u.SetNull(certificate.FieldUserEmail)
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *CertificateUpsert) SetUserID(v string) *CertificateUpsert {
+	u.Set(certificate.FieldUserID, v)
+	return u
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *CertificateUpsert) UpdateUserID() *CertificateUpsert {
+	u.SetExcluded(certificate.FieldUserID)
+	return u
+}
+
+// ClearUserID clears the value of the "user_id" field.
+func (u *CertificateUpsert) ClearUserID() *CertificateUpsert {
+	u.SetNull(certificate.FieldUserID)
+	return u
+}
+
+// SetSetupToken sets the "setup_token" field.
+func (u *CertificateUpsert) SetSetupToken(v string) *CertificateUpsert {
+	u.Set(certificate.FieldSetupToken, v)
+	return u
+}
+
+// UpdateSetupToken sets the "setup_token" field to the value that was provided on create.
+func (u *CertificateUpsert) UpdateSetupToken() *CertificateUpsert {
+	u.SetExcluded(certificate.FieldSetupToken)
+	return u
+}
+
+// ClearSetupToken clears the value of the "setup_token" field.
+func (u *CertificateUpsert) ClearSetupToken() *CertificateUpsert {
+	u.SetNull(certificate.FieldSetupToken)
+	return u
+}
+
+// SetSetupCompleted sets the "setup_completed" field.
+func (u *CertificateUpsert) SetSetupCompleted(v bool) *CertificateUpsert {
+	u.Set(certificate.FieldSetupCompleted, v)
+	return u
+}
+
+// UpdateSetupCompleted sets the "setup_completed" field to the value that was provided on create.
+func (u *CertificateUpsert) UpdateSetupCompleted() *CertificateUpsert {
+	u.SetExcluded(certificate.FieldSetupCompleted)
 	return u
 }
 
@@ -1164,6 +1324,83 @@ func (u *CertificateUpsertOne) UpdateRevocationReason() *CertificateUpsertOne {
 func (u *CertificateUpsertOne) ClearRevocationReason() *CertificateUpsertOne {
 	return u.Update(func(s *CertificateUpsert) {
 		s.ClearRevocationReason()
+	})
+}
+
+// SetUserEmail sets the "user_email" field.
+func (u *CertificateUpsertOne) SetUserEmail(v string) *CertificateUpsertOne {
+	return u.Update(func(s *CertificateUpsert) {
+		s.SetUserEmail(v)
+	})
+}
+
+// UpdateUserEmail sets the "user_email" field to the value that was provided on create.
+func (u *CertificateUpsertOne) UpdateUserEmail() *CertificateUpsertOne {
+	return u.Update(func(s *CertificateUpsert) {
+		s.UpdateUserEmail()
+	})
+}
+
+// ClearUserEmail clears the value of the "user_email" field.
+func (u *CertificateUpsertOne) ClearUserEmail() *CertificateUpsertOne {
+	return u.Update(func(s *CertificateUpsert) {
+		s.ClearUserEmail()
+	})
+}
+
+// SetUserID sets the "user_id" field.
+func (u *CertificateUpsertOne) SetUserID(v string) *CertificateUpsertOne {
+	return u.Update(func(s *CertificateUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *CertificateUpsertOne) UpdateUserID() *CertificateUpsertOne {
+	return u.Update(func(s *CertificateUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// ClearUserID clears the value of the "user_id" field.
+func (u *CertificateUpsertOne) ClearUserID() *CertificateUpsertOne {
+	return u.Update(func(s *CertificateUpsert) {
+		s.ClearUserID()
+	})
+}
+
+// SetSetupToken sets the "setup_token" field.
+func (u *CertificateUpsertOne) SetSetupToken(v string) *CertificateUpsertOne {
+	return u.Update(func(s *CertificateUpsert) {
+		s.SetSetupToken(v)
+	})
+}
+
+// UpdateSetupToken sets the "setup_token" field to the value that was provided on create.
+func (u *CertificateUpsertOne) UpdateSetupToken() *CertificateUpsertOne {
+	return u.Update(func(s *CertificateUpsert) {
+		s.UpdateSetupToken()
+	})
+}
+
+// ClearSetupToken clears the value of the "setup_token" field.
+func (u *CertificateUpsertOne) ClearSetupToken() *CertificateUpsertOne {
+	return u.Update(func(s *CertificateUpsert) {
+		s.ClearSetupToken()
+	})
+}
+
+// SetSetupCompleted sets the "setup_completed" field.
+func (u *CertificateUpsertOne) SetSetupCompleted(v bool) *CertificateUpsertOne {
+	return u.Update(func(s *CertificateUpsert) {
+		s.SetSetupCompleted(v)
+	})
+}
+
+// UpdateSetupCompleted sets the "setup_completed" field to the value that was provided on create.
+func (u *CertificateUpsertOne) UpdateSetupCompleted() *CertificateUpsertOne {
+	return u.Update(func(s *CertificateUpsert) {
+		s.UpdateSetupCompleted()
 	})
 }
 
@@ -1693,6 +1930,83 @@ func (u *CertificateUpsertBulk) UpdateRevocationReason() *CertificateUpsertBulk 
 func (u *CertificateUpsertBulk) ClearRevocationReason() *CertificateUpsertBulk {
 	return u.Update(func(s *CertificateUpsert) {
 		s.ClearRevocationReason()
+	})
+}
+
+// SetUserEmail sets the "user_email" field.
+func (u *CertificateUpsertBulk) SetUserEmail(v string) *CertificateUpsertBulk {
+	return u.Update(func(s *CertificateUpsert) {
+		s.SetUserEmail(v)
+	})
+}
+
+// UpdateUserEmail sets the "user_email" field to the value that was provided on create.
+func (u *CertificateUpsertBulk) UpdateUserEmail() *CertificateUpsertBulk {
+	return u.Update(func(s *CertificateUpsert) {
+		s.UpdateUserEmail()
+	})
+}
+
+// ClearUserEmail clears the value of the "user_email" field.
+func (u *CertificateUpsertBulk) ClearUserEmail() *CertificateUpsertBulk {
+	return u.Update(func(s *CertificateUpsert) {
+		s.ClearUserEmail()
+	})
+}
+
+// SetUserID sets the "user_id" field.
+func (u *CertificateUpsertBulk) SetUserID(v string) *CertificateUpsertBulk {
+	return u.Update(func(s *CertificateUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *CertificateUpsertBulk) UpdateUserID() *CertificateUpsertBulk {
+	return u.Update(func(s *CertificateUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// ClearUserID clears the value of the "user_id" field.
+func (u *CertificateUpsertBulk) ClearUserID() *CertificateUpsertBulk {
+	return u.Update(func(s *CertificateUpsert) {
+		s.ClearUserID()
+	})
+}
+
+// SetSetupToken sets the "setup_token" field.
+func (u *CertificateUpsertBulk) SetSetupToken(v string) *CertificateUpsertBulk {
+	return u.Update(func(s *CertificateUpsert) {
+		s.SetSetupToken(v)
+	})
+}
+
+// UpdateSetupToken sets the "setup_token" field to the value that was provided on create.
+func (u *CertificateUpsertBulk) UpdateSetupToken() *CertificateUpsertBulk {
+	return u.Update(func(s *CertificateUpsert) {
+		s.UpdateSetupToken()
+	})
+}
+
+// ClearSetupToken clears the value of the "setup_token" field.
+func (u *CertificateUpsertBulk) ClearSetupToken() *CertificateUpsertBulk {
+	return u.Update(func(s *CertificateUpsert) {
+		s.ClearSetupToken()
+	})
+}
+
+// SetSetupCompleted sets the "setup_completed" field.
+func (u *CertificateUpsertBulk) SetSetupCompleted(v bool) *CertificateUpsertBulk {
+	return u.Update(func(s *CertificateUpsert) {
+		s.SetSetupCompleted(v)
+	})
+}
+
+// UpdateSetupCompleted sets the "setup_completed" field to the value that was provided on create.
+func (u *CertificateUpsertBulk) UpdateSetupCompleted() *CertificateUpsertBulk {
+	return u.Update(func(s *CertificateUpsert) {
+		s.UpdateSetupCompleted()
 	})
 }
 

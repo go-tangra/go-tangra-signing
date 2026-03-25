@@ -119,6 +119,12 @@ func (x *Certificate) Redact() string {
 	// Safe field: RevokedAt
 
 	// Safe field: CreateTime
+
+	// Safe field: UserEmail
+
+	// Safe field: UserId
+
+	// Safe field: SetupCompleted
 	return x.String()
 }
 

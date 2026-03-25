@@ -20,6 +20,7 @@ var (
 	_ codes.Code
 	_ status.Status
 	_ annotations.FieldBehavior
+	_ redact.FieldRules
 )
 
 // RegisterRedactedSigningDocumentServiceServer wraps the SigningDocumentServiceServer with the redacted server and registers the service in GRPC
@@ -120,7 +121,8 @@ func (x *SignDocumentRequest) Redact() string {
 
 	// Safe field: TsaUsername
 
-	// Safe field: TsaPassword
+	// Redacting field: TsaPassword
+	x.TsaPassword = ``
 	return x.String()
 }
 

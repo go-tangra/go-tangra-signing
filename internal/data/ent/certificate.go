@@ -56,7 +56,15 @@ type Certificate struct {
 	RevokedAt *time.Time `json:"revoked_at,omitempty"`
 	// Reason for revocation
 	RevocationReason string `json:"revocation_reason,omitempty"`
-	selectValues     sql.SelectValues
+	// Email of the user this certificate belongs to
+	UserEmail string `json:"user_email,omitempty"`
+	// Platform user ID this certificate belongs to
+	UserID string `json:"user_id,omitempty"`
+	// Unique token for certificate setup page
+	SetupToken string `json:"setup_token,omitempty"`
+	// Whether the certificate PIN setup has been completed
+	SetupCompleted bool `json:"setup_completed,omitempty"`
+	selectValues   sql.SelectValues
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -64,11 +72,11 @@ func (*Certificate) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case certificate.FieldIsCa:
+		case certificate.FieldIsCa, certificate.FieldSetupCompleted:
 			values[i] = new(sql.NullBool)
 		case certificate.FieldCreateBy, certificate.FieldTenantID:
 			values[i] = new(sql.NullInt64)
-		case certificate.FieldID, certificate.FieldSubjectCn, certificate.FieldSubjectOrg, certificate.FieldSerialNumber, certificate.FieldParentID, certificate.FieldKeyPemEncrypted, certificate.FieldCertPem, certificate.FieldCrlPem, certificate.FieldStatus, certificate.FieldKeyAlgorithm, certificate.FieldRevocationReason:
+		case certificate.FieldID, certificate.FieldSubjectCn, certificate.FieldSubjectOrg, certificate.FieldSerialNumber, certificate.FieldParentID, certificate.FieldKeyPemEncrypted, certificate.FieldCertPem, certificate.FieldCrlPem, certificate.FieldStatus, certificate.FieldKeyAlgorithm, certificate.FieldRevocationReason, certificate.FieldUserEmail, certificate.FieldUserID, certificate.FieldSetupToken:
 			values[i] = new(sql.NullString)
 		case certificate.FieldCreateTime, certificate.FieldUpdateTime, certificate.FieldDeleteTime, certificate.FieldNotBefore, certificate.FieldNotAfter, certificate.FieldRevokedAt:
 			values[i] = new(sql.NullTime)
@@ -214,6 +222,30 @@ func (_m *Certificate) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.RevocationReason = value.String
 			}
+		case certificate.FieldUserEmail:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field user_email", values[i])
+			} else if value.Valid {
+				_m.UserEmail = value.String
+			}
+		case certificate.FieldUserID:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field user_id", values[i])
+			} else if value.Valid {
+				_m.UserID = value.String
+			}
+		case certificate.FieldSetupToken:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field setup_token", values[i])
+			} else if value.Valid {
+				_m.SetupToken = value.String
+			}
+		case certificate.FieldSetupCompleted:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field setup_completed", values[i])
+			} else if value.Valid {
+				_m.SetupCompleted = value.Bool
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -319,6 +351,18 @@ func (_m *Certificate) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("revocation_reason=")
 	builder.WriteString(_m.RevocationReason)
+	builder.WriteString(", ")
+	builder.WriteString("user_email=")
+	builder.WriteString(_m.UserEmail)
+	builder.WriteString(", ")
+	builder.WriteString("user_id=")
+	builder.WriteString(_m.UserID)
+	builder.WriteString(", ")
+	builder.WriteString("setup_token=")
+	builder.WriteString(_m.SetupToken)
+	builder.WriteString(", ")
+	builder.WriteString("setup_completed=")
+	builder.WriteString(fmt.Sprintf("%v", _m.SetupCompleted))
 	builder.WriteByte(')')
 	return builder.String()
 }

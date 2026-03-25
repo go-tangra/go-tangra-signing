@@ -52,6 +52,14 @@ const (
 	FieldRevokedAt = "revoked_at"
 	// FieldRevocationReason holds the string denoting the revocation_reason field in the database.
 	FieldRevocationReason = "revocation_reason"
+	// FieldUserEmail holds the string denoting the user_email field in the database.
+	FieldUserEmail = "user_email"
+	// FieldUserID holds the string denoting the user_id field in the database.
+	FieldUserID = "user_id"
+	// FieldSetupToken holds the string denoting the setup_token field in the database.
+	FieldSetupToken = "setup_token"
+	// FieldSetupCompleted holds the string denoting the setup_completed field in the database.
+	FieldSetupCompleted = "setup_completed"
 	// Table holds the table name of the certificate in the database.
 	Table = "signing_certificates"
 )
@@ -78,6 +86,10 @@ var Columns = []string{
 	FieldKeyAlgorithm,
 	FieldRevokedAt,
 	FieldRevocationReason,
+	FieldUserEmail,
+	FieldUserID,
+	FieldSetupToken,
+	FieldSetupCompleted,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -112,6 +124,14 @@ var (
 	CertPemValidator func(string) error
 	// RevocationReasonValidator is a validator for the "revocation_reason" field. It is called by the builders before save.
 	RevocationReasonValidator func(string) error
+	// UserEmailValidator is a validator for the "user_email" field. It is called by the builders before save.
+	UserEmailValidator func(string) error
+	// UserIDValidator is a validator for the "user_id" field. It is called by the builders before save.
+	UserIDValidator func(string) error
+	// SetupTokenValidator is a validator for the "setup_token" field. It is called by the builders before save.
+	SetupTokenValidator func(string) error
+	// DefaultSetupCompleted holds the default value on creation for the "setup_completed" field.
+	DefaultSetupCompleted bool
 	// IDValidator is a validator for the "id" field. It is called by the builders before save.
 	IDValidator func(string) error
 )
@@ -274,4 +294,24 @@ func ByRevokedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByRevocationReason orders the results by the revocation_reason field.
 func ByRevocationReason(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRevocationReason, opts...).ToFunc()
+}
+
+// ByUserEmail orders the results by the user_email field.
+func ByUserEmail(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUserEmail, opts...).ToFunc()
+}
+
+// ByUserID orders the results by the user_id field.
+func ByUserID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUserID, opts...).ToFunc()
+}
+
+// BySetupToken orders the results by the setup_token field.
+func BySetupToken(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSetupToken, opts...).ToFunc()
+}
+
+// BySetupCompleted orders the results by the setup_completed field.
+func BySetupCompleted(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSetupCompleted, opts...).ToFunc()
 }

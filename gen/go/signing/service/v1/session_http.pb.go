@@ -20,6 +20,8 @@ var _ = binding.EncodeURL
 const _ = http.SupportPackageIsVersion1
 
 const OperationSigningSessionServiceCompleteBissSigning = "/signing.service.v1.SigningSessionService/CompleteBissSigning"
+const OperationSigningSessionServiceCompleteCertificateSetup = "/signing.service.v1.SigningSessionService/CompleteCertificateSetup"
+const OperationSigningSessionServiceGetCertificateSetup = "/signing.service.v1.SigningSessionService/GetCertificateSetup"
 const OperationSigningSessionServiceGetSigningSession = "/signing.service.v1.SigningSessionService/GetSigningSession"
 const OperationSigningSessionServicePrepareForBissSigning = "/signing.service.v1.SigningSessionService/PrepareForBissSigning"
 const OperationSigningSessionServiceSubmitSigning = "/signing.service.v1.SigningSessionService/SubmitSigning"
@@ -27,6 +29,10 @@ const OperationSigningSessionServiceSubmitSigning = "/signing.service.v1.Signing
 type SigningSessionServiceHTTPServer interface {
 	// CompleteBissSigning Complete BISS signing — embeds external PKCS#7 signature into the PDF
 	CompleteBissSigning(context.Context, *CompleteBissSigningRequest) (*CompleteBissSigningResponse, error)
+	// CompleteCertificateSetup Submit PIN and create certificate (public, by setup token)
+	CompleteCertificateSetup(context.Context, *CompleteCertificateSetupRequest) (*CompleteCertificateSetupResponse, error)
+	// GetCertificateSetup Get certificate setup page data (public, by setup token)
+	GetCertificateSetup(context.Context, *GetCertificateSetupRequest) (*GetCertificateSetupResponse, error)
 	// GetSigningSession Get signing session for a submitter (public, token-based)
 	GetSigningSession(context.Context, *GetSigningSessionRequest) (*GetSigningSessionResponse, error)
 	// PrepareForBissSigning Prepare PDF for external signing (BISS) — returns hash to be signed
@@ -41,6 +47,8 @@ func RegisterSigningSessionServiceHTTPServer(s *http.Server, srv SigningSessionS
 	r.POST("/v1/signing/sessions/{token}/submit", _SigningSessionService_SubmitSigning0_HTTP_Handler(srv))
 	r.POST("/v1/signing/sessions/{token}/prepare-biss", _SigningSessionService_PrepareForBissSigning0_HTTP_Handler(srv))
 	r.POST("/v1/signing/sessions/{token}/complete-biss", _SigningSessionService_CompleteBissSigning0_HTTP_Handler(srv))
+	r.GET("/v1/signing/certificate-setup/{token}", _SigningSessionService_GetCertificateSetup0_HTTP_Handler(srv))
+	r.POST("/v1/signing/certificate-setup/{token}", _SigningSessionService_CompleteCertificateSetup0_HTTP_Handler(srv))
 }
 
 func _SigningSessionService_GetSigningSession0_HTTP_Handler(srv SigningSessionServiceHTTPServer) func(ctx http.Context) error {
@@ -140,9 +148,60 @@ func _SigningSessionService_CompleteBissSigning0_HTTP_Handler(srv SigningSession
 	}
 }
 
+func _SigningSessionService_GetCertificateSetup0_HTTP_Handler(srv SigningSessionServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in GetCertificateSetupRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationSigningSessionServiceGetCertificateSetup)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.GetCertificateSetup(ctx, req.(*GetCertificateSetupRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*GetCertificateSetupResponse)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _SigningSessionService_CompleteCertificateSetup0_HTTP_Handler(srv SigningSessionServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in CompleteCertificateSetupRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationSigningSessionServiceCompleteCertificateSetup)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.CompleteCertificateSetup(ctx, req.(*CompleteCertificateSetupRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*CompleteCertificateSetupResponse)
+		return ctx.Result(200, reply)
+	}
+}
+
 type SigningSessionServiceHTTPClient interface {
 	// CompleteBissSigning Complete BISS signing — embeds external PKCS#7 signature into the PDF
 	CompleteBissSigning(ctx context.Context, req *CompleteBissSigningRequest, opts ...http.CallOption) (rsp *CompleteBissSigningResponse, err error)
+	// CompleteCertificateSetup Submit PIN and create certificate (public, by setup token)
+	CompleteCertificateSetup(ctx context.Context, req *CompleteCertificateSetupRequest, opts ...http.CallOption) (rsp *CompleteCertificateSetupResponse, err error)
+	// GetCertificateSetup Get certificate setup page data (public, by setup token)
+	GetCertificateSetup(ctx context.Context, req *GetCertificateSetupRequest, opts ...http.CallOption) (rsp *GetCertificateSetupResponse, err error)
 	// GetSigningSession Get signing session for a submitter (public, token-based)
 	GetSigningSession(ctx context.Context, req *GetSigningSessionRequest, opts ...http.CallOption) (rsp *GetSigningSessionResponse, err error)
 	// PrepareForBissSigning Prepare PDF for external signing (BISS) — returns hash to be signed
@@ -167,6 +226,34 @@ func (c *SigningSessionServiceHTTPClientImpl) CompleteBissSigning(ctx context.Co
 	opts = append(opts, http.Operation(OperationSigningSessionServiceCompleteBissSigning))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// CompleteCertificateSetup Submit PIN and create certificate (public, by setup token)
+func (c *SigningSessionServiceHTTPClientImpl) CompleteCertificateSetup(ctx context.Context, in *CompleteCertificateSetupRequest, opts ...http.CallOption) (*CompleteCertificateSetupResponse, error) {
+	var out CompleteCertificateSetupResponse
+	pattern := "/v1/signing/certificate-setup/{token}"
+	path := binding.EncodeURL(pattern, in, false)
+	opts = append(opts, http.Operation(OperationSigningSessionServiceCompleteCertificateSetup))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// GetCertificateSetup Get certificate setup page data (public, by setup token)
+func (c *SigningSessionServiceHTTPClientImpl) GetCertificateSetup(ctx context.Context, in *GetCertificateSetupRequest, opts ...http.CallOption) (*GetCertificateSetupResponse, error) {
+	var out GetCertificateSetupResponse
+	pattern := "/v1/signing/certificate-setup/{token}"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationSigningSessionServiceGetCertificateSetup))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
 	if err != nil {
 		return nil, err
 	}

@@ -19,10 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	SigningSessionService_GetSigningSession_FullMethodName     = "/signing.service.v1.SigningSessionService/GetSigningSession"
-	SigningSessionService_SubmitSigning_FullMethodName         = "/signing.service.v1.SigningSessionService/SubmitSigning"
-	SigningSessionService_PrepareForBissSigning_FullMethodName = "/signing.service.v1.SigningSessionService/PrepareForBissSigning"
-	SigningSessionService_CompleteBissSigning_FullMethodName   = "/signing.service.v1.SigningSessionService/CompleteBissSigning"
+	SigningSessionService_GetSigningSession_FullMethodName        = "/signing.service.v1.SigningSessionService/GetSigningSession"
+	SigningSessionService_SubmitSigning_FullMethodName            = "/signing.service.v1.SigningSessionService/SubmitSigning"
+	SigningSessionService_PrepareForBissSigning_FullMethodName    = "/signing.service.v1.SigningSessionService/PrepareForBissSigning"
+	SigningSessionService_CompleteBissSigning_FullMethodName      = "/signing.service.v1.SigningSessionService/CompleteBissSigning"
+	SigningSessionService_GetCertificateSetup_FullMethodName      = "/signing.service.v1.SigningSessionService/GetCertificateSetup"
+	SigningSessionService_CompleteCertificateSetup_FullMethodName = "/signing.service.v1.SigningSessionService/CompleteCertificateSetup"
 )
 
 // SigningSessionServiceClient is the client API for SigningSessionService service.
@@ -39,6 +41,10 @@ type SigningSessionServiceClient interface {
 	PrepareForBissSigning(ctx context.Context, in *PrepareForBissSigningRequest, opts ...grpc.CallOption) (*PrepareForBissSigningResponse, error)
 	// Complete BISS signing — embeds external PKCS#7 signature into the PDF
 	CompleteBissSigning(ctx context.Context, in *CompleteBissSigningRequest, opts ...grpc.CallOption) (*CompleteBissSigningResponse, error)
+	// Get certificate setup page data (public, by setup token)
+	GetCertificateSetup(ctx context.Context, in *GetCertificateSetupRequest, opts ...grpc.CallOption) (*GetCertificateSetupResponse, error)
+	// Submit PIN and create certificate (public, by setup token)
+	CompleteCertificateSetup(ctx context.Context, in *CompleteCertificateSetupRequest, opts ...grpc.CallOption) (*CompleteCertificateSetupResponse, error)
 }
 
 type signingSessionServiceClient struct {
@@ -89,6 +95,26 @@ func (c *signingSessionServiceClient) CompleteBissSigning(ctx context.Context, i
 	return out, nil
 }
 
+func (c *signingSessionServiceClient) GetCertificateSetup(ctx context.Context, in *GetCertificateSetupRequest, opts ...grpc.CallOption) (*GetCertificateSetupResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCertificateSetupResponse)
+	err := c.cc.Invoke(ctx, SigningSessionService_GetCertificateSetup_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *signingSessionServiceClient) CompleteCertificateSetup(ctx context.Context, in *CompleteCertificateSetupRequest, opts ...grpc.CallOption) (*CompleteCertificateSetupResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CompleteCertificateSetupResponse)
+	err := c.cc.Invoke(ctx, SigningSessionService_CompleteCertificateSetup_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SigningSessionServiceServer is the server API for SigningSessionService service.
 // All implementations must embed UnimplementedSigningSessionServiceServer
 // for forward compatibility.
@@ -103,6 +129,10 @@ type SigningSessionServiceServer interface {
 	PrepareForBissSigning(context.Context, *PrepareForBissSigningRequest) (*PrepareForBissSigningResponse, error)
 	// Complete BISS signing — embeds external PKCS#7 signature into the PDF
 	CompleteBissSigning(context.Context, *CompleteBissSigningRequest) (*CompleteBissSigningResponse, error)
+	// Get certificate setup page data (public, by setup token)
+	GetCertificateSetup(context.Context, *GetCertificateSetupRequest) (*GetCertificateSetupResponse, error)
+	// Submit PIN and create certificate (public, by setup token)
+	CompleteCertificateSetup(context.Context, *CompleteCertificateSetupRequest) (*CompleteCertificateSetupResponse, error)
 	mustEmbedUnimplementedSigningSessionServiceServer()
 }
 
@@ -124,6 +154,12 @@ func (UnimplementedSigningSessionServiceServer) PrepareForBissSigning(context.Co
 }
 func (UnimplementedSigningSessionServiceServer) CompleteBissSigning(context.Context, *CompleteBissSigningRequest) (*CompleteBissSigningResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CompleteBissSigning not implemented")
+}
+func (UnimplementedSigningSessionServiceServer) GetCertificateSetup(context.Context, *GetCertificateSetupRequest) (*GetCertificateSetupResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetCertificateSetup not implemented")
+}
+func (UnimplementedSigningSessionServiceServer) CompleteCertificateSetup(context.Context, *CompleteCertificateSetupRequest) (*CompleteCertificateSetupResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CompleteCertificateSetup not implemented")
 }
 func (UnimplementedSigningSessionServiceServer) mustEmbedUnimplementedSigningSessionServiceServer() {}
 func (UnimplementedSigningSessionServiceServer) testEmbeddedByValue()                               {}
@@ -218,6 +254,42 @@ func _SigningSessionService_CompleteBissSigning_Handler(srv interface{}, ctx con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SigningSessionService_GetCertificateSetup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCertificateSetupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SigningSessionServiceServer).GetCertificateSetup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SigningSessionService_GetCertificateSetup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SigningSessionServiceServer).GetCertificateSetup(ctx, req.(*GetCertificateSetupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SigningSessionService_CompleteCertificateSetup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompleteCertificateSetupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SigningSessionServiceServer).CompleteCertificateSetup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SigningSessionService_CompleteCertificateSetup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SigningSessionServiceServer).CompleteCertificateSetup(ctx, req.(*CompleteCertificateSetupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SigningSessionService_ServiceDesc is the grpc.ServiceDesc for SigningSessionService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -240,6 +312,14 @@ var SigningSessionService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CompleteBissSigning",
 			Handler:    _SigningSessionService_CompleteBissSigning_Handler,
+		},
+		{
+			MethodName: "GetCertificateSetup",
+			Handler:    _SigningSessionService_GetCertificateSetup_Handler,
+		},
+		{
+			MethodName: "CompleteCertificateSetup",
+			Handler:    _SigningSessionService_CompleteCertificateSetup_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

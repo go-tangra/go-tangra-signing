@@ -332,6 +332,10 @@ func (m *GetSigningSessionResponse) validate(all bool) error {
 
 	// no validation rules for Status
 
+	// no validation rules for SigningMethod
+
+	// no validation rules for CertificateReady
+
 	if len(errors) > 0 {
 		return GetSigningSessionResponseMultiError(errors)
 	}
@@ -577,6 +581,8 @@ func (m *SubmitSigningRequest) validate(all bool) error {
 	}
 
 	// no validation rules for SignatureImage
+
+	// no validation rules for Pin
 
 	if len(errors) > 0 {
 		return SubmitSigningRequestMultiError(errors)
@@ -1228,3 +1234,436 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = CompleteBissSigningResponseValidationError{}
+
+// Validate checks the field values on GetCertificateSetupRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *GetCertificateSetupRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on GetCertificateSetupRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// GetCertificateSetupRequestMultiError, or nil if none found.
+func (m *GetCertificateSetupRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GetCertificateSetupRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Token
+
+	if len(errors) > 0 {
+		return GetCertificateSetupRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// GetCertificateSetupRequestMultiError is an error wrapping multiple
+// validation errors returned by GetCertificateSetupRequest.ValidateAll() if
+// the designated constraints aren't met.
+type GetCertificateSetupRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GetCertificateSetupRequestMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GetCertificateSetupRequestMultiError) AllErrors() []error { return m }
+
+// GetCertificateSetupRequestValidationError is the validation error returned
+// by GetCertificateSetupRequest.Validate if the designated constraints aren't met.
+type GetCertificateSetupRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e GetCertificateSetupRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e GetCertificateSetupRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e GetCertificateSetupRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e GetCertificateSetupRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e GetCertificateSetupRequestValidationError) ErrorName() string {
+	return "GetCertificateSetupRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e GetCertificateSetupRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sGetCertificateSetupRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = GetCertificateSetupRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = GetCertificateSetupRequestValidationError{}
+
+// Validate checks the field values on GetCertificateSetupResponse with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *GetCertificateSetupResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on GetCertificateSetupResponse with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// GetCertificateSetupResponseMultiError, or nil if none found.
+func (m *GetCertificateSetupResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GetCertificateSetupResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for SignerName
+
+	// no validation rules for SignerEmail
+
+	// no validation rules for Status
+
+	// no validation rules for Message
+
+	if len(errors) > 0 {
+		return GetCertificateSetupResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// GetCertificateSetupResponseMultiError is an error wrapping multiple
+// validation errors returned by GetCertificateSetupResponse.ValidateAll() if
+// the designated constraints aren't met.
+type GetCertificateSetupResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GetCertificateSetupResponseMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GetCertificateSetupResponseMultiError) AllErrors() []error { return m }
+
+// GetCertificateSetupResponseValidationError is the validation error returned
+// by GetCertificateSetupResponse.Validate if the designated constraints
+// aren't met.
+type GetCertificateSetupResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e GetCertificateSetupResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e GetCertificateSetupResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e GetCertificateSetupResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e GetCertificateSetupResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e GetCertificateSetupResponseValidationError) ErrorName() string {
+	return "GetCertificateSetupResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e GetCertificateSetupResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sGetCertificateSetupResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = GetCertificateSetupResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = GetCertificateSetupResponseValidationError{}
+
+// Validate checks the field values on CompleteCertificateSetupRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *CompleteCertificateSetupRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CompleteCertificateSetupRequest with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// CompleteCertificateSetupRequestMultiError, or nil if none found.
+func (m *CompleteCertificateSetupRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CompleteCertificateSetupRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Token
+
+	// no validation rules for Pin
+
+	if len(errors) > 0 {
+		return CompleteCertificateSetupRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// CompleteCertificateSetupRequestMultiError is an error wrapping multiple
+// validation errors returned by CompleteCertificateSetupRequest.ValidateAll()
+// if the designated constraints aren't met.
+type CompleteCertificateSetupRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CompleteCertificateSetupRequestMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CompleteCertificateSetupRequestMultiError) AllErrors() []error { return m }
+
+// CompleteCertificateSetupRequestValidationError is the validation error
+// returned by CompleteCertificateSetupRequest.Validate if the designated
+// constraints aren't met.
+type CompleteCertificateSetupRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e CompleteCertificateSetupRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e CompleteCertificateSetupRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e CompleteCertificateSetupRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e CompleteCertificateSetupRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e CompleteCertificateSetupRequestValidationError) ErrorName() string {
+	return "CompleteCertificateSetupRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e CompleteCertificateSetupRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCompleteCertificateSetupRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = CompleteCertificateSetupRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = CompleteCertificateSetupRequestValidationError{}
+
+// Validate checks the field values on CompleteCertificateSetupResponse with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
+func (m *CompleteCertificateSetupResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CompleteCertificateSetupResponse with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// CompleteCertificateSetupResponseMultiError, or nil if none found.
+func (m *CompleteCertificateSetupResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CompleteCertificateSetupResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Completed
+
+	// no validation rules for CertificateCn
+
+	// no validation rules for Message
+
+	if len(errors) > 0 {
+		return CompleteCertificateSetupResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// CompleteCertificateSetupResponseMultiError is an error wrapping multiple
+// validation errors returned by
+// CompleteCertificateSetupResponse.ValidateAll() if the designated
+// constraints aren't met.
+type CompleteCertificateSetupResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CompleteCertificateSetupResponseMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CompleteCertificateSetupResponseMultiError) AllErrors() []error { return m }
+
+// CompleteCertificateSetupResponseValidationError is the validation error
+// returned by CompleteCertificateSetupResponse.Validate if the designated
+// constraints aren't met.
+type CompleteCertificateSetupResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e CompleteCertificateSetupResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e CompleteCertificateSetupResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e CompleteCertificateSetupResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e CompleteCertificateSetupResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e CompleteCertificateSetupResponseValidationError) ErrorName() string {
+	return "CompleteCertificateSetupResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e CompleteCertificateSetupResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCompleteCertificateSetupResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = CompleteCertificateSetupResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = CompleteCertificateSetupResponseValidationError{}

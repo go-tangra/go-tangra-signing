@@ -8,7 +8,7 @@
  */
 
 import { ref, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { Modal } from 'ant-design-vue';
 
 import { getSigningSession, submitSigning } from '../../api/session-client';
@@ -20,6 +20,7 @@ import SigningPanel from './components/SigningPanel.vue';
 import SignatureCanvas from './components/SignatureCanvas.vue';
 
 const route = useRoute();
+const router = useRouter();
 const token = route.params.token as string;
 
 const session = ref<SigningSession | null>(null);
@@ -28,10 +29,15 @@ const errorMessage = ref('');
 const submitting = ref(false);
 const resultMessage = ref('');
 const showSignatureModal = ref(false);
+const showPinModal = ref(false);
+const pinInput = ref('');
+const pinError = ref('');
 const pdfViewerRef = ref<InstanceType<typeof SessionPdfViewer> | null>(null);
 
 const signingFlow = useSigningFlow();
 const biss = useBiss();
+
+const requiresPin = ref(false);
 
 async function handleBissSign(): Promise<void> {
   showSignatureModal.value = false;
@@ -77,6 +83,15 @@ async function loadSession(): Promise<void> {
       return;
     }
 
+    // Check signing method — if LOCAL_CERT and cert not ready, redirect to setup
+    if (data.signingMethod === 'LOCAL_CERT' && !data.certificateReady) {
+      errorMessage.value =
+        'Your signing certificate is not set up yet. Please check your email for the certificate setup link.';
+      pageState.value = 'error';
+      return;
+    }
+
+    requiresPin.value = data.signingMethod === 'LOCAL_CERT';
     signingFlow.initFields(data.fields);
     pageState.value = 'signing';
   } catch (err: any) {
@@ -155,14 +170,47 @@ function scrollToActiveField(): void {
 async function handleSubmit(): Promise<void> {
   if (!signingFlow.canSubmit.value) return;
 
+  // If local cert signing, show PIN modal first
+  if (requiresPin.value) {
+    pinInput.value = '';
+    pinError.value = '';
+    showPinModal.value = true;
+    return;
+  }
+
+  await doSubmit();
+}
+
+async function handlePinSubmit(): Promise<void> {
+  if (pinInput.value.length < 4) {
+    pinError.value = 'PIN must be at least 4 characters';
+    return;
+  }
+  pinError.value = '';
+  showPinModal.value = false;
+  await doSubmit(pinInput.value);
+}
+
+async function doSubmit(pin?: string): Promise<void> {
   submitting.value = true;
+  errorMessage.value = '';
   try {
     const payload = signingFlow.buildSubmitPayload();
-    const result = await submitSigning(token, payload);
+    const result = await submitSigning(token, {
+      ...payload,
+      ...(pin ? { pin } : {}),
+    });
     resultMessage.value = result.message || 'Document signed successfully!';
     pageState.value = 'completed';
   } catch (err: any) {
-    errorMessage.value = err?.message ?? 'Failed to submit signature';
+    const msg = err?.message ?? 'Failed to submit signature';
+    // If PIN was wrong, re-show the modal
+    if (pin && msg.toLowerCase().includes('pin')) {
+      pinError.value = msg;
+      showPinModal.value = true;
+    } else {
+      errorMessage.value = msg;
+    }
   } finally {
     submitting.value = false;
   }
@@ -279,6 +327,49 @@ onMounted(() => {
         </button>
       </div>
     </Modal>
+
+    <!-- PIN modal for local certificate signing -->
+    <Modal
+      v-model:open="showPinModal"
+      title="Enter your certificate PIN"
+      width="400px"
+      :footer="null"
+      :maskClosable="false"
+    >
+      <div class="session-page__pin-modal">
+        <p class="session-page__pin-description">
+          Enter the PIN you set when creating your signing certificate.
+        </p>
+        <form @submit.prevent="handlePinSubmit">
+          <input
+            v-model="pinInput"
+            type="password"
+            class="session-page__pin-input"
+            placeholder="Enter PIN"
+            autocomplete="current-password"
+            autofocus
+          />
+          <div v-if="pinError" class="session-page__pin-error">{{ pinError }}</div>
+          <div class="session-page__pin-actions">
+            <button
+              type="button"
+              class="session-page__pin-cancel"
+              @click="showPinModal = false"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="session-page__pin-submit"
+              :disabled="pinInput.length < 4 || submitting"
+            >
+              <template v-if="submitting">Signing...</template>
+              <template v-else>Sign Document</template>
+            </button>
+          </div>
+        </form>
+      </div>
+    </Modal>
   </div>
 </template>
 
@@ -287,7 +378,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: #f5f5f5;
+  background: hsl(var(--background-deep));
 }
 
 .session-page__header {
@@ -298,33 +389,33 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 10px 20px;
-  background: #fff;
-  border-bottom: 1px solid #e5e7eb;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  background: hsl(var(--header));
+  border-bottom: 1px solid hsl(var(--border));
+  box-shadow: 0 1px 3px hsl(var(--foreground) / 0.06);
 }
 
 .session-page__title {
   font-size: 1.0625rem;
   font-weight: 600;
-  color: #1f2937;
+  color: hsl(var(--foreground));
   margin: 0;
 }
 
 .session-page__signer-info {
   font-size: 0.8125rem;
-  color: #6b7280;
+  color: hsl(var(--muted-foreground));
 }
 
 .session-page__signer-info strong {
-  color: #374151;
+  color: hsl(var(--foreground));
 }
 
 .session-page__message-banner {
   margin: 12px 16px 0;
   padding: 10px 14px;
-  border-radius: 8px;
-  background: #eff6ff;
-  color: #1d4ed8;
+  border-radius: var(--radius);
+  background: hsl(var(--primary) / 0.08);
+  color: hsl(var(--primary));
   font-size: 0.8125rem;
 }
 
@@ -348,29 +439,29 @@ onMounted(() => {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: rgba(22, 119, 255, 0.1);
+  background: hsl(var(--primary) / 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 2rem;
-  color: #1677ff;
+  color: hsl(var(--primary));
 }
 
 .session-page__status-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #1f2937;
+  color: hsl(var(--foreground));
   text-align: center;
 }
 
 .session-page__status-text {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: hsl(var(--muted-foreground));
   text-align: center;
 }
 
 .session-page__status--error .session-page__status-title {
-  color: #ef4444;
+  color: hsl(var(--destructive));
 }
 
 .session-page__error-toast {
@@ -379,11 +470,11 @@ onMounted(() => {
   left: 50%;
   transform: translateX(-50%);
   padding: 10px 20px;
-  background: #ef4444;
-  color: #fff;
-  border-radius: 8px;
+  background: hsl(var(--destructive));
+  color: hsl(var(--destructive-foreground, 0 0% 100%));
+  border-radius: var(--radius);
   font-size: 0.8125rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px hsl(var(--foreground) / 0.2);
   z-index: 100;
 }
 
@@ -398,14 +489,89 @@ onMounted(() => {
   font-size: 0.8125rem;
   font-weight: 500;
   border: none;
-  border-radius: 6px;
-  background: #1677ff;
-  color: #fff;
+  border-radius: var(--radius);
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
   cursor: pointer;
   transition: opacity 0.15s;
 }
 
 .session-page__modal-done-btn:hover {
   opacity: 0.9;
+}
+
+.session-page__pin-modal {
+  padding: 4px 0;
+}
+
+.session-page__pin-description {
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+
+.session-page__pin-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid hsl(var(--input));
+  border-radius: var(--radius);
+  background: hsl(var(--background));
+  font-size: 0.9375rem;
+  color: hsl(var(--foreground));
+  outline: none;
+  letter-spacing: 2px;
+}
+
+.session-page__pin-input:focus {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.1);
+}
+
+.session-page__pin-error {
+  font-size: 0.8125rem;
+  color: hsl(var(--destructive));
+  margin-top: 8px;
+}
+
+.session-page__pin-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.session-page__pin-cancel {
+  padding: 8px 16px;
+  font-size: 0.8125rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  cursor: pointer;
+}
+
+.session-page__pin-cancel:hover {
+  background: hsl(var(--muted));
+}
+
+.session-page__pin-submit {
+  padding: 8px 20px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius);
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  cursor: pointer;
+}
+
+.session-page__pin-submit:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.session-page__pin-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

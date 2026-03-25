@@ -160,6 +160,8 @@ github.com/mattn/go-sqlite3 v1.14.28 h1:ThEiQrnbtumT+QMknw63Befp/ce/nUPgBPMlRFEu
 github.com/mattn/go-sqlite3 v1.14.28/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
 github.com/menta2k/go-pdfplumber v0.0.0-20260322062525-72c744524563 h1:d8F1N7IpdUgMYdswVzcuDCNjIGjkpXcfI86hDgy+cfo=
 github.com/menta2k/go-pdfplumber v0.0.0-20260322062525-72c744524563/go.mod h1:SDvaxt7Q+eKPEbHsCl8uwlQftCXmd6kxtNnPC/Z7KyM=
+github.com/menta2k/go-transliteration v0.0.0-20260325071158-812b44907811 h1:cTeCkMPuKBNfNVUuRtsARaXES6puj4rOgWgfWliA3SE=
+github.com/menta2k/go-transliteration v0.0.0-20260325071158-812b44907811/go.mod h1:N7udTa81Q5AOyZsCHsAOI8QDnTui0OeK+vwJ4IPIY2s=
 github.com/menta2k/protoc-gen-redact/v3 v3.0.0-20251106150014-896cdd075ab1 h1:UInq/GaLcnw3UTqgsgDIXKUBtEegiTy/Dm7o8xgWKL4=
 github.com/menta2k/protoc-gen-redact/v3 v3.0.0-20251106150014-896cdd075ab1/go.mod h1:OGHWYC2YBsdFicilB+WJmMPFKzQhb/kApNODeu0vgEU=
 github.com/minio/crc64nvme v1.1.1 h1:8dwx/Pz49suywbO+auHCBpCtlW1OfpcLN7wYgVR6wAI=

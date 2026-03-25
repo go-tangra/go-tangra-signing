@@ -47,6 +47,9 @@ message Certificate {
   string cert_pem = 11 [json_name = "certPem"];
   google.protobuf.Timestamp revoked_at = 12 [json_name = "revokedAt"];
   google.protobuf.Timestamp create_time = 13 [json_name = "createTime"];
+  string user_email = 14 [json_name = "userEmail"];
+  string user_id = 15 [json_name = "userId"];
+  bool setup_completed = 16 [json_name = "setupCompleted"];
 }
 
 // Service messages

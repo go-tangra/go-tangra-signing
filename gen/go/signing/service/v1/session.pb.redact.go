@@ -20,6 +20,7 @@ var (
 	_ codes.Code
 	_ status.Status
 	_ annotations.FieldBehavior
+	_ redact.FieldRules
 )
 
 // RegisterRedactedSigningSessionServiceServer wraps the SigningSessionServiceServer with the redacted server and registers the service in GRPC
@@ -77,6 +78,28 @@ func (s *redactedSigningSessionServiceServer) PrepareForBissSigning(ctx context.
 // Unary RPC
 func (s *redactedSigningSessionServiceServer) CompleteBissSigning(ctx context.Context, in *CompleteBissSigningRequest) (*CompleteBissSigningResponse, error) {
 	res, err := s.srv.CompleteBissSigning(ctx, in)
+	if !s.bypass.CheckInternal(ctx) {
+		// Apply redaction to the response
+		redact.Apply(res)
+	}
+	return res, err
+}
+
+// GetCertificateSetup is the redacted wrapper for the actual SigningSessionServiceServer.GetCertificateSetup method
+// Unary RPC
+func (s *redactedSigningSessionServiceServer) GetCertificateSetup(ctx context.Context, in *GetCertificateSetupRequest) (*GetCertificateSetupResponse, error) {
+	res, err := s.srv.GetCertificateSetup(ctx, in)
+	if !s.bypass.CheckInternal(ctx) {
+		// Apply redaction to the response
+		redact.Apply(res)
+	}
+	return res, err
+}
+
+// CompleteCertificateSetup is the redacted wrapper for the actual SigningSessionServiceServer.CompleteCertificateSetup method
+// Unary RPC
+func (s *redactedSigningSessionServiceServer) CompleteCertificateSetup(ctx context.Context, in *CompleteCertificateSetupRequest) (*CompleteCertificateSetupResponse, error) {
+	res, err := s.srv.CompleteCertificateSetup(ctx, in)
 	if !s.bypass.CheckInternal(ctx) {
 		// Apply redaction to the response
 		redact.Apply(res)
@@ -147,6 +170,10 @@ func (x *GetSigningSessionResponse) Redact() string {
 	// Safe field: Message
 
 	// Safe field: Status
+
+	// Safe field: SigningMethod
+
+	// Safe field: CertificateReady
 	return x.String()
 }
 
@@ -173,6 +200,9 @@ func (x *SubmitSigningRequest) Redact() string {
 	// Safe field: FieldValues
 
 	// Safe field: SignatureImage
+
+	// Redacting field: Pin
+	x.Pin = ``
 	return x.String()
 }
 
@@ -241,6 +271,59 @@ func (x *CompleteBissSigningResponse) Redact() string {
 	}
 
 	// Safe field: Completed
+
+	// Safe field: Message
+	return x.String()
+}
+
+// Redact method implementation for GetCertificateSetupRequest
+func (x *GetCertificateSetupRequest) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: Token
+	return x.String()
+}
+
+// Redact method implementation for GetCertificateSetupResponse
+func (x *GetCertificateSetupResponse) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: SignerName
+
+	// Safe field: SignerEmail
+
+	// Safe field: Status
+
+	// Safe field: Message
+	return x.String()
+}
+
+// Redact method implementation for CompleteCertificateSetupRequest
+func (x *CompleteCertificateSetupRequest) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: Token
+
+	// Redacting field: Pin
+	x.Pin = ``
+	return x.String()
+}
+
+// Redact method implementation for CompleteCertificateSetupResponse
+func (x *CompleteCertificateSetupResponse) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: Completed
+
+	// Safe field: CertificateCn
 
 	// Safe field: Message
 	return x.String()

@@ -4,6 +4,7 @@ package signing.service.v1;
 
 import "google/api/annotations.proto";
 import "google/api/field_behavior.proto";
+import "redact/v3/redact.proto";
 
 // Document Service - PDF signing and verification with X.509/PKCS7/PAdES
 service SigningDocumentService {
@@ -52,7 +53,7 @@ message SignDocumentRequest {
   string contact_info = 6;
   string tsa_url = 7;
   string tsa_username = 8;
-  string tsa_password = 9;
+  string tsa_password = 9 [(redact.v3.value).string = ""];
 }
 
 message SignDocumentResponse {

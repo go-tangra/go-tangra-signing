@@ -7,6 +7,7 @@
 package signingpb
 
 import (
+	_ "github.com/menta2k/protoc-gen-redact/v3/redact/v3"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -200,17 +201,19 @@ func (x *GetSigningSessionRequest) GetToken() string {
 }
 
 type GetSigningSessionResponse struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	SubmissionName string                 `protobuf:"bytes,1,opt,name=submission_name,json=submissionName,proto3" json:"submission_name,omitempty"`
-	TemplateName   string                 `protobuf:"bytes,2,opt,name=template_name,json=templateName,proto3" json:"template_name,omitempty"`
-	DocumentUrl    string                 `protobuf:"bytes,3,opt,name=document_url,json=documentUrl,proto3" json:"document_url,omitempty"`
-	SignerName     string                 `protobuf:"bytes,4,opt,name=signer_name,json=signerName,proto3" json:"signer_name,omitempty"`
-	SignerEmail    string                 `protobuf:"bytes,5,opt,name=signer_email,json=signerEmail,proto3" json:"signer_email,omitempty"`
-	Fields         []*SessionField        `protobuf:"bytes,6,rep,name=fields,proto3" json:"fields,omitempty"`
-	Message        string                 `protobuf:"bytes,7,opt,name=message,proto3" json:"message,omitempty"`
-	Status         string                 `protobuf:"bytes,8,opt,name=status,proto3" json:"status,omitempty"` // PENDING, OPENED, COMPLETED, DECLINED
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	SubmissionName   string                 `protobuf:"bytes,1,opt,name=submission_name,json=submissionName,proto3" json:"submission_name,omitempty"`
+	TemplateName     string                 `protobuf:"bytes,2,opt,name=template_name,json=templateName,proto3" json:"template_name,omitempty"`
+	DocumentUrl      string                 `protobuf:"bytes,3,opt,name=document_url,json=documentUrl,proto3" json:"document_url,omitempty"`
+	SignerName       string                 `protobuf:"bytes,4,opt,name=signer_name,json=signerName,proto3" json:"signer_name,omitempty"`
+	SignerEmail      string                 `protobuf:"bytes,5,opt,name=signer_email,json=signerEmail,proto3" json:"signer_email,omitempty"`
+	Fields           []*SessionField        `protobuf:"bytes,6,rep,name=fields,proto3" json:"fields,omitempty"`
+	Message          string                 `protobuf:"bytes,7,opt,name=message,proto3" json:"message,omitempty"`
+	Status           string                 `protobuf:"bytes,8,opt,name=status,proto3" json:"status,omitempty"`                                               // PENDING, OPENED, COMPLETED, DECLINED
+	SigningMethod    string                 `protobuf:"bytes,9,opt,name=signing_method,json=signingMethod,proto3" json:"signing_method,omitempty"`            // LOCAL_CERT, BISS, SIMPLE
+	CertificateReady bool                   `protobuf:"varint,10,opt,name=certificate_ready,json=certificateReady,proto3" json:"certificate_ready,omitempty"` // true if cert exists and setup complete
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *GetSigningSessionResponse) Reset() {
@@ -299,6 +302,20 @@ func (x *GetSigningSessionResponse) GetStatus() string {
 	return ""
 }
 
+func (x *GetSigningSessionResponse) GetSigningMethod() string {
+	if x != nil {
+		return x.SigningMethod
+	}
+	return ""
+}
+
+func (x *GetSigningSessionResponse) GetCertificateReady() bool {
+	if x != nil {
+		return x.CertificateReady
+	}
+	return false
+}
+
 type FieldValueSubmission struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	FieldId       string                 `protobuf:"bytes,1,opt,name=field_id,json=fieldId,proto3" json:"field_id,omitempty"`
@@ -356,6 +373,7 @@ type SubmitSigningRequest struct {
 	Token          string                  `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
 	FieldValues    []*FieldValueSubmission `protobuf:"bytes,2,rep,name=field_values,json=fieldValues,proto3" json:"field_values,omitempty"`
 	SignatureImage []byte                  `protobuf:"bytes,3,opt,name=signature_image,json=signatureImage,proto3" json:"signature_image,omitempty"` // Base64-encoded PNG
+	Pin            string                  `protobuf:"bytes,4,opt,name=pin,proto3" json:"pin,omitempty"`                                             // PIN to decrypt the local signing certificate
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -409,6 +427,13 @@ func (x *SubmitSigningRequest) GetSignatureImage() []byte {
 		return x.SignatureImage
 	}
 	return nil
+}
+
+func (x *SubmitSigningRequest) GetPin() string {
+	if x != nil {
+		return x.Pin
+	}
+	return ""
 }
 
 type SubmitSigningResponse struct {
@@ -711,11 +736,235 @@ func (x *CompleteBissSigningResponse) GetMessage() string {
 	return ""
 }
 
+type GetCertificateSetupRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCertificateSetupRequest) Reset() {
+	*x = GetCertificateSetupRequest{}
+	mi := &file_signing_service_v1_session_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCertificateSetupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCertificateSetupRequest) ProtoMessage() {}
+
+func (x *GetCertificateSetupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_signing_service_v1_session_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCertificateSetupRequest.ProtoReflect.Descriptor instead.
+func (*GetCertificateSetupRequest) Descriptor() ([]byte, []int) {
+	return file_signing_service_v1_session_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *GetCertificateSetupRequest) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+type GetCertificateSetupResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SignerName    string                 `protobuf:"bytes,1,opt,name=signer_name,json=signerName,proto3" json:"signer_name,omitempty"`
+	SignerEmail   string                 `protobuf:"bytes,2,opt,name=signer_email,json=signerEmail,proto3" json:"signer_email,omitempty"`
+	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"` // PENDING_SETUP, COMPLETED, EXPIRED
+	Message       string                 `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCertificateSetupResponse) Reset() {
+	*x = GetCertificateSetupResponse{}
+	mi := &file_signing_service_v1_session_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCertificateSetupResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCertificateSetupResponse) ProtoMessage() {}
+
+func (x *GetCertificateSetupResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_signing_service_v1_session_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCertificateSetupResponse.ProtoReflect.Descriptor instead.
+func (*GetCertificateSetupResponse) Descriptor() ([]byte, []int) {
+	return file_signing_service_v1_session_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *GetCertificateSetupResponse) GetSignerName() string {
+	if x != nil {
+		return x.SignerName
+	}
+	return ""
+}
+
+func (x *GetCertificateSetupResponse) GetSignerEmail() string {
+	if x != nil {
+		return x.SignerEmail
+	}
+	return ""
+}
+
+func (x *GetCertificateSetupResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *GetCertificateSetupResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type CompleteCertificateSetupRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	Pin           string                 `protobuf:"bytes,2,opt,name=pin,proto3" json:"pin,omitempty"` // User-chosen PIN (min 4 chars)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompleteCertificateSetupRequest) Reset() {
+	*x = CompleteCertificateSetupRequest{}
+	mi := &file_signing_service_v1_session_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompleteCertificateSetupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompleteCertificateSetupRequest) ProtoMessage() {}
+
+func (x *CompleteCertificateSetupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_signing_service_v1_session_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompleteCertificateSetupRequest.ProtoReflect.Descriptor instead.
+func (*CompleteCertificateSetupRequest) Descriptor() ([]byte, []int) {
+	return file_signing_service_v1_session_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *CompleteCertificateSetupRequest) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *CompleteCertificateSetupRequest) GetPin() string {
+	if x != nil {
+		return x.Pin
+	}
+	return ""
+}
+
+type CompleteCertificateSetupResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Completed     bool                   `protobuf:"varint,1,opt,name=completed,proto3" json:"completed,omitempty"`
+	CertificateCn string                 `protobuf:"bytes,2,opt,name=certificate_cn,json=certificateCn,proto3" json:"certificate_cn,omitempty"`
+	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompleteCertificateSetupResponse) Reset() {
+	*x = CompleteCertificateSetupResponse{}
+	mi := &file_signing_service_v1_session_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompleteCertificateSetupResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompleteCertificateSetupResponse) ProtoMessage() {}
+
+func (x *CompleteCertificateSetupResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_signing_service_v1_session_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompleteCertificateSetupResponse.ProtoReflect.Descriptor instead.
+func (*CompleteCertificateSetupResponse) Descriptor() ([]byte, []int) {
+	return file_signing_service_v1_session_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *CompleteCertificateSetupResponse) GetCompleted() bool {
+	if x != nil {
+		return x.Completed
+	}
+	return false
+}
+
+func (x *CompleteCertificateSetupResponse) GetCertificateCn() string {
+	if x != nil {
+		return x.CertificateCn
+	}
+	return ""
+}
+
+func (x *CompleteCertificateSetupResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 var File_signing_service_v1_session_proto protoreflect.FileDescriptor
 
 const file_signing_service_v1_session_proto_rawDesc = "" +
 	"\n" +
-	" signing/service/v1/session.proto\x12\x12signing.service.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\"\xee\x02\n" +
+	" signing/service/v1/session.proto\x12\x12signing.service.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x16redact/v3/redact.proto\"\xee\x02\n" +
 	"\fSessionField\x12\x19\n" +
 	"\bfield_id\x18\x01 \x01(\tR\afieldId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
@@ -732,7 +981,7 @@ const file_signing_service_v1_session_proto_rawDesc = "" +
 	"\x04font\x18\v \x01(\tR\x04font\x12\x1b\n" +
 	"\tfont_size\x18\f \x01(\x01R\bfontSize\"5\n" +
 	"\x18GetSigningSessionRequest\x12\x19\n" +
-	"\x05token\x18\x01 \x01(\tB\x03\xe0A\x02R\x05token\"\xbc\x02\n" +
+	"\x05token\x18\x01 \x01(\tB\x03\xe0A\x02R\x05token\"\x90\x03\n" +
 	"\x19GetSigningSessionResponse\x12'\n" +
 	"\x0fsubmission_name\x18\x01 \x01(\tR\x0esubmissionName\x12#\n" +
 	"\rtemplate_name\x18\x02 \x01(\tR\ftemplateName\x12!\n" +
@@ -742,14 +991,18 @@ const file_signing_service_v1_session_proto_rawDesc = "" +
 	"\fsigner_email\x18\x05 \x01(\tR\vsignerEmail\x128\n" +
 	"\x06fields\x18\x06 \x03(\v2 .signing.service.v1.SessionFieldR\x06fields\x12\x18\n" +
 	"\amessage\x18\a \x01(\tR\amessage\x12\x16\n" +
-	"\x06status\x18\b \x01(\tR\x06status\"G\n" +
+	"\x06status\x18\b \x01(\tR\x06status\x12%\n" +
+	"\x0esigning_method\x18\t \x01(\tR\rsigningMethod\x12+\n" +
+	"\x11certificate_ready\x18\n" +
+	" \x01(\bR\x10certificateReady\"G\n" +
 	"\x14FieldValueSubmission\x12\x19\n" +
 	"\bfield_id\x18\x01 \x01(\tR\afieldId\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value\"\xa7\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"\xc1\x01\n" +
 	"\x14SubmitSigningRequest\x12\x19\n" +
 	"\x05token\x18\x01 \x01(\tB\x03\xe0A\x02R\x05token\x12K\n" +
 	"\ffield_values\x18\x02 \x03(\v2(.signing.service.v1.FieldValueSubmissionR\vfieldValues\x12'\n" +
-	"\x0fsignature_image\x18\x03 \x01(\fR\x0esignatureImage\"O\n" +
+	"\x0fsignature_image\x18\x03 \x01(\fR\x0esignatureImage\x12\x18\n" +
+	"\x03pin\x18\x04 \x01(\tB\x06ڶ\x1a\x02z\x00R\x03pin\"O\n" +
 	"\x15SubmitSigningResponse\x12\x1c\n" +
 	"\tcompleted\x18\x01 \x01(\bR\tcompleted\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"\xc0\x01\n" +
@@ -772,12 +1025,29 @@ const file_signing_service_v1_session_proto_rawDesc = "" +
 	"\x11certificate_chain\x18\x04 \x03(\tR\x10certificateChain\"U\n" +
 	"\x1bCompleteBissSigningResponse\x12\x1c\n" +
 	"\tcompleted\x18\x01 \x01(\bR\tcompleted\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage2\xac\x05\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"7\n" +
+	"\x1aGetCertificateSetupRequest\x12\x19\n" +
+	"\x05token\x18\x01 \x01(\tB\x03\xe0A\x02R\x05token\"\x93\x01\n" +
+	"\x1bGetCertificateSetupResponse\x12\x1f\n" +
+	"\vsigner_name\x18\x01 \x01(\tR\n" +
+	"signerName\x12!\n" +
+	"\fsigner_email\x18\x02 \x01(\tR\vsignerEmail\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12\x18\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage\"Y\n" +
+	"\x1fCompleteCertificateSetupRequest\x12\x19\n" +
+	"\x05token\x18\x01 \x01(\tB\x03\xe0A\x02R\x05token\x12\x1b\n" +
+	"\x03pin\x18\x02 \x01(\tB\t\xe0A\x02ڶ\x1a\x02z\x00R\x03pin\"\x81\x01\n" +
+	" CompleteCertificateSetupResponse\x12\x1c\n" +
+	"\tcompleted\x18\x01 \x01(\bR\tcompleted\x12%\n" +
+	"\x0ecertificate_cn\x18\x02 \x01(\tR\rcertificateCn\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage2\x8e\b\n" +
 	"\x15SigningSessionService\x12\x96\x01\n" +
 	"\x11GetSigningSession\x12,.signing.service.v1.GetSigningSessionRequest\x1a-.signing.service.v1.GetSigningSessionResponse\"$\x82\xd3\xe4\x93\x02\x1e\x12\x1c/v1/signing/sessions/{token}\x12\x94\x01\n" +
 	"\rSubmitSigning\x12(.signing.service.v1.SubmitSigningRequest\x1a).signing.service.v1.SubmitSigningResponse\".\x82\xd3\xe4\x93\x02(:\x01*\"#/v1/signing/sessions/{token}/submit\x12\xb2\x01\n" +
 	"\x15PrepareForBissSigning\x120.signing.service.v1.PrepareForBissSigningRequest\x1a1.signing.service.v1.PrepareForBissSigningResponse\"4\x82\xd3\xe4\x93\x02.:\x01*\")/v1/signing/sessions/{token}/prepare-biss\x12\xad\x01\n" +
-	"\x13CompleteBissSigning\x12..signing.service.v1.CompleteBissSigningRequest\x1a/.signing.service.v1.CompleteBissSigningResponse\"5\x82\xd3\xe4\x93\x02/:\x01*\"*/v1/signing/sessions/{token}/complete-bissB\xdc\x01\n" +
+	"\x13CompleteBissSigning\x12..signing.service.v1.CompleteBissSigningRequest\x1a/.signing.service.v1.CompleteBissSigningResponse\"5\x82\xd3\xe4\x93\x02/:\x01*\"*/v1/signing/sessions/{token}/complete-biss\x12\xa5\x01\n" +
+	"\x13GetCertificateSetup\x12..signing.service.v1.GetCertificateSetupRequest\x1a/.signing.service.v1.GetCertificateSetupResponse\"-\x82\xd3\xe4\x93\x02'\x12%/v1/signing/certificate-setup/{token}\x12\xb7\x01\n" +
+	"\x18CompleteCertificateSetup\x123.signing.service.v1.CompleteCertificateSetupRequest\x1a4.signing.service.v1.CompleteCertificateSetupResponse\"0\x82\xd3\xe4\x93\x02*:\x01*\"%/v1/signing/certificate-setup/{token}B\xdc\x01\n" +
 	"\x16com.signing.service.v1B\fSessionProtoP\x01ZJgithub.com/go-tangra/go-tangra-signing/gen/go/signing/service/v1;signingpb\xa2\x02\x03SSX\xaa\x02\x12Signing.Service.V1\xca\x02\x12Signing\\Service\\V1\xe2\x02\x1eSigning\\Service\\V1\\GPBMetadata\xea\x02\x14Signing::Service::V1b\x06proto3"
 
 var (
@@ -792,36 +1062,44 @@ func file_signing_service_v1_session_proto_rawDescGZIP() []byte {
 	return file_signing_service_v1_session_proto_rawDescData
 }
 
-var file_signing_service_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_signing_service_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_signing_service_v1_session_proto_goTypes = []any{
-	(*SessionField)(nil),                  // 0: signing.service.v1.SessionField
-	(*GetSigningSessionRequest)(nil),      // 1: signing.service.v1.GetSigningSessionRequest
-	(*GetSigningSessionResponse)(nil),     // 2: signing.service.v1.GetSigningSessionResponse
-	(*FieldValueSubmission)(nil),          // 3: signing.service.v1.FieldValueSubmission
-	(*SubmitSigningRequest)(nil),          // 4: signing.service.v1.SubmitSigningRequest
-	(*SubmitSigningResponse)(nil),         // 5: signing.service.v1.SubmitSigningResponse
-	(*PrepareForBissSigningRequest)(nil),  // 6: signing.service.v1.PrepareForBissSigningRequest
-	(*PrepareForBissSigningResponse)(nil), // 7: signing.service.v1.PrepareForBissSigningResponse
-	(*CompleteBissSigningRequest)(nil),    // 8: signing.service.v1.CompleteBissSigningRequest
-	(*CompleteBissSigningResponse)(nil),   // 9: signing.service.v1.CompleteBissSigningResponse
+	(*SessionField)(nil),                     // 0: signing.service.v1.SessionField
+	(*GetSigningSessionRequest)(nil),         // 1: signing.service.v1.GetSigningSessionRequest
+	(*GetSigningSessionResponse)(nil),        // 2: signing.service.v1.GetSigningSessionResponse
+	(*FieldValueSubmission)(nil),             // 3: signing.service.v1.FieldValueSubmission
+	(*SubmitSigningRequest)(nil),             // 4: signing.service.v1.SubmitSigningRequest
+	(*SubmitSigningResponse)(nil),            // 5: signing.service.v1.SubmitSigningResponse
+	(*PrepareForBissSigningRequest)(nil),     // 6: signing.service.v1.PrepareForBissSigningRequest
+	(*PrepareForBissSigningResponse)(nil),    // 7: signing.service.v1.PrepareForBissSigningResponse
+	(*CompleteBissSigningRequest)(nil),       // 8: signing.service.v1.CompleteBissSigningRequest
+	(*CompleteBissSigningResponse)(nil),      // 9: signing.service.v1.CompleteBissSigningResponse
+	(*GetCertificateSetupRequest)(nil),       // 10: signing.service.v1.GetCertificateSetupRequest
+	(*GetCertificateSetupResponse)(nil),      // 11: signing.service.v1.GetCertificateSetupResponse
+	(*CompleteCertificateSetupRequest)(nil),  // 12: signing.service.v1.CompleteCertificateSetupRequest
+	(*CompleteCertificateSetupResponse)(nil), // 13: signing.service.v1.CompleteCertificateSetupResponse
 }
 var file_signing_service_v1_session_proto_depIdxs = []int32{
-	0, // 0: signing.service.v1.GetSigningSessionResponse.fields:type_name -> signing.service.v1.SessionField
-	3, // 1: signing.service.v1.SubmitSigningRequest.field_values:type_name -> signing.service.v1.FieldValueSubmission
-	3, // 2: signing.service.v1.PrepareForBissSigningRequest.field_values:type_name -> signing.service.v1.FieldValueSubmission
-	1, // 3: signing.service.v1.SigningSessionService.GetSigningSession:input_type -> signing.service.v1.GetSigningSessionRequest
-	4, // 4: signing.service.v1.SigningSessionService.SubmitSigning:input_type -> signing.service.v1.SubmitSigningRequest
-	6, // 5: signing.service.v1.SigningSessionService.PrepareForBissSigning:input_type -> signing.service.v1.PrepareForBissSigningRequest
-	8, // 6: signing.service.v1.SigningSessionService.CompleteBissSigning:input_type -> signing.service.v1.CompleteBissSigningRequest
-	2, // 7: signing.service.v1.SigningSessionService.GetSigningSession:output_type -> signing.service.v1.GetSigningSessionResponse
-	5, // 8: signing.service.v1.SigningSessionService.SubmitSigning:output_type -> signing.service.v1.SubmitSigningResponse
-	7, // 9: signing.service.v1.SigningSessionService.PrepareForBissSigning:output_type -> signing.service.v1.PrepareForBissSigningResponse
-	9, // 10: signing.service.v1.SigningSessionService.CompleteBissSigning:output_type -> signing.service.v1.CompleteBissSigningResponse
-	7, // [7:11] is the sub-list for method output_type
-	3, // [3:7] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	0,  // 0: signing.service.v1.GetSigningSessionResponse.fields:type_name -> signing.service.v1.SessionField
+	3,  // 1: signing.service.v1.SubmitSigningRequest.field_values:type_name -> signing.service.v1.FieldValueSubmission
+	3,  // 2: signing.service.v1.PrepareForBissSigningRequest.field_values:type_name -> signing.service.v1.FieldValueSubmission
+	1,  // 3: signing.service.v1.SigningSessionService.GetSigningSession:input_type -> signing.service.v1.GetSigningSessionRequest
+	4,  // 4: signing.service.v1.SigningSessionService.SubmitSigning:input_type -> signing.service.v1.SubmitSigningRequest
+	6,  // 5: signing.service.v1.SigningSessionService.PrepareForBissSigning:input_type -> signing.service.v1.PrepareForBissSigningRequest
+	8,  // 6: signing.service.v1.SigningSessionService.CompleteBissSigning:input_type -> signing.service.v1.CompleteBissSigningRequest
+	10, // 7: signing.service.v1.SigningSessionService.GetCertificateSetup:input_type -> signing.service.v1.GetCertificateSetupRequest
+	12, // 8: signing.service.v1.SigningSessionService.CompleteCertificateSetup:input_type -> signing.service.v1.CompleteCertificateSetupRequest
+	2,  // 9: signing.service.v1.SigningSessionService.GetSigningSession:output_type -> signing.service.v1.GetSigningSessionResponse
+	5,  // 10: signing.service.v1.SigningSessionService.SubmitSigning:output_type -> signing.service.v1.SubmitSigningResponse
+	7,  // 11: signing.service.v1.SigningSessionService.PrepareForBissSigning:output_type -> signing.service.v1.PrepareForBissSigningResponse
+	9,  // 12: signing.service.v1.SigningSessionService.CompleteBissSigning:output_type -> signing.service.v1.CompleteBissSigningResponse
+	11, // 13: signing.service.v1.SigningSessionService.GetCertificateSetup:output_type -> signing.service.v1.GetCertificateSetupResponse
+	13, // 14: signing.service.v1.SigningSessionService.CompleteCertificateSetup:output_type -> signing.service.v1.CompleteCertificateSetupResponse
+	9,  // [9:15] is the sub-list for method output_type
+	3,  // [3:9] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_signing_service_v1_session_proto_init() }
@@ -835,7 +1113,7 @@ func file_signing_service_v1_session_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_signing_service_v1_session_proto_rawDesc), len(file_signing_service_v1_session_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
