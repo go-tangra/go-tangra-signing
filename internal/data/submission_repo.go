@@ -72,9 +72,11 @@ func (r *SubmissionRepo) Create(ctx context.Context, tenantID uint32, id, templa
 				"font":            f.Font,
 				"font_size":       f.FontSize,
 			}
-			// Merge prefill value if provided for this field
+			// Merge prefill value if provided for this field (match by ID or name)
 			if prefillValues != nil {
 				if val, ok := prefillValues[f.ID]; ok && val != "" {
+					snap["prefilled_value"] = val
+				} else if val, ok := prefillValues[f.Name]; ok && val != "" {
 					snap["prefilled_value"] = val
 				}
 			}
