@@ -206,59 +206,13 @@ func (s *SessionService) PrepareForBissSigning(ctx context.Context, req *signing
 		signerName = sub.Name
 	}
 
-	// Find the signature field position from the template snapshot
-	sigAppearance := sign.Appearance{Visible: false}
-	for _, f := range submission.TemplateFieldsSnapshot {
-		fType := getStringField(f, "type")
-		fIdx := getIntField(f, "submitter_index")
-		if (fType == "signature" || fType == "initials") && fIdx == sub.SigningOrder {
-			// Convert CSS percentage coords (top-left origin) to PDF points (bottom-left origin)
-			// A4: 595.28 x 841.89 points
-			// Detect page dimensions from the PDF's MediaBox
-			pageW, pageH := detectPageSize(pdfContent)
-			xPct := getFloat64Field(f, "x_percent")
-			yPct := getFloat64Field(f, "y_percent")
-			hPct := getFloat64Field(f, "height_percent")
-			pgNum := getIntField(f, "page_number")
-			if pgNum <= 0 {
-				pgNum = 1
-			}
-
-			x := xPct / 100.0 * pageW
-			h := hPct / 100.0 * pageH
-			yTop := yPct / 100.0 * pageH
-
-			s.log.Infof("BISS stamp: page=%.0fx%.0f field=(x=%.2f%% y=%.2f%% h=%.2f%%) → PDF x=%.1f yTop=%.1f h=%.1f",
-				pageW, pageH, xPct, yPct, hPct, x, yTop, h)
-
-			// Render stamp image at fixed resolution, height determines scale
-			imgH := int(h) * 3 // 3x for crisp rendering
-			if imgH < 80 {
-				imgH = 80
-			}
-			// Width is proportional — roughly 3:1 aspect ratio for the text layout
-			imgW := imgH * 3
-			stampImg := generateSignatureStampImage(signerName, signerCert.Issuer.CommonName, fixedDate, imgW, imgH)
-
-			// PDF appearance: match the placeholder height, width auto from image aspect ratio
-			stampW := h * float64(imgW) / float64(imgH)
-
-			// Place stamp exactly at the field position
-			// yTop is distance from page top, convert to PDF bottom-left origin
-			yBottom := pageH - yTop - h
-
-			sigAppearance = sign.Appearance{
-				Visible:     true,
-				Page:        uint32(pgNum),
-				LowerLeftX:  x,
-				LowerLeftY:  yBottom,
-				UpperRightX: x + stampW,
-				UpperRightY: yBottom + h,
-				Image:       stampImg,
-			}
-			break
-		}
-	}
+	// Collect all signature fields for this submitter and build stamp placements.
+	// The first field gets the PAdES digital signature; additional fields get visual-only stamp overlays.
+	sigAppearance, pdfContent := buildSignatureAppearanceAndOverlayExtras(
+		pdfContent, submission.TemplateFieldsSnapshot, sub.SigningOrder,
+		signerName, signerCert.Issuer.CommonName, fixedDate,
+	)
+	s.log.Infof("BISS stamp: visible=%v, extra overlays applied", sigAppearance.Visible)
 
 	signData := sign.SignData{
 		Certificate: signerCert,

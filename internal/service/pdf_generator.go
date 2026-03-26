@@ -8,7 +8,9 @@ import (
 	"image"
 	_ "image/png"
 	"os"
+	"time"
 
+	"github.com/digitorus/pdfsign/sign"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/font"
@@ -336,5 +338,128 @@ func getBoolField(m map[string]interface{}, key string) bool {
 // getInt32Field safely extracts an int32 value from a map.
 func getInt32Field(m map[string]interface{}, key string) int32 {
 	return int32(getIntField(m, key))
+}
+
+// buildSignatureAppearanceAndOverlayExtras collects all signature/initials fields for a submitter,
+// uses the first for the PAdES digital signature appearance, and overlays stamp images on any
+// additional signature fields as visual-only watermarks. Returns the PAdES appearance and
+// (possibly modified) PDF content.
+func buildSignatureAppearanceAndOverlayExtras(
+	pdfContent []byte,
+	fieldsSnapshot []map[string]interface{},
+	signerOrder int,
+	signerName, issuerCN string,
+	fixedDate time.Time,
+) (sign.Appearance, []byte) {
+	// Collect all signature fields for this submitter
+	type sigField struct {
+		xPct, yPct, hPct float64
+		pgNum            int
+	}
+	var fields []sigField
+	for _, f := range fieldsSnapshot {
+		fType := getStringField(f, "type")
+		fIdx := getIntField(f, "submitter_index")
+		if (fType == "signature" || fType == "initials") && fIdx == signerOrder {
+			pgNum := getIntField(f, "page_number")
+			if pgNum <= 0 {
+				pgNum = 1
+			}
+			fields = append(fields, sigField{
+				xPct:  getFloat64Field(f, "x_percent"),
+				yPct:  getFloat64Field(f, "y_percent"),
+				hPct:  getFloat64Field(f, "height_percent"),
+				pgNum: pgNum,
+			})
+		}
+	}
+
+	if len(fields) == 0 {
+		return sign.Appearance{Visible: false}, pdfContent
+	}
+
+	pageW, pageH := detectPageSize(pdfContent)
+
+	// Helper to compute stamp dimensions for a field
+	buildStamp := func(sf sigField) (x, yBottom, stampW, h float64, stampImg []byte, pgNum int) {
+		x = sf.xPct / 100.0 * pageW
+		h = sf.hPct / 100.0 * pageH
+		yTop := sf.yPct / 100.0 * pageH
+
+		imgH := int(h) * 3
+		if imgH < 80 {
+			imgH = 80
+		}
+		imgW := imgH * 3
+		stampImg = generateSignatureStampImage(signerName, issuerCN, fixedDate, imgW, imgH)
+		stampW = h * float64(imgW) / float64(imgH)
+		yBottom = pageH - yTop - h
+		pgNum = sf.pgNum
+		return
+	}
+
+	// First field: PAdES digital signature appearance
+	x, yBottom, stampW, h, stampImg, pgNum := buildStamp(fields[0])
+	appearance := sign.Appearance{
+		Visible:     true,
+		Page:        uint32(pgNum),
+		LowerLeftX:  x,
+		LowerLeftY:  yBottom,
+		UpperRightX: x + stampW,
+		UpperRightY: yBottom + h,
+		Image:       stampImg,
+	}
+
+	// Additional fields: overlay stamp images as pdfcpu watermarks
+	if len(fields) > 1 {
+		wmMap := make(map[int][]*model.Watermark)
+
+		for _, sf := range fields[1:] {
+			ex, eyBottom, _, eh, eStampImg, ePgNum := buildStamp(sf)
+
+			// Write stamp image to temp file for pdfcpu
+			tmpFile, err := os.CreateTemp("", "stamp-extra-*.png")
+			if err != nil {
+				continue
+			}
+			tmpFile.Write(eStampImg)
+			tmpFile.Close()
+
+			// Compute scale: stamp image is rendered at 3x field height
+			img, _, err := image.Decode(bytes.NewReader(eStampImg))
+			if err != nil {
+				os.Remove(tmpFile.Name())
+				continue
+			}
+			imgW := float64(img.Bounds().Dx())
+			imgH := float64(img.Bounds().Dy())
+			scale := eh / imgH
+			drawW := imgW * scale
+			offsetX := ex + (eh*3-drawW)/2 // center horizontally in approximate field width
+			if offsetX < ex {
+				offsetX = ex
+			}
+
+			desc := fmt.Sprintf("position:bl, offset:%.1f %.1f, scalefactor:%.4f abs, opacity:1, rotation:0",
+				offsetX, eyBottom, scale)
+			wm, err := api.ImageWatermark(tmpFile.Name(), desc, true, false, types.POINTS)
+			os.Remove(tmpFile.Name())
+			if err != nil {
+				continue
+			}
+			wmMap[ePgNum] = append(wmMap[ePgNum], wm)
+		}
+
+		if len(wmMap) > 0 {
+			var buf bytes.Buffer
+			stampConf := model.NewDefaultConfiguration()
+			stampConf.ValidationMode = model.ValidationRelaxed
+			if err := api.AddWatermarksSliceMap(bytes.NewReader(pdfContent), &buf, wmMap, stampConf); err == nil {
+				pdfContent = buf.Bytes()
+			}
+		}
+	}
+
+	return appearance, pdfContent
 }
  

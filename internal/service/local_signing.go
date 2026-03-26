@@ -188,49 +188,12 @@ func applyLocalPAdESSignature(
 
 	fixedDate := time.Now().UTC().Truncate(time.Second)
 
-	// Find signature field position from template snapshot
-	sigAppearance := sign.Appearance{Visible: false}
-	for _, f := range fieldsSnapshot {
-		fType := getStringField(f, "type")
-		fIdx := getIntField(f, "submitter_index")
-		if (fType == "signature" || fType == "initials") && fIdx == signerOrder {
-			pageW, pageH := detectPageSize(pdfContent)
-			xPct := getFloat64Field(f, "x_percent")
-			yPct := getFloat64Field(f, "y_percent")
-			hPct := getFloat64Field(f, "height_percent")
-			pgNum := getIntField(f, "page_number")
-			if pgNum <= 0 {
-				pgNum = 1
-			}
-
-			x := xPct / 100.0 * pageW
-			h := hPct / 100.0 * pageH
-			yTop := yPct / 100.0 * pageH
-
-			imgH := int(h) * 3
-			if imgH < 80 {
-				imgH = 80
-			}
-			imgW := imgH * 3
-
-			issuerCN := x509Cert.Issuer.CommonName
-			stampImg := generateSignatureStampImage(signerName, issuerCN, fixedDate, imgW, imgH)
-
-			stampW := h * float64(imgW) / float64(imgH)
-			yBottom := pageH - yTop - h
-
-			sigAppearance = sign.Appearance{
-				Visible:     true,
-				Page:        uint32(pgNum),
-				LowerLeftX:  x,
-				LowerLeftY:  yBottom,
-				UpperRightX: x + stampW,
-				UpperRightY: yBottom + h,
-				Image:       stampImg,
-			}
-			break
-		}
-	}
+	// Collect all signature fields for this submitter and build stamp placements.
+	// The first field gets the PAdES digital signature; additional fields get visual-only stamp overlays.
+	sigAppearance, pdfContent := buildSignatureAppearanceAndOverlayExtras(
+		pdfContent, fieldsSnapshot, signerOrder,
+		signerName, x509Cert.Issuer.CommonName, fixedDate,
+	)
 
 	signData := sign.SignData{
 		Certificate: x509Cert,
