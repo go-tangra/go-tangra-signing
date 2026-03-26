@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"net/url"
 	"os"
 	"time"
 
@@ -538,13 +537,11 @@ func (s *SubmissionService) GetSubmissionDocumentUrl(ctx context.Context, req *s
 		return nil, signingV1.ErrorBadRequest("no signed document available yet")
 	}
 
-	// Return a proxy URL through the signing service HTTP endpoint instead of a
-	// presigned S3 URL. The S3 endpoint (rustfs:9000) is internal to Docker and
-	// not reachable from the browser.
-	proxyURL := "/modules/signing/api/v1/signing/templates/pdf?key=" + url.PathEscape(submission.SignedDocumentKey)
-
+	// Return the storage key directly. Callers should fetch the document
+	// server-side (e.g. via the signing HTTP proxy) rather than exposing
+	// internal S3 URLs to the browser.
 	return &signingV1.GetSubmissionDocumentUrlResponse{
-		Url: proxyURL,
+		Url: submission.SignedDocumentKey,
 	}, nil
 }
 
