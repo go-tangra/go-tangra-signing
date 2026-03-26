@@ -1744,3 +1744,452 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = DeclineSubmitterResponseValidationError{}
+
+// Validate checks the field values on CancelSubmissionRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *CancelSubmissionRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CancelSubmissionRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// CancelSubmissionRequestMultiError, or nil if none found.
+func (m *CancelSubmissionRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CancelSubmissionRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Id
+
+	// no validation rules for Reason
+
+	if len(errors) > 0 {
+		return CancelSubmissionRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// CancelSubmissionRequestMultiError is an error wrapping multiple validation
+// errors returned by CancelSubmissionRequest.ValidateAll() if the designated
+// constraints aren't met.
+type CancelSubmissionRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CancelSubmissionRequestMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CancelSubmissionRequestMultiError) AllErrors() []error { return m }
+
+// CancelSubmissionRequestValidationError is the validation error returned by
+// CancelSubmissionRequest.Validate if the designated constraints aren't met.
+type CancelSubmissionRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e CancelSubmissionRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e CancelSubmissionRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e CancelSubmissionRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e CancelSubmissionRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e CancelSubmissionRequestValidationError) ErrorName() string {
+	return "CancelSubmissionRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e CancelSubmissionRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCancelSubmissionRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = CancelSubmissionRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = CancelSubmissionRequestValidationError{}
+
+// Validate checks the field values on CancelSubmissionResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *CancelSubmissionResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CancelSubmissionResponse with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// CancelSubmissionResponseMultiError, or nil if none found.
+func (m *CancelSubmissionResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CancelSubmissionResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetSubmission()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CancelSubmissionResponseValidationError{
+					field:  "Submission",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CancelSubmissionResponseValidationError{
+					field:  "Submission",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetSubmission()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CancelSubmissionResponseValidationError{
+				field:  "Submission",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return CancelSubmissionResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// CancelSubmissionResponseMultiError is an error wrapping multiple validation
+// errors returned by CancelSubmissionResponse.ValidateAll() if the designated
+// constraints aren't met.
+type CancelSubmissionResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CancelSubmissionResponseMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CancelSubmissionResponseMultiError) AllErrors() []error { return m }
+
+// CancelSubmissionResponseValidationError is the validation error returned by
+// CancelSubmissionResponse.Validate if the designated constraints aren't met.
+type CancelSubmissionResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e CancelSubmissionResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e CancelSubmissionResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e CancelSubmissionResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e CancelSubmissionResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e CancelSubmissionResponseValidationError) ErrorName() string {
+	return "CancelSubmissionResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e CancelSubmissionResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCancelSubmissionResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = CancelSubmissionResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = CancelSubmissionResponseValidationError{}
+
+// Validate checks the field values on GetSubmissionDocumentUrlRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *GetSubmissionDocumentUrlRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on GetSubmissionDocumentUrlRequest with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// GetSubmissionDocumentUrlRequestMultiError, or nil if none found.
+func (m *GetSubmissionDocumentUrlRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GetSubmissionDocumentUrlRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Id
+
+	if len(errors) > 0 {
+		return GetSubmissionDocumentUrlRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// GetSubmissionDocumentUrlRequestMultiError is an error wrapping multiple
+// validation errors returned by GetSubmissionDocumentUrlRequest.ValidateAll()
+// if the designated constraints aren't met.
+type GetSubmissionDocumentUrlRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GetSubmissionDocumentUrlRequestMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GetSubmissionDocumentUrlRequestMultiError) AllErrors() []error { return m }
+
+// GetSubmissionDocumentUrlRequestValidationError is the validation error
+// returned by GetSubmissionDocumentUrlRequest.Validate if the designated
+// constraints aren't met.
+type GetSubmissionDocumentUrlRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e GetSubmissionDocumentUrlRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e GetSubmissionDocumentUrlRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e GetSubmissionDocumentUrlRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e GetSubmissionDocumentUrlRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e GetSubmissionDocumentUrlRequestValidationError) ErrorName() string {
+	return "GetSubmissionDocumentUrlRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e GetSubmissionDocumentUrlRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sGetSubmissionDocumentUrlRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = GetSubmissionDocumentUrlRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = GetSubmissionDocumentUrlRequestValidationError{}
+
+// Validate checks the field values on GetSubmissionDocumentUrlResponse with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
+func (m *GetSubmissionDocumentUrlResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on GetSubmissionDocumentUrlResponse with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// GetSubmissionDocumentUrlResponseMultiError, or nil if none found.
+func (m *GetSubmissionDocumentUrlResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GetSubmissionDocumentUrlResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Url
+
+	if len(errors) > 0 {
+		return GetSubmissionDocumentUrlResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// GetSubmissionDocumentUrlResponseMultiError is an error wrapping multiple
+// validation errors returned by
+// GetSubmissionDocumentUrlResponse.ValidateAll() if the designated
+// constraints aren't met.
+type GetSubmissionDocumentUrlResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GetSubmissionDocumentUrlResponseMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GetSubmissionDocumentUrlResponseMultiError) AllErrors() []error { return m }
+
+// GetSubmissionDocumentUrlResponseValidationError is the validation error
+// returned by GetSubmissionDocumentUrlResponse.Validate if the designated
+// constraints aren't met.
+type GetSubmissionDocumentUrlResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e GetSubmissionDocumentUrlResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e GetSubmissionDocumentUrlResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e GetSubmissionDocumentUrlResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e GetSubmissionDocumentUrlResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e GetSubmissionDocumentUrlResponseValidationError) ErrorName() string {
+	return "GetSubmissionDocumentUrlResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e GetSubmissionDocumentUrlResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sGetSubmissionDocumentUrlResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = GetSubmissionDocumentUrlResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = GetSubmissionDocumentUrlResponseValidationError{}

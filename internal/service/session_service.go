@@ -14,6 +14,7 @@ import (
 	"github.com/go-tangra/go-tangra-signing/internal/data"
 	"github.com/go-tangra/go-tangra-signing/internal/data/ent"
 	"github.com/go-tangra/go-tangra-signing/internal/data/ent/submitter"
+	"github.com/go-tangra/go-tangra-signing/internal/event"
 	securitycert "github.com/go-tangra/go-tangra-signing/pkg/security/cert"
 
 	signingV1 "github.com/go-tangra/go-tangra-signing/gen/go/signing/service/v1"
@@ -33,6 +34,7 @@ type SessionService struct {
 	storage        *data.StorageClient
 	pdfGenerator   *PDFGenerator
 	notifHelper    *NotificationHelper
+	publisher      *event.Publisher
 }
 
 // NewSessionService creates a new SessionService instance.
@@ -47,6 +49,7 @@ func NewSessionService(
 	pdfGenerator *PDFGenerator,
 	notificationClient *client.NotificationClient,
 	adminClient *client.AdminClient,
+	publisher *event.Publisher,
 ) *SessionService {
 	l := ctx.NewLoggerHelper("signing/service/session")
 
@@ -70,6 +73,7 @@ func NewSessionService(
 		storage:        storage,
 		pdfGenerator:   pdfGenerator,
 		notifHelper:    notifHelper,
+		publisher:      publisher,
 	}
 }
 
@@ -457,6 +461,15 @@ func (s *SessionService) checkAndCompleteSubmission(ctx context.Context, tenantI
 
 	_ = s.eventRepo.Create(ctx, tenantID, "submission.completed", "",
 		"submission", submissionID, nil, "")
+
+	// Publish Redis event for external consumers (e.g., HR module)
+	if s.publisher != nil {
+		// Re-read to get final signed_document_key
+		freshSub, _ := s.submissionRepo.GetByID(ctx, submissionID)
+		if freshSub != nil {
+			s.publisher.PublishSubmissionCompleted(ctx, tenantID, submissionID, freshSub.TemplateID, freshSub.SignedDocumentKey)
+		}
+	}
 
 	// Notify all participants that the document is fully signed
 	if s.notifHelper != nil {

@@ -9,6 +9,7 @@ import (
 	"github.com/google/wire"
 
 	"github.com/go-tangra/go-tangra-signing/internal/client"
+	"github.com/go-tangra/go-tangra-signing/internal/event"
 	"github.com/go-tangra/go-tangra-signing/internal/service"
 )
 
@@ -21,6 +22,7 @@ var ProviderSet = wire.NewSet(
 	service.NewUserService,
 	service.NewPDFGenerator,
 	service.NewSessionService,
+	event.NewPublisher,
 	client.NewAdminClient,
 	client.NewRegistrationClient,
 	client.NewModuleDialer,

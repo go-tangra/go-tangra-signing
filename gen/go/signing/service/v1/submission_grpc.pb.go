@@ -19,12 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	SigningSubmissionService_CreateSubmission_FullMethodName  = "/signing.service.v1.SigningSubmissionService/CreateSubmission"
-	SigningSubmissionService_GetSubmission_FullMethodName     = "/signing.service.v1.SigningSubmissionService/GetSubmission"
-	SigningSubmissionService_ListSubmissions_FullMethodName   = "/signing.service.v1.SigningSubmissionService/ListSubmissions"
-	SigningSubmissionService_SendSubmission_FullMethodName    = "/signing.service.v1.SigningSubmissionService/SendSubmission"
-	SigningSubmissionService_CompleteSubmitter_FullMethodName = "/signing.service.v1.SigningSubmissionService/CompleteSubmitter"
-	SigningSubmissionService_DeclineSubmitter_FullMethodName  = "/signing.service.v1.SigningSubmissionService/DeclineSubmitter"
+	SigningSubmissionService_CreateSubmission_FullMethodName         = "/signing.service.v1.SigningSubmissionService/CreateSubmission"
+	SigningSubmissionService_GetSubmission_FullMethodName            = "/signing.service.v1.SigningSubmissionService/GetSubmission"
+	SigningSubmissionService_ListSubmissions_FullMethodName          = "/signing.service.v1.SigningSubmissionService/ListSubmissions"
+	SigningSubmissionService_SendSubmission_FullMethodName           = "/signing.service.v1.SigningSubmissionService/SendSubmission"
+	SigningSubmissionService_CompleteSubmitter_FullMethodName        = "/signing.service.v1.SigningSubmissionService/CompleteSubmitter"
+	SigningSubmissionService_DeclineSubmitter_FullMethodName         = "/signing.service.v1.SigningSubmissionService/DeclineSubmitter"
+	SigningSubmissionService_CancelSubmission_FullMethodName         = "/signing.service.v1.SigningSubmissionService/CancelSubmission"
+	SigningSubmissionService_GetSubmissionDocumentUrl_FullMethodName = "/signing.service.v1.SigningSubmissionService/GetSubmissionDocumentUrl"
 )
 
 // SigningSubmissionServiceClient is the client API for SigningSubmissionService service.
@@ -39,6 +41,10 @@ type SigningSubmissionServiceClient interface {
 	SendSubmission(ctx context.Context, in *SendSubmissionRequest, opts ...grpc.CallOption) (*SendSubmissionResponse, error)
 	CompleteSubmitter(ctx context.Context, in *CompleteSubmitterRequest, opts ...grpc.CallOption) (*CompleteSubmitterResponse, error)
 	DeclineSubmitter(ctx context.Context, in *DeclineSubmitterRequest, opts ...grpc.CallOption) (*DeclineSubmitterResponse, error)
+	// Cancel an in-progress submission (marks all pending submitters as declined)
+	CancelSubmission(ctx context.Context, in *CancelSubmissionRequest, opts ...grpc.CallOption) (*CancelSubmissionResponse, error)
+	// Get a presigned download URL for the signed document
+	GetSubmissionDocumentUrl(ctx context.Context, in *GetSubmissionDocumentUrlRequest, opts ...grpc.CallOption) (*GetSubmissionDocumentUrlResponse, error)
 }
 
 type signingSubmissionServiceClient struct {
@@ -109,6 +115,26 @@ func (c *signingSubmissionServiceClient) DeclineSubmitter(ctx context.Context, i
 	return out, nil
 }
 
+func (c *signingSubmissionServiceClient) CancelSubmission(ctx context.Context, in *CancelSubmissionRequest, opts ...grpc.CallOption) (*CancelSubmissionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CancelSubmissionResponse)
+	err := c.cc.Invoke(ctx, SigningSubmissionService_CancelSubmission_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *signingSubmissionServiceClient) GetSubmissionDocumentUrl(ctx context.Context, in *GetSubmissionDocumentUrlRequest, opts ...grpc.CallOption) (*GetSubmissionDocumentUrlResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSubmissionDocumentUrlResponse)
+	err := c.cc.Invoke(ctx, SigningSubmissionService_GetSubmissionDocumentUrl_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SigningSubmissionServiceServer is the server API for SigningSubmissionService service.
 // All implementations must embed UnimplementedSigningSubmissionServiceServer
 // for forward compatibility.
@@ -121,6 +147,10 @@ type SigningSubmissionServiceServer interface {
 	SendSubmission(context.Context, *SendSubmissionRequest) (*SendSubmissionResponse, error)
 	CompleteSubmitter(context.Context, *CompleteSubmitterRequest) (*CompleteSubmitterResponse, error)
 	DeclineSubmitter(context.Context, *DeclineSubmitterRequest) (*DeclineSubmitterResponse, error)
+	// Cancel an in-progress submission (marks all pending submitters as declined)
+	CancelSubmission(context.Context, *CancelSubmissionRequest) (*CancelSubmissionResponse, error)
+	// Get a presigned download URL for the signed document
+	GetSubmissionDocumentUrl(context.Context, *GetSubmissionDocumentUrlRequest) (*GetSubmissionDocumentUrlResponse, error)
 	mustEmbedUnimplementedSigningSubmissionServiceServer()
 }
 
@@ -148,6 +178,12 @@ func (UnimplementedSigningSubmissionServiceServer) CompleteSubmitter(context.Con
 }
 func (UnimplementedSigningSubmissionServiceServer) DeclineSubmitter(context.Context, *DeclineSubmitterRequest) (*DeclineSubmitterResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeclineSubmitter not implemented")
+}
+func (UnimplementedSigningSubmissionServiceServer) CancelSubmission(context.Context, *CancelSubmissionRequest) (*CancelSubmissionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CancelSubmission not implemented")
+}
+func (UnimplementedSigningSubmissionServiceServer) GetSubmissionDocumentUrl(context.Context, *GetSubmissionDocumentUrlRequest) (*GetSubmissionDocumentUrlResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSubmissionDocumentUrl not implemented")
 }
 func (UnimplementedSigningSubmissionServiceServer) mustEmbedUnimplementedSigningSubmissionServiceServer() {
 }
@@ -279,6 +315,42 @@ func _SigningSubmissionService_DeclineSubmitter_Handler(srv interface{}, ctx con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SigningSubmissionService_CancelSubmission_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelSubmissionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SigningSubmissionServiceServer).CancelSubmission(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SigningSubmissionService_CancelSubmission_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SigningSubmissionServiceServer).CancelSubmission(ctx, req.(*CancelSubmissionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SigningSubmissionService_GetSubmissionDocumentUrl_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSubmissionDocumentUrlRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SigningSubmissionServiceServer).GetSubmissionDocumentUrl(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SigningSubmissionService_GetSubmissionDocumentUrl_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SigningSubmissionServiceServer).GetSubmissionDocumentUrl(ctx, req.(*GetSubmissionDocumentUrlRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SigningSubmissionService_ServiceDesc is the grpc.ServiceDesc for SigningSubmissionService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -309,6 +381,14 @@ var SigningSubmissionService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeclineSubmitter",
 			Handler:    _SigningSubmissionService_DeclineSubmitter_Handler,
+		},
+		{
+			MethodName: "CancelSubmission",
+			Handler:    _SigningSubmissionService_CancelSubmission_Handler,
+		},
+		{
+			MethodName: "GetSubmissionDocumentUrl",
+			Handler:    _SigningSubmissionService_GetSubmissionDocumentUrl_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

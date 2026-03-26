@@ -11,6 +11,7 @@ import (
 	"github.com/go-tangra/go-tangra-signing/internal/cert"
 	"github.com/go-tangra/go-tangra-signing/internal/client"
 	"github.com/go-tangra/go-tangra-signing/internal/data"
+	"github.com/go-tangra/go-tangra-signing/internal/event"
 	"github.com/go-tangra/go-tangra-signing/internal/server"
 	"github.com/go-tangra/go-tangra-signing/internal/service"
 	"github.com/tx7do/kratos-bootstrap/bootstrap"
@@ -59,16 +60,26 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	submissionService := service.NewSubmissionService(context, submissionRepo, submitterRepo, templateRepo, eventRepo, certificateRepo, storageClient, notificationClient, adminClient)
+	redisClient, cleanup5, err := data.NewRedisClient(context)
+	if err != nil {
+		cleanup4()
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	publisher := event.NewPublisher(context, redisClient)
+	submissionService := service.NewSubmissionService(context, submissionRepo, submitterRepo, templateRepo, eventRepo, certificateRepo, storageClient, notificationClient, adminClient, publisher)
 	signingService := service.NewSigningService(context, certificateRepo, storageClient, eventRepo)
 	certificateService := service.NewCertificateService(context, certificateRepo)
 	userService := service.NewUserService(context, adminClient)
 	pdfGenerator := service.NewPDFGenerator(context, storageClient)
-	sessionService := service.NewSessionService(context, submitterRepo, submissionRepo, templateRepo, eventRepo, certificateRepo, storageClient, pdfGenerator, notificationClient, adminClient)
+	sessionService := service.NewSessionService(context, submitterRepo, submissionRepo, templateRepo, eventRepo, certificateRepo, storageClient, pdfGenerator, notificationClient, adminClient, publisher)
 	grpcServer := server.NewGRPCServer(context, certManager, templateService, submissionService, signingService, certificateService, userService, sessionService)
 	httpServer := server.NewHTTPServer(context, storageClient, templateRepo)
 	app := newApp(context, grpcServer, httpServer)
 	return app, func() {
+		cleanup5()
 		cleanup4()
 		cleanup3()
 		cleanup2()

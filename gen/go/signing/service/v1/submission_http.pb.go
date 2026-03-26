@@ -19,18 +19,24 @@ var _ = binding.EncodeURL
 
 const _ = http.SupportPackageIsVersion1
 
+const OperationSigningSubmissionServiceCancelSubmission = "/signing.service.v1.SigningSubmissionService/CancelSubmission"
 const OperationSigningSubmissionServiceCompleteSubmitter = "/signing.service.v1.SigningSubmissionService/CompleteSubmitter"
 const OperationSigningSubmissionServiceCreateSubmission = "/signing.service.v1.SigningSubmissionService/CreateSubmission"
 const OperationSigningSubmissionServiceDeclineSubmitter = "/signing.service.v1.SigningSubmissionService/DeclineSubmitter"
 const OperationSigningSubmissionServiceGetSubmission = "/signing.service.v1.SigningSubmissionService/GetSubmission"
+const OperationSigningSubmissionServiceGetSubmissionDocumentUrl = "/signing.service.v1.SigningSubmissionService/GetSubmissionDocumentUrl"
 const OperationSigningSubmissionServiceListSubmissions = "/signing.service.v1.SigningSubmissionService/ListSubmissions"
 const OperationSigningSubmissionServiceSendSubmission = "/signing.service.v1.SigningSubmissionService/SendSubmission"
 
 type SigningSubmissionServiceHTTPServer interface {
+	// CancelSubmission Cancel an in-progress submission (marks all pending submitters as declined)
+	CancelSubmission(context.Context, *CancelSubmissionRequest) (*CancelSubmissionResponse, error)
 	CompleteSubmitter(context.Context, *CompleteSubmitterRequest) (*CompleteSubmitterResponse, error)
 	CreateSubmission(context.Context, *CreateSubmissionRequest) (*CreateSubmissionResponse, error)
 	DeclineSubmitter(context.Context, *DeclineSubmitterRequest) (*DeclineSubmitterResponse, error)
 	GetSubmission(context.Context, *GetSubmissionRequest) (*GetSubmissionResponse, error)
+	// GetSubmissionDocumentUrl Get a presigned download URL for the signed document
+	GetSubmissionDocumentUrl(context.Context, *GetSubmissionDocumentUrlRequest) (*GetSubmissionDocumentUrlResponse, error)
 	ListSubmissions(context.Context, *ListSubmissionsRequest) (*ListSubmissionsResponse, error)
 	SendSubmission(context.Context, *SendSubmissionRequest) (*SendSubmissionResponse, error)
 }
@@ -43,6 +49,8 @@ func RegisterSigningSubmissionServiceHTTPServer(s *http.Server, srv SigningSubmi
 	r.POST("/v1/signing/submissions/{id}/send", _SigningSubmissionService_SendSubmission0_HTTP_Handler(srv))
 	r.POST("/v1/signing/submitters/{submitter_id}/complete", _SigningSubmissionService_CompleteSubmitter0_HTTP_Handler(srv))
 	r.POST("/v1/signing/submitters/{submitter_id}/decline", _SigningSubmissionService_DeclineSubmitter0_HTTP_Handler(srv))
+	r.POST("/v1/signing/submissions/{id}/cancel", _SigningSubmissionService_CancelSubmission0_HTTP_Handler(srv))
+	r.GET("/v1/signing/submissions/{id}/document-url", _SigningSubmissionService_GetSubmissionDocumentUrl0_HTTP_Handler(srv))
 }
 
 func _SigningSubmissionService_CreateSubmission0_HTTP_Handler(srv SigningSubmissionServiceHTTPServer) func(ctx http.Context) error {
@@ -183,11 +191,62 @@ func _SigningSubmissionService_DeclineSubmitter0_HTTP_Handler(srv SigningSubmiss
 	}
 }
 
+func _SigningSubmissionService_CancelSubmission0_HTTP_Handler(srv SigningSubmissionServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in CancelSubmissionRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationSigningSubmissionServiceCancelSubmission)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.CancelSubmission(ctx, req.(*CancelSubmissionRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*CancelSubmissionResponse)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _SigningSubmissionService_GetSubmissionDocumentUrl0_HTTP_Handler(srv SigningSubmissionServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in GetSubmissionDocumentUrlRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationSigningSubmissionServiceGetSubmissionDocumentUrl)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.GetSubmissionDocumentUrl(ctx, req.(*GetSubmissionDocumentUrlRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*GetSubmissionDocumentUrlResponse)
+		return ctx.Result(200, reply)
+	}
+}
+
 type SigningSubmissionServiceHTTPClient interface {
+	// CancelSubmission Cancel an in-progress submission (marks all pending submitters as declined)
+	CancelSubmission(ctx context.Context, req *CancelSubmissionRequest, opts ...http.CallOption) (rsp *CancelSubmissionResponse, err error)
 	CompleteSubmitter(ctx context.Context, req *CompleteSubmitterRequest, opts ...http.CallOption) (rsp *CompleteSubmitterResponse, err error)
 	CreateSubmission(ctx context.Context, req *CreateSubmissionRequest, opts ...http.CallOption) (rsp *CreateSubmissionResponse, err error)
 	DeclineSubmitter(ctx context.Context, req *DeclineSubmitterRequest, opts ...http.CallOption) (rsp *DeclineSubmitterResponse, err error)
 	GetSubmission(ctx context.Context, req *GetSubmissionRequest, opts ...http.CallOption) (rsp *GetSubmissionResponse, err error)
+	// GetSubmissionDocumentUrl Get a presigned download URL for the signed document
+	GetSubmissionDocumentUrl(ctx context.Context, req *GetSubmissionDocumentUrlRequest, opts ...http.CallOption) (rsp *GetSubmissionDocumentUrlResponse, err error)
 	ListSubmissions(ctx context.Context, req *ListSubmissionsRequest, opts ...http.CallOption) (rsp *ListSubmissionsResponse, err error)
 	SendSubmission(ctx context.Context, req *SendSubmissionRequest, opts ...http.CallOption) (rsp *SendSubmissionResponse, err error)
 }
@@ -198,6 +257,20 @@ type SigningSubmissionServiceHTTPClientImpl struct {
 
 func NewSigningSubmissionServiceHTTPClient(client *http.Client) SigningSubmissionServiceHTTPClient {
 	return &SigningSubmissionServiceHTTPClientImpl{client}
+}
+
+// CancelSubmission Cancel an in-progress submission (marks all pending submitters as declined)
+func (c *SigningSubmissionServiceHTTPClientImpl) CancelSubmission(ctx context.Context, in *CancelSubmissionRequest, opts ...http.CallOption) (*CancelSubmissionResponse, error) {
+	var out CancelSubmissionResponse
+	pattern := "/v1/signing/submissions/{id}/cancel"
+	path := binding.EncodeURL(pattern, in, false)
+	opts = append(opts, http.Operation(OperationSigningSubmissionServiceCancelSubmission))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (c *SigningSubmissionServiceHTTPClientImpl) CompleteSubmitter(ctx context.Context, in *CompleteSubmitterRequest, opts ...http.CallOption) (*CompleteSubmitterResponse, error) {
@@ -244,6 +317,20 @@ func (c *SigningSubmissionServiceHTTPClientImpl) GetSubmission(ctx context.Conte
 	pattern := "/v1/signing/submissions/{id}"
 	path := binding.EncodeURL(pattern, in, true)
 	opts = append(opts, http.Operation(OperationSigningSubmissionServiceGetSubmission))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// GetSubmissionDocumentUrl Get a presigned download URL for the signed document
+func (c *SigningSubmissionServiceHTTPClientImpl) GetSubmissionDocumentUrl(ctx context.Context, in *GetSubmissionDocumentUrlRequest, opts ...http.CallOption) (*GetSubmissionDocumentUrlResponse, error) {
+	var out GetSubmissionDocumentUrlResponse
+	pattern := "/v1/signing/submissions/{id}/document-url"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationSigningSubmissionServiceGetSubmissionDocumentUrl))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
 	if err != nil {

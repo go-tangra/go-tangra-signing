@@ -44,6 +44,19 @@ service SigningSubmissionService {
       body: "*"
     };
   }
+
+  // Cancel an in-progress submission (marks all pending submitters as declined)
+  rpc CancelSubmission(CancelSubmissionRequest) returns (CancelSubmissionResponse) {
+    option (google.api.http) = {
+      post: "/v1/signing/submissions/{id}/cancel"
+      body: "*"
+    };
+  }
+
+  // Get a presigned download URL for the signed document
+  rpc GetSubmissionDocumentUrl(GetSubmissionDocumentUrlRequest) returns (GetSubmissionDocumentUrlResponse) {
+    option (google.api.http) = {get: "/v1/signing/submissions/{id}/document-url"};
+  }
 }
 
 // Signing mode
@@ -154,3 +167,20 @@ message DeclineSubmitterRequest {
 }
 
 message DeclineSubmitterResponse {}
+
+message CancelSubmissionRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  string reason = 2;
+}
+
+message CancelSubmissionResponse {
+  Submission submission = 1;
+}
+
+message GetSubmissionDocumentUrlRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetSubmissionDocumentUrlResponse {
+  string url = 1;
+}

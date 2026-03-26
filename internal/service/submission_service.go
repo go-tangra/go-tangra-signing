@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-tangra/go-tangra-signing/internal/client"
 	"github.com/go-tangra/go-tangra-signing/internal/data"
+	"github.com/go-tangra/go-tangra-signing/internal/event"
 
 	signingV1 "github.com/go-tangra/go-tangra-signing/gen/go/signing/service/v1"
 )
@@ -26,6 +27,7 @@ type SubmissionService struct {
 	certRepo       *data.CertificateRepo
 	storage        *data.StorageClient
 	notifHelper    *NotificationHelper
+	publisher      *event.Publisher
 }
 
 func NewSubmissionService(
@@ -38,6 +40,7 @@ func NewSubmissionService(
 	storage *data.StorageClient,
 	notificationClient *client.NotificationClient,
 	adminClient *client.AdminClient,
+	publisher *event.Publisher,
 ) *SubmissionService {
 	l := ctx.NewLoggerHelper("signing/service/submission")
 
@@ -60,6 +63,7 @@ func NewSubmissionService(
 		certRepo:       certRepo,
 		storage:        storage,
 		notifHelper:    notifHelper,
+		publisher:      publisher,
 	}
 }
 
@@ -448,6 +452,101 @@ func (s *SubmissionService) DeclineSubmitter(ctx context.Context, req *signingV1
 	return &signingV1.DeclineSubmitterResponse{}, nil
 }
 
+// CancelSubmission cancels an in-progress submission and marks all pending submitters as declined.
+func (s *SubmissionService) CancelSubmission(ctx context.Context, req *signingV1.CancelSubmissionRequest) (*signingV1.CancelSubmissionResponse, error) {
+	tenantID := getTenantIDFromContext(ctx)
+
+	submission, err := s.submissionRepo.GetByID(ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+	if submission == nil {
+		return nil, signingV1.ErrorSubmissionNotFound("submission not found")
+	}
+
+	// Cross-tenant isolation
+	if derefUint32(submission.TenantID) != tenantID {
+		return nil, signingV1.ErrorAccessDenied("access denied")
+	}
+
+	// Can only cancel if not already completed or cancelled
+	status := submission.Status.String()
+	if status == "SUBMISSION_STATUS_COMPLETED" {
+		return nil, signingV1.ErrorBadRequest("submission is already completed")
+	}
+	if status == "SUBMISSION_STATUS_CANCELLED" {
+		return nil, signingV1.ErrorBadRequest("submission is already cancelled")
+	}
+
+	// Cancel the submission
+	submission, err = s.submissionRepo.UpdateStatus(ctx, req.Id, "SUBMISSION_STATUS_CANCELLED")
+	if err != nil {
+		return nil, err
+	}
+
+	// Decline all pending/opened submitters
+	submitters, listErr := s.submitterRepo.ListBySubmission(ctx, req.Id)
+	if listErr == nil {
+		for _, sub := range submitters {
+			if sub.Status.String() == "SUBMITTER_STATUS_PENDING" || sub.Status.String() == "SUBMITTER_STATUS_OPENED" {
+				_, _ = s.submitterRepo.Decline(ctx, sub.ID, req.Reason)
+			}
+		}
+	}
+
+	// Log event
+	_ = s.eventRepo.Create(ctx, tenantID, "submission.cancelled", getUserIDFromContext(ctx),
+		"submission", req.Id, map[string]interface{}{"reason": req.Reason}, "")
+
+	// Publish Redis event
+	if s.publisher != nil {
+		s.publisher.PublishSubmissionCancelled(ctx, tenantID, req.Id, req.Reason)
+	}
+
+	return &signingV1.CancelSubmissionResponse{
+		Submission: s.submissionRepo.ToProto(submission),
+	}, nil
+}
+
+// GetSubmissionDocumentUrl returns a presigned download URL for the signed document.
+func (s *SubmissionService) GetSubmissionDocumentUrl(ctx context.Context, req *signingV1.GetSubmissionDocumentUrlRequest) (*signingV1.GetSubmissionDocumentUrlResponse, error) {
+	tenantID := getTenantIDFromContext(ctx)
+
+	submission, err := s.submissionRepo.GetByID(ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+	if submission == nil {
+		return nil, signingV1.ErrorSubmissionNotFound("submission not found")
+	}
+
+	// Cross-tenant isolation
+	if derefUint32(submission.TenantID) != tenantID {
+		return nil, signingV1.ErrorAccessDenied("access denied")
+	}
+
+	// Signing users can only access their own submissions
+	if isSigningUser(ctx) {
+		uid := getUserIDAsUint32(ctx)
+		if uid == nil || submission.CreateBy == nil || *uid != *submission.CreateBy {
+			return nil, signingV1.ErrorAccessDenied("you can only access your own submissions")
+		}
+	}
+
+	if submission.SignedDocumentKey == "" {
+		return nil, signingV1.ErrorBadRequest("no signed document available yet")
+	}
+
+	url, err := s.storage.GetPresignedURL(ctx, submission.SignedDocumentKey, 15*time.Minute)
+	if err != nil {
+		return nil, signingV1.ErrorInternalServerError("failed to generate download URL")
+	}
+
+	return &signingV1.GetSubmissionDocumentUrlResponse{
+		Url: url,
+	}, nil
+}
+
 // advanceSequentialWorkflow sends invitation to the next submitter in order.
 func (s *SubmissionService) advanceSequentialWorkflow(ctx context.Context, tenantID uint32, submissionID string, completedOrder int) {
 	nextSubmitter, err := s.submitterRepo.GetByOrder(ctx, submissionID, completedOrder+1)
@@ -508,6 +607,14 @@ func (s *SubmissionService) checkSubmissionCompletion(ctx context.Context, tenan
 		// Log event
 		_ = s.eventRepo.Create(ctx, tenantID, "submission.completed", "",
 			"submission", submissionID, nil, "")
+
+		// Publish Redis event for external consumers (e.g., HR module)
+		if s.publisher != nil {
+			sub, _ := s.submissionRepo.GetByID(ctx, submissionID)
+			if sub != nil {
+				s.publisher.PublishSubmissionCompleted(ctx, tenantID, submissionID, sub.TemplateID, sub.SignedDocumentKey)
+			}
+		}
 	}
 }
 

@@ -110,6 +110,28 @@ func (s *redactedSigningSubmissionServiceServer) DeclineSubmitter(ctx context.Co
 	return res, err
 }
 
+// CancelSubmission is the redacted wrapper for the actual SigningSubmissionServiceServer.CancelSubmission method
+// Unary RPC
+func (s *redactedSigningSubmissionServiceServer) CancelSubmission(ctx context.Context, in *CancelSubmissionRequest) (*CancelSubmissionResponse, error) {
+	res, err := s.srv.CancelSubmission(ctx, in)
+	if !s.bypass.CheckInternal(ctx) {
+		// Apply redaction to the response
+		redact.Apply(res)
+	}
+	return res, err
+}
+
+// GetSubmissionDocumentUrl is the redacted wrapper for the actual SigningSubmissionServiceServer.GetSubmissionDocumentUrl method
+// Unary RPC
+func (s *redactedSigningSubmissionServiceServer) GetSubmissionDocumentUrl(ctx context.Context, in *GetSubmissionDocumentUrlRequest) (*GetSubmissionDocumentUrlResponse, error) {
+	res, err := s.srv.GetSubmissionDocumentUrl(ctx, in)
+	if !s.bypass.CheckInternal(ctx) {
+		// Apply redaction to the response
+		redact.Apply(res)
+	}
+	return res, err
+}
+
 // Redact method implementation for Submission
 func (x *Submission) Redact() string {
 	if x == nil {
@@ -297,5 +319,47 @@ func (x *DeclineSubmitterResponse) Redact() string {
 	if x == nil {
 		return ""
 	}
+	return x.String()
+}
+
+// Redact method implementation for CancelSubmissionRequest
+func (x *CancelSubmissionRequest) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: Id
+
+	// Safe field: Reason
+	return x.String()
+}
+
+// Redact method implementation for CancelSubmissionResponse
+func (x *CancelSubmissionResponse) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: Submission
+	return x.String()
+}
+
+// Redact method implementation for GetSubmissionDocumentUrlRequest
+func (x *GetSubmissionDocumentUrlRequest) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: Id
+	return x.String()
+}
+
+// Redact method implementation for GetSubmissionDocumentUrlResponse
+func (x *GetSubmissionDocumentUrlResponse) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: Url
 	return x.String()
 }
