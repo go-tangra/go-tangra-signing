@@ -1195,6 +1195,86 @@ func (x *GetSubmissionDocumentUrlResponse) GetUrl() string {
 	return ""
 }
 
+type DeleteSubmissionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteSubmissionRequest) Reset() {
+	*x = DeleteSubmissionRequest{}
+	mi := &file_signing_service_v1_submission_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteSubmissionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteSubmissionRequest) ProtoMessage() {}
+
+func (x *DeleteSubmissionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_signing_service_v1_submission_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteSubmissionRequest.ProtoReflect.Descriptor instead.
+func (*DeleteSubmissionRequest) Descriptor() ([]byte, []int) {
+	return file_signing_service_v1_submission_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *DeleteSubmissionRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type DeleteSubmissionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteSubmissionResponse) Reset() {
+	*x = DeleteSubmissionResponse{}
+	mi := &file_signing_service_v1_submission_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteSubmissionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteSubmissionResponse) ProtoMessage() {}
+
+func (x *DeleteSubmissionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_signing_service_v1_submission_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteSubmissionResponse.ProtoReflect.Descriptor instead.
+func (*DeleteSubmissionResponse) Descriptor() ([]byte, []int) {
+	return file_signing_service_v1_submission_proto_rawDescGZIP(), []int{19}
+}
+
 var File_signing_service_v1_submission_proto protoreflect.FileDescriptor
 
 const file_signing_service_v1_submission_proto_rawDesc = "" +
@@ -1292,7 +1372,10 @@ const file_signing_service_v1_submission_proto_rawDesc = "" +
 	"\x1fGetSubmissionDocumentUrlRequest\x12\x13\n" +
 	"\x02id\x18\x01 \x01(\tB\x03\xe0A\x02R\x02id\"4\n" +
 	" GetSubmissionDocumentUrlResponse\x12\x10\n" +
-	"\x03url\x18\x01 \x01(\tR\x03url*c\n" +
+	"\x03url\x18\x01 \x01(\tR\x03url\".\n" +
+	"\x17DeleteSubmissionRequest\x12\x13\n" +
+	"\x02id\x18\x01 \x01(\tB\x03\xe0A\x02R\x02id\"\x1a\n" +
+	"\x18DeleteSubmissionResponse*c\n" +
 	"\vSigningMode\x12\x1c\n" +
 	"\x18SIGNING_MODE_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17SIGNING_MODE_SEQUENTIAL\x10\x01\x12\x19\n" +
@@ -1310,8 +1393,7 @@ const file_signing_service_v1_submission_proto_rawDesc = "" +
 	"\x18SUBMITTER_STATUS_PENDING\x10\x01\x12\x1b\n" +
 	"\x17SUBMITTER_STATUS_OPENED\x10\x02\x12\x1e\n" +
 	"\x1aSUBMITTER_STATUS_COMPLETED\x10\x03\x12\x1d\n" +
-	"\x19SUBMITTER_STATUS_DECLINED\x10\x042\x94\n" +
-	"\n" +
+	"\x19SUBMITTER_STATUS_DECLINED\x10\x042\xaa\v\n" +
 	"\x18SigningSubmissionService\x12\x91\x01\n" +
 	"\x10CreateSubmission\x12+.signing.service.v1.CreateSubmissionRequest\x1a,.signing.service.v1.CreateSubmissionResponse\"\"\x82\xd3\xe4\x93\x02\x1c:\x01*\"\x17/v1/signing/submissions\x12\x8a\x01\n" +
 	"\rGetSubmission\x12(.signing.service.v1.GetSubmissionRequest\x1a).signing.service.v1.GetSubmissionResponse\"$\x82\xd3\xe4\x93\x02\x1e\x12\x1c/v1/signing/submissions/{id}\x12\x8b\x01\n" +
@@ -1320,7 +1402,8 @@ const file_signing_service_v1_submission_proto_rawDesc = "" +
 	"\x11CompleteSubmitter\x12,.signing.service.v1.CompleteSubmitterRequest\x1a-.signing.service.v1.CompleteSubmitterResponse\"9\x82\xd3\xe4\x93\x023:\x01*\"./v1/signing/submitters/{submitter_id}/complete\x12\xa7\x01\n" +
 	"\x10DeclineSubmitter\x12+.signing.service.v1.DeclineSubmitterRequest\x1a,.signing.service.v1.DeclineSubmitterResponse\"8\x82\xd3\xe4\x93\x022:\x01*\"-/v1/signing/submitters/{submitter_id}/decline\x12\x9d\x01\n" +
 	"\x10CancelSubmission\x12+.signing.service.v1.CancelSubmissionRequest\x1a,.signing.service.v1.CancelSubmissionResponse\".\x82\xd3\xe4\x93\x02(:\x01*\"#/v1/signing/submissions/{id}/cancel\x12\xb8\x01\n" +
-	"\x18GetSubmissionDocumentUrl\x123.signing.service.v1.GetSubmissionDocumentUrlRequest\x1a4.signing.service.v1.GetSubmissionDocumentUrlResponse\"1\x82\xd3\xe4\x93\x02+\x12)/v1/signing/submissions/{id}/document-urlB\xdf\x01\n" +
+	"\x18GetSubmissionDocumentUrl\x123.signing.service.v1.GetSubmissionDocumentUrlRequest\x1a4.signing.service.v1.GetSubmissionDocumentUrlResponse\"1\x82\xd3\xe4\x93\x02+\x12)/v1/signing/submissions/{id}/document-url\x12\x93\x01\n" +
+	"\x10DeleteSubmission\x12+.signing.service.v1.DeleteSubmissionRequest\x1a,.signing.service.v1.DeleteSubmissionResponse\"$\x82\xd3\xe4\x93\x02\x1e*\x1c/v1/signing/submissions/{id}B\xdf\x01\n" +
 	"\x16com.signing.service.v1B\x0fSubmissionProtoP\x01ZJgithub.com/go-tangra/go-tangra-signing/gen/go/signing/service/v1;signingpb\xa2\x02\x03SSX\xaa\x02\x12Signing.Service.V1\xca\x02\x12Signing\\Service\\V1\xe2\x02\x1eSigning\\Service\\V1\\GPBMetadata\xea\x02\x14Signing::Service::V1b\x06proto3"
 
 var (
@@ -1336,7 +1419,7 @@ func file_signing_service_v1_submission_proto_rawDescGZIP() []byte {
 }
 
 var file_signing_service_v1_submission_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_signing_service_v1_submission_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_signing_service_v1_submission_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_signing_service_v1_submission_proto_goTypes = []any{
 	(SigningMode)(0),                         // 0: signing.service.v1.SigningMode
 	(SubmissionStatus)(0),                    // 1: signing.service.v1.SubmissionStatus
@@ -1359,16 +1442,18 @@ var file_signing_service_v1_submission_proto_goTypes = []any{
 	(*CancelSubmissionResponse)(nil),         // 18: signing.service.v1.CancelSubmissionResponse
 	(*GetSubmissionDocumentUrlRequest)(nil),  // 19: signing.service.v1.GetSubmissionDocumentUrlRequest
 	(*GetSubmissionDocumentUrlResponse)(nil), // 20: signing.service.v1.GetSubmissionDocumentUrlResponse
-	nil,                                      // 21: signing.service.v1.CreateSubmissionRequest.PreferencesEntry
-	nil,                                      // 22: signing.service.v1.CreateSubmissionRequest.PrefillValuesEntry
-	(*timestamppb.Timestamp)(nil),            // 23: google.protobuf.Timestamp
+	(*DeleteSubmissionRequest)(nil),          // 21: signing.service.v1.DeleteSubmissionRequest
+	(*DeleteSubmissionResponse)(nil),         // 22: signing.service.v1.DeleteSubmissionResponse
+	nil,                                      // 23: signing.service.v1.CreateSubmissionRequest.PreferencesEntry
+	nil,                                      // 24: signing.service.v1.CreateSubmissionRequest.PrefillValuesEntry
+	(*timestamppb.Timestamp)(nil),            // 25: google.protobuf.Timestamp
 }
 var file_signing_service_v1_submission_proto_depIdxs = []int32{
-	23, // 0: signing.service.v1.Submission.completed_at:type_name -> google.protobuf.Timestamp
-	23, // 1: signing.service.v1.Submission.create_time:type_name -> google.protobuf.Timestamp
-	21, // 2: signing.service.v1.CreateSubmissionRequest.preferences:type_name -> signing.service.v1.CreateSubmissionRequest.PreferencesEntry
+	25, // 0: signing.service.v1.Submission.completed_at:type_name -> google.protobuf.Timestamp
+	25, // 1: signing.service.v1.Submission.create_time:type_name -> google.protobuf.Timestamp
+	23, // 2: signing.service.v1.CreateSubmissionRequest.preferences:type_name -> signing.service.v1.CreateSubmissionRequest.PreferencesEntry
 	4,  // 3: signing.service.v1.CreateSubmissionRequest.submitters:type_name -> signing.service.v1.SubmitterInput
-	22, // 4: signing.service.v1.CreateSubmissionRequest.prefill_values:type_name -> signing.service.v1.CreateSubmissionRequest.PrefillValuesEntry
+	24, // 4: signing.service.v1.CreateSubmissionRequest.prefill_values:type_name -> signing.service.v1.CreateSubmissionRequest.PrefillValuesEntry
 	3,  // 5: signing.service.v1.CreateSubmissionResponse.submission:type_name -> signing.service.v1.Submission
 	3,  // 6: signing.service.v1.GetSubmissionResponse.submission:type_name -> signing.service.v1.Submission
 	3,  // 7: signing.service.v1.ListSubmissionsResponse.submissions:type_name -> signing.service.v1.Submission
@@ -1382,16 +1467,18 @@ var file_signing_service_v1_submission_proto_depIdxs = []int32{
 	15, // 15: signing.service.v1.SigningSubmissionService.DeclineSubmitter:input_type -> signing.service.v1.DeclineSubmitterRequest
 	17, // 16: signing.service.v1.SigningSubmissionService.CancelSubmission:input_type -> signing.service.v1.CancelSubmissionRequest
 	19, // 17: signing.service.v1.SigningSubmissionService.GetSubmissionDocumentUrl:input_type -> signing.service.v1.GetSubmissionDocumentUrlRequest
-	6,  // 18: signing.service.v1.SigningSubmissionService.CreateSubmission:output_type -> signing.service.v1.CreateSubmissionResponse
-	8,  // 19: signing.service.v1.SigningSubmissionService.GetSubmission:output_type -> signing.service.v1.GetSubmissionResponse
-	10, // 20: signing.service.v1.SigningSubmissionService.ListSubmissions:output_type -> signing.service.v1.ListSubmissionsResponse
-	12, // 21: signing.service.v1.SigningSubmissionService.SendSubmission:output_type -> signing.service.v1.SendSubmissionResponse
-	14, // 22: signing.service.v1.SigningSubmissionService.CompleteSubmitter:output_type -> signing.service.v1.CompleteSubmitterResponse
-	16, // 23: signing.service.v1.SigningSubmissionService.DeclineSubmitter:output_type -> signing.service.v1.DeclineSubmitterResponse
-	18, // 24: signing.service.v1.SigningSubmissionService.CancelSubmission:output_type -> signing.service.v1.CancelSubmissionResponse
-	20, // 25: signing.service.v1.SigningSubmissionService.GetSubmissionDocumentUrl:output_type -> signing.service.v1.GetSubmissionDocumentUrlResponse
-	18, // [18:26] is the sub-list for method output_type
-	10, // [10:18] is the sub-list for method input_type
+	21, // 18: signing.service.v1.SigningSubmissionService.DeleteSubmission:input_type -> signing.service.v1.DeleteSubmissionRequest
+	6,  // 19: signing.service.v1.SigningSubmissionService.CreateSubmission:output_type -> signing.service.v1.CreateSubmissionResponse
+	8,  // 20: signing.service.v1.SigningSubmissionService.GetSubmission:output_type -> signing.service.v1.GetSubmissionResponse
+	10, // 21: signing.service.v1.SigningSubmissionService.ListSubmissions:output_type -> signing.service.v1.ListSubmissionsResponse
+	12, // 22: signing.service.v1.SigningSubmissionService.SendSubmission:output_type -> signing.service.v1.SendSubmissionResponse
+	14, // 23: signing.service.v1.SigningSubmissionService.CompleteSubmitter:output_type -> signing.service.v1.CompleteSubmitterResponse
+	16, // 24: signing.service.v1.SigningSubmissionService.DeclineSubmitter:output_type -> signing.service.v1.DeclineSubmitterResponse
+	18, // 25: signing.service.v1.SigningSubmissionService.CancelSubmission:output_type -> signing.service.v1.CancelSubmissionResponse
+	20, // 26: signing.service.v1.SigningSubmissionService.GetSubmissionDocumentUrl:output_type -> signing.service.v1.GetSubmissionDocumentUrlResponse
+	22, // 27: signing.service.v1.SigningSubmissionService.DeleteSubmission:output_type -> signing.service.v1.DeleteSubmissionResponse
+	19, // [19:28] is the sub-list for method output_type
+	10, // [10:19] is the sub-list for method input_type
 	10, // [10:10] is the sub-list for extension type_name
 	10, // [10:10] is the sub-list for extension extendee
 	0,  // [0:10] is the sub-list for field type_name
@@ -1410,7 +1497,7 @@ func file_signing_service_v1_submission_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_signing_service_v1_submission_proto_rawDesc), len(file_signing_service_v1_submission_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   20,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -132,6 +132,17 @@ func (s *redactedSigningSubmissionServiceServer) GetSubmissionDocumentUrl(ctx co
 	return res, err
 }
 
+// DeleteSubmission is the redacted wrapper for the actual SigningSubmissionServiceServer.DeleteSubmission method
+// Unary RPC
+func (s *redactedSigningSubmissionServiceServer) DeleteSubmission(ctx context.Context, in *DeleteSubmissionRequest) (*DeleteSubmissionResponse, error) {
+	res, err := s.srv.DeleteSubmission(ctx, in)
+	if !s.bypass.CheckInternal(ctx) {
+		// Apply redaction to the response
+		redact.Apply(res)
+	}
+	return res, err
+}
+
 // Redact method implementation for Submission
 func (x *Submission) Redact() string {
 	if x == nil {
@@ -361,5 +372,23 @@ func (x *GetSubmissionDocumentUrlResponse) Redact() string {
 	}
 
 	// Safe field: Url
+	return x.String()
+}
+
+// Redact method implementation for DeleteSubmissionRequest
+func (x *DeleteSubmissionRequest) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: Id
+	return x.String()
+}
+
+// Redact method implementation for DeleteSubmissionResponse
+func (x *DeleteSubmissionResponse) Redact() string {
+	if x == nil {
+		return ""
+	}
 	return x.String()
 }

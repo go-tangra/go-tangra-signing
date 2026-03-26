@@ -545,6 +545,47 @@ func (s *SubmissionService) GetSubmissionDocumentUrl(ctx context.Context, req *s
 	}, nil
 }
 
+// DeleteSubmission deletes a submission, its submitters, and all stored documents.
+func (s *SubmissionService) DeleteSubmission(ctx context.Context, req *signingV1.DeleteSubmissionRequest) (*signingV1.DeleteSubmissionResponse, error) {
+	tenantID := getTenantIDFromContext(ctx)
+
+	sub, err := s.submissionRepo.GetByID(ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+	if sub == nil {
+		return nil, signingV1.ErrorSubmissionNotFound("submission not found")
+	}
+	if derefUint32(sub.TenantID) != tenantID {
+		return nil, signingV1.ErrorAccessDenied("access denied")
+	}
+
+	// Delete stored documents from S3
+	if sub.SignedDocumentKey != "" {
+		if err := s.storage.Delete(ctx, sub.SignedDocumentKey); err != nil {
+			s.log.Warnf("failed to delete signed document %s: %v", sub.SignedDocumentKey, err)
+		}
+	}
+	if sub.CurrentPdfKey != "" && sub.CurrentPdfKey != sub.SignedDocumentKey {
+		if err := s.storage.Delete(ctx, sub.CurrentPdfKey); err != nil {
+			s.log.Warnf("failed to delete current PDF %s: %v", sub.CurrentPdfKey, err)
+		}
+	}
+	if sub.AuditTrailKey != "" {
+		if err := s.storage.Delete(ctx, sub.AuditTrailKey); err != nil {
+			s.log.Warnf("failed to delete audit trail %s: %v", sub.AuditTrailKey, err)
+		}
+	}
+
+	// Delete submission and submitters from database
+	if err := s.submissionRepo.Delete(ctx, req.Id); err != nil {
+		return nil, err
+	}
+
+	s.log.Infof("Deleted submission %s and associated documents", req.Id)
+	return &signingV1.DeleteSubmissionResponse{}, nil
+}
+
 // advanceSequentialWorkflow sends invitation to the next submitter in order.
 func (s *SubmissionService) advanceSequentialWorkflow(ctx context.Context, tenantID uint32, submissionID string, completedOrder int) {
 	nextSubmitter, err := s.submitterRepo.GetByOrder(ctx, submissionID, completedOrder+1)

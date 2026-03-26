@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-tangra/go-tangra-signing/internal/data/ent"
 	"github.com/go-tangra/go-tangra-signing/internal/data/ent/submission"
+	"github.com/go-tangra/go-tangra-signing/internal/data/ent/submitter"
 
 	signingV1 "github.com/go-tangra/go-tangra-signing/gen/go/signing/service/v1"
 )
@@ -227,4 +228,28 @@ func (r *SubmissionRepo) ToProto(entity *ent.Submission) *signingV1.Submission {
 	return proto
 }
 
- 
+// Delete hard-deletes a submission and its submitters from the database.
+func (r *SubmissionRepo) Delete(ctx context.Context, id string) error {
+	client := r.entClient.Client()
+
+	// Delete submitters first (foreign key constraint)
+	_, err := client.Submitter.Delete().Where(
+		submitter.HasSubmissionWith(submission.IDEQ(id)),
+	).Exec(ctx)
+	if err != nil {
+		r.log.Errorf("delete submitters for submission %s failed: %v", id, err)
+		return signingV1.ErrorInternalServerError("delete submitters failed")
+	}
+
+	// Delete the submission
+	err = client.Submission.DeleteOneID(id).Exec(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil
+		}
+		r.log.Errorf("delete submission %s failed: %v", id, err)
+		return signingV1.ErrorInternalServerError("delete submission failed")
+	}
+	return nil
+}
+

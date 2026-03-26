@@ -27,6 +27,7 @@ const (
 	SigningSubmissionService_DeclineSubmitter_FullMethodName         = "/signing.service.v1.SigningSubmissionService/DeclineSubmitter"
 	SigningSubmissionService_CancelSubmission_FullMethodName         = "/signing.service.v1.SigningSubmissionService/CancelSubmission"
 	SigningSubmissionService_GetSubmissionDocumentUrl_FullMethodName = "/signing.service.v1.SigningSubmissionService/GetSubmissionDocumentUrl"
+	SigningSubmissionService_DeleteSubmission_FullMethodName         = "/signing.service.v1.SigningSubmissionService/DeleteSubmission"
 )
 
 // SigningSubmissionServiceClient is the client API for SigningSubmissionService service.
@@ -45,6 +46,8 @@ type SigningSubmissionServiceClient interface {
 	CancelSubmission(ctx context.Context, in *CancelSubmissionRequest, opts ...grpc.CallOption) (*CancelSubmissionResponse, error)
 	// Get a presigned download URL for the signed document
 	GetSubmissionDocumentUrl(ctx context.Context, in *GetSubmissionDocumentUrlRequest, opts ...grpc.CallOption) (*GetSubmissionDocumentUrlResponse, error)
+	// Delete a submission and all associated data (submitters, stored documents)
+	DeleteSubmission(ctx context.Context, in *DeleteSubmissionRequest, opts ...grpc.CallOption) (*DeleteSubmissionResponse, error)
 }
 
 type signingSubmissionServiceClient struct {
@@ -135,6 +138,16 @@ func (c *signingSubmissionServiceClient) GetSubmissionDocumentUrl(ctx context.Co
 	return out, nil
 }
 
+func (c *signingSubmissionServiceClient) DeleteSubmission(ctx context.Context, in *DeleteSubmissionRequest, opts ...grpc.CallOption) (*DeleteSubmissionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteSubmissionResponse)
+	err := c.cc.Invoke(ctx, SigningSubmissionService_DeleteSubmission_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SigningSubmissionServiceServer is the server API for SigningSubmissionService service.
 // All implementations must embed UnimplementedSigningSubmissionServiceServer
 // for forward compatibility.
@@ -151,6 +164,8 @@ type SigningSubmissionServiceServer interface {
 	CancelSubmission(context.Context, *CancelSubmissionRequest) (*CancelSubmissionResponse, error)
 	// Get a presigned download URL for the signed document
 	GetSubmissionDocumentUrl(context.Context, *GetSubmissionDocumentUrlRequest) (*GetSubmissionDocumentUrlResponse, error)
+	// Delete a submission and all associated data (submitters, stored documents)
+	DeleteSubmission(context.Context, *DeleteSubmissionRequest) (*DeleteSubmissionResponse, error)
 	mustEmbedUnimplementedSigningSubmissionServiceServer()
 }
 
@@ -184,6 +199,9 @@ func (UnimplementedSigningSubmissionServiceServer) CancelSubmission(context.Cont
 }
 func (UnimplementedSigningSubmissionServiceServer) GetSubmissionDocumentUrl(context.Context, *GetSubmissionDocumentUrlRequest) (*GetSubmissionDocumentUrlResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetSubmissionDocumentUrl not implemented")
+}
+func (UnimplementedSigningSubmissionServiceServer) DeleteSubmission(context.Context, *DeleteSubmissionRequest) (*DeleteSubmissionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteSubmission not implemented")
 }
 func (UnimplementedSigningSubmissionServiceServer) mustEmbedUnimplementedSigningSubmissionServiceServer() {
 }
@@ -351,6 +369,24 @@ func _SigningSubmissionService_GetSubmissionDocumentUrl_Handler(srv interface{},
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SigningSubmissionService_DeleteSubmission_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSubmissionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SigningSubmissionServiceServer).DeleteSubmission(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SigningSubmissionService_DeleteSubmission_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SigningSubmissionServiceServer).DeleteSubmission(ctx, req.(*DeleteSubmissionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SigningSubmissionService_ServiceDesc is the grpc.ServiceDesc for SigningSubmissionService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -389,6 +425,10 @@ var SigningSubmissionService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetSubmissionDocumentUrl",
 			Handler:    _SigningSubmissionService_GetSubmissionDocumentUrl_Handler,
+		},
+		{
+			MethodName: "DeleteSubmission",
+			Handler:    _SigningSubmissionService_DeleteSubmission_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

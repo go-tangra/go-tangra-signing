@@ -57,6 +57,11 @@ service SigningSubmissionService {
   rpc GetSubmissionDocumentUrl(GetSubmissionDocumentUrlRequest) returns (GetSubmissionDocumentUrlResponse) {
     option (google.api.http) = {get: "/v1/signing/submissions/{id}/document-url"};
   }
+
+  // Delete a submission and all associated data (submitters, stored documents)
+  rpc DeleteSubmission(DeleteSubmissionRequest) returns (DeleteSubmissionResponse) {
+    option (google.api.http) = {delete: "/v1/signing/submissions/{id}"};
+  }
 }
 
 // Signing mode
@@ -184,3 +189,9 @@ message GetSubmissionDocumentUrlRequest {
 message GetSubmissionDocumentUrlResponse {
   string url = 1;
 }
+
+message DeleteSubmissionRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message DeleteSubmissionResponse {}

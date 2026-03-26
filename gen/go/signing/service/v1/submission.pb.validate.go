@@ -2193,3 +2193,209 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = GetSubmissionDocumentUrlResponseValidationError{}
+
+// Validate checks the field values on DeleteSubmissionRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *DeleteSubmissionRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on DeleteSubmissionRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// DeleteSubmissionRequestMultiError, or nil if none found.
+func (m *DeleteSubmissionRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DeleteSubmissionRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Id
+
+	if len(errors) > 0 {
+		return DeleteSubmissionRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// DeleteSubmissionRequestMultiError is an error wrapping multiple validation
+// errors returned by DeleteSubmissionRequest.ValidateAll() if the designated
+// constraints aren't met.
+type DeleteSubmissionRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DeleteSubmissionRequestMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DeleteSubmissionRequestMultiError) AllErrors() []error { return m }
+
+// DeleteSubmissionRequestValidationError is the validation error returned by
+// DeleteSubmissionRequest.Validate if the designated constraints aren't met.
+type DeleteSubmissionRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e DeleteSubmissionRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e DeleteSubmissionRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e DeleteSubmissionRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e DeleteSubmissionRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e DeleteSubmissionRequestValidationError) ErrorName() string {
+	return "DeleteSubmissionRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e DeleteSubmissionRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sDeleteSubmissionRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = DeleteSubmissionRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = DeleteSubmissionRequestValidationError{}
+
+// Validate checks the field values on DeleteSubmissionResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *DeleteSubmissionResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on DeleteSubmissionResponse with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// DeleteSubmissionResponseMultiError, or nil if none found.
+func (m *DeleteSubmissionResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DeleteSubmissionResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if len(errors) > 0 {
+		return DeleteSubmissionResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// DeleteSubmissionResponseMultiError is an error wrapping multiple validation
+// errors returned by DeleteSubmissionResponse.ValidateAll() if the designated
+// constraints aren't met.
+type DeleteSubmissionResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DeleteSubmissionResponseMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DeleteSubmissionResponseMultiError) AllErrors() []error { return m }
+
+// DeleteSubmissionResponseValidationError is the validation error returned by
+// DeleteSubmissionResponse.Validate if the designated constraints aren't met.
+type DeleteSubmissionResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e DeleteSubmissionResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e DeleteSubmissionResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e DeleteSubmissionResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e DeleteSubmissionResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e DeleteSubmissionResponseValidationError) ErrorName() string {
+	return "DeleteSubmissionResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e DeleteSubmissionResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sDeleteSubmissionResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = DeleteSubmissionResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = DeleteSubmissionResponseValidationError{}
