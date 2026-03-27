@@ -75,7 +75,8 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	userService := service.NewUserService(context, adminClient)
 	pdfGenerator := service.NewPDFGenerator(context, storageClient)
 	sessionService := service.NewSessionService(context, submitterRepo, submissionRepo, templateRepo, eventRepo, certificateRepo, storageClient, pdfGenerator, notificationClient, adminClient, publisher)
-	grpcServer := server.NewGRPCServer(context, certManager, templateService, submissionService, signingService, certificateService, userService, sessionService)
+	backupService := service.NewBackupService(context, entClient)
+	grpcServer := server.NewGRPCServer(context, certManager, templateService, submissionService, signingService, certificateService, userService, sessionService, backupService)
 	httpServer := server.NewHTTPServer(context, storageClient, templateRepo)
 	app := newApp(context, grpcServer, httpServer)
 	return app, func() {

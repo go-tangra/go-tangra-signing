@@ -40,6 +40,7 @@ func NewGRPCServer(
 	certificateSvc *service.CertificateService,
 	userSvc *service.UserService,
 	sessionSvc *service.SessionService,
+	backupSvc *service.BackupService,
 ) *grpc.Server {
 	cfg := ctx.GetConfig()
 	l := ctx.NewLoggerHelper("signing/grpc")
@@ -109,6 +110,7 @@ func NewGRPCServer(
 	signingV1.RegisterSigningCertificateServiceServer(srv, certificateSvc)
 	signingV1.RegisterSigningUserServiceServer(srv, userSvc)
 	signingV1.RegisterSigningSessionServiceServer(srv, sessionSvc)
+	signingV1.RegisterBackupServiceServer(srv, backupSvc)
 
 	return srv
 }
