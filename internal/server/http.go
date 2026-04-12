@@ -44,6 +44,20 @@ func NewHTTPServer(ctx *bootstrap.Context, storage *data.StorageClient, template
 		return ctx.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
+	route.GET("/openapi.yaml", func(ctx kratosHttp.Context) error {
+		ctx.Response().Header().Set("Content-Type", "application/yaml")
+		_, err := ctx.Response().Write(assets.OpenApiData)
+		return err
+	})
+
+	route.GET("/proto-descriptor", func(ctx kratosHttp.Context) error {
+		ctx.Response().Header().Set("Content-Type", "application/octet-stream")
+		ctx.Response().Header().Set("Content-Disposition", "attachment; filename=descriptor.bin")
+		_, err := ctx.Response().Write(assets.DescriptorData)
+		return err
+	})
+
+
 	// PDF proxy endpoint — streams PDF from RustFS to browser.
 	// Validates that the key belongs to an allowed path prefix (templates or signed docs)
 	// and that the key path starts with a valid tenant ID prefix.
