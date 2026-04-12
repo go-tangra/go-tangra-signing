@@ -57,6 +57,13 @@ func NewHTTPServer(ctx *bootstrap.Context, storage *data.StorageClient, template
 		return err
 	})
 
+	route.GET("/menus.yaml", func(ctx kratosHttp.Context) error {
+		ctx.Response().Header().Set("Content-Type", "application/yaml")
+		_, err := ctx.Response().Write(assets.MenusData)
+		return err
+	})
+
+
 
 	// PDF proxy endpoint — streams PDF from RustFS to browser.
 	// Validates that the key belongs to an allowed path prefix (templates or signed docs)
