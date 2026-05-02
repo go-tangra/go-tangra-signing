@@ -8,17 +8,19 @@ require (
 	buf.build/gen/go/go-tangra/notification/protocolbuffers/go v1.36.11-20260311015104-33b6c889557e.1
 	entgo.io/ent v0.14.5
 	github.com/digitorus/pdf v0.2.0
+	github.com/digitorus/pdfsign v0.0.0-20260102145623-a2800162ff5c
 	github.com/digitorus/pkcs7 v0.0.0-20250730155240-ffadbf3f398c
 	github.com/digitorus/timestamp v0.0.0-20250524132541-c45532741eea
 	github.com/expr-lang/expr v1.17.5
 	github.com/go-kratos/kratos/v2 v2.9.2
 	github.com/go-sql-driver/mysql v1.9.3
-	github.com/go-tangra/go-tangra-common v1.12.0
+	github.com/go-tangra/go-tangra-common v1.17.1
 	github.com/google/uuid v1.6.0
 	github.com/google/wire v0.7.0
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/lib/pq v1.12.0
 	github.com/menta2k/go-pdfplumber v0.0.0-20260322062525-72c744524563
+	github.com/menta2k/go-transliteration v0.0.0-20260325071158-812b44907811
 	github.com/menta2k/protoc-gen-redact/v3 v3.0.0-20251106150014-896cdd075ab1
 	github.com/minio/minio-go/v7 v7.0.98
 	github.com/pdfcpu/pdfcpu v0.11.1
@@ -32,6 +34,7 @@ require (
 	github.com/tx7do/kratos-bootstrap/cache/redis v0.1.1
 	github.com/tx7do/kratos-bootstrap/database/ent v0.1.4
 	golang.org/x/crypto v0.47.0
+	golang.org/x/image v0.32.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20260120221211-b8f7ae30c516
 	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.11
@@ -53,7 +56,6 @@ require (
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
-	github.com/digitorus/pdfsign v0.0.0-20260102145623-a2800162ff5c // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
@@ -86,7 +88,6 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.19 // indirect
-	github.com/menta2k/go-transliteration v0.0.0-20260325071158-812b44907811 // indirect
 	github.com/minio/crc64nvme v1.1.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
@@ -131,7 +132,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.39.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.9.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/image v0.32.0 // indirect
 	golang.org/x/mod v0.32.0 // indirect
 	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
@@ -145,3 +145,6 @@ require (
 
 // Conflicts with github.com/go-kratos/kratos/v2 (dual proto registration of errors/errors.proto)
 exclude buf.build/gen/go/kratos/apis/protocolbuffers/go v1.36.11-20230105082401-c2de25f14fa4.1
+
+// Phase 1 of the registration rework: pull cert.Ensure() from the
+// sibling clone of go-tangra-common until a release lands.

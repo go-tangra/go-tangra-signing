@@ -82,19 +82,22 @@ func NewGRPCServer(
 	ms = append(ms, logging.Server(ctx.GetLogger()))
 
 	// Add mTLS middleware — session endpoints are public (no auth, token-based)
-	ms = append(ms, mtls.MTLSMiddleware(
-		ctx.GetLogger(),
-		mtls.WithPublicEndpoints(
-			"/grpc.health.v1.Health/Check",
-			"/grpc.health.v1.Health/Watch",
-			"/signing.service.v1.SigningSessionService/GetSigningSession",
-			"/signing.service.v1.SigningSessionService/SubmitSigning",
-			"/signing.service.v1.SigningSessionService/PrepareForBissSigning",
-			"/signing.service.v1.SigningSessionService/CompleteBissSigning",
-			"/signing.service.v1.SigningSessionService/GetCertificateSetup",
-			"/signing.service.v1.SigningSessionService/CompleteCertificateSetup",
-		),
-	))
+	// Add mTLS middleware only when TLS is enabled
+	if certManager != nil && certManager.IsTLSEnabled() {
+		ms = append(ms, mtls.MTLSMiddleware(
+			ctx.GetLogger(),
+			mtls.WithPublicEndpoints(
+				"/grpc.health.v1.Health/Check",
+				"/grpc.health.v1.Health/Watch",
+				"/signing.service.v1.SigningSessionService/GetSigningSession",
+				"/signing.service.v1.SigningSessionService/SubmitSigning",
+				"/signing.service.v1.SigningSessionService/PrepareForBissSigning",
+				"/signing.service.v1.SigningSessionService/CompleteBissSigning",
+				"/signing.service.v1.SigningSessionService/GetCertificateSetup",
+				"/signing.service.v1.SigningSessionService/CompleteCertificateSetup",
+			),
+		))
+	}
 
 	ms = append(ms, validate.Validator())
 

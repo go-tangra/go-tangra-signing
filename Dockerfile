@@ -82,7 +82,7 @@ COPY --from=builder /src/configs/ /app/configs/
 # Create non-root user
 RUN addgroup -g 1000 signing && \
     adduser -D -u 1000 -G signing signing && \
-    chown -R signing:signing /app
+    mkdir -p /app/certs && chown -R signing:signing /app
 
 # Switch to non-root user
 USER signing:signing
