@@ -34,11 +34,6 @@ RUN curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(un
 WORKDIR /src
 
 # Copy go mod files first for better caching
-# Pull in sibling go-tangra-common via BuildKit named context
-# (compose: additional_contexts: common: ../go-tangra-common).
-# Required because go.mod has a temporary `replace` of common.
-COPY --from=common . /go-tangra-common/
-
 COPY go.mod go.sum ./
 RUN go mod download
 
