@@ -14,10 +14,10 @@ require (
 	github.com/expr-lang/expr v1.17.5
 	github.com/go-kratos/kratos/v2 v2.9.2
 	github.com/go-sql-driver/mysql v1.9.3
-	github.com/go-tangra/go-tangra-common v1.17.1
+	github.com/go-tangra/go-tangra-common v1.19.0
 	github.com/google/uuid v1.6.0
 	github.com/google/wire v0.7.0
-	github.com/jackc/pgx/v5 v5.8.0
+	github.com/jackc/pgx/v5 v5.10.0
 	github.com/lib/pq v1.12.0
 	github.com/menta2k/go-pdfplumber v0.0.0-20260322062525-72c744524563
 	github.com/menta2k/go-transliteration v0.0.0-20260325071158-812b44907811

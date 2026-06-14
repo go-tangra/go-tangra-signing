@@ -11,6 +11,7 @@ import (
 	"github.com/go-kratos/kratos/v2/middleware/validate"
 	"github.com/go-kratos/kratos/v2/transport/grpc"
 	"github.com/tx7do/kratos-bootstrap/bootstrap"
+	commonV1 "github.com/go-tangra/go-tangra-common/gen/go/common/service/v1"
 
 	signingV1 "github.com/go-tangra/go-tangra-signing/gen/go/signing/service/v1"
 	"github.com/go-tangra/go-tangra-signing/internal/cert"
@@ -41,6 +42,7 @@ func NewGRPCServer(
 	userSvc *service.UserService,
 	sessionSvc *service.SessionService,
 	backupSvc *service.BackupService,
+	sqlBackupSvc *service.SqlBackupService,
 ) *grpc.Server {
 	cfg := ctx.GetConfig()
 	l := ctx.NewLoggerHelper("signing/grpc")
@@ -114,6 +116,7 @@ func NewGRPCServer(
 	signingV1.RegisterSigningUserServiceServer(srv, userSvc)
 	signingV1.RegisterSigningSessionServiceServer(srv, sessionSvc)
 	signingV1.RegisterBackupServiceServer(srv, backupSvc)
+	commonV1.RegisterBackupServiceServer(srv, sqlBackupSvc)
 
 	return srv
 }

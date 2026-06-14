@@ -23,6 +23,7 @@ var ProviderSet = wire.NewSet(
 	service.NewPDFGenerator,
 	service.NewSessionService,
 	service.NewBackupService,
+	service.NewSqlBackupService,
 	event.NewPublisher,
 	client.NewAdminClient,
 	client.NewRegistrationClient,
