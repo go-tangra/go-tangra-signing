@@ -17,6 +17,7 @@ import (
 	"github.com/go-tangra/go-tangra-signing/internal/service"
 
 	appViewer "github.com/go-tangra/go-tangra-signing/pkg/viewer"
+	"github.com/go-tangra/go-tangra-common/middleware/claims"
 	"github.com/go-tangra/go-tangra-common/middleware/mtls"
 )
 
@@ -96,8 +97,15 @@ func NewGRPCServer(
 				"/signing.service.v1.SigningSessionService/GetCertificateSetup",
 				"/signing.service.v1.SigningSessionService/CompleteCertificateSetup",
 			),
+			// mTLS caller allow-list (client cert CN "lcm-<module>"); gateway=lcm-admin, backup=lcm-backup.
+			mtls.WithAllowedIdentities("lcm-admin", "lcm-backup", "lcm-hr"),
 		))
 	}
+
+	// Bind x-md-global-* user claims to the gateway's HMAC assertion so a direct
+	// mTLS caller cannot forge platform:admin (CRIT-3.2). No-op for calls that
+	// carry no user claims; strips unverified claims in enforce mode.
+	ms = append(ms, claims.Server(ctx.GetLogger()))
 
 	ms = append(ms, validate.Validator())
 
