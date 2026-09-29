@@ -374,8 +374,14 @@ func certificates(t *testing.T, s repo.Store) {
 	if _, err := s.CurrentCA(ctx, TenantB); !errors.Is(err, repo.ErrNotFound) {
 		t.Fatalf("tenant B CA: %v", err)
 	}
+	if err := s.CreateCertificate(ctx, Certificate(TenantA, store.KindCA, nil, nil)); !errors.Is(err, repo.ErrConflict) {
+		t.Fatalf("second current CA: %v", err)
+	}
 	sys := Certificate(TenantA, store.KindSystem, &ca.ID, nil)
 	must(t, s.CreateCertificate(ctx, sys))
+	if err := s.CreateCertificate(ctx, Certificate(TenantA, store.KindSystem, &ca.ID, nil)); !errors.Is(err, repo.ErrConflict) {
+		t.Fatalf("second system certificate: %v", err)
+	}
 	if got, err := s.SystemCertificate(ctx, TenantA, ca.ID); err != nil || got.ID != sys.ID {
 		t.Fatalf("system cert: %v", err)
 	}
@@ -450,9 +456,13 @@ func certificates(t *testing.T, s repo.Store) {
 	// CA renewal: the superseded CA is no longer current but still listed.
 	ca2 := Certificate(TenantA, store.KindCA, nil, nil)
 	ca2.NotBefore = ca.NotBefore.Add(time.Minute)
-	must(t, s.CreateCertificate(ctx, ca2))
-	ca.SupersededBy = &ca2.ID
-	must(t, s.UpdateCertificate(ctx, ca))
+	must(t, s.Tx(ctx, TenantA, func(r repo.Store) error {
+		ca.SupersededBy = &ca2.ID // supersede first: the new CA is then the only current one
+		if err := r.UpdateCertificate(ctx, ca); err != nil {
+			return err
+		}
+		return r.CreateCertificate(ctx, ca2)
+	}))
 	if cur, _ := s.CurrentCA(ctx, TenantA); cur.ID != ca2.ID {
 		t.Fatal("renewed CA not current")
 	}

@@ -60,7 +60,8 @@ func TestBuildWiresTheService(t *testing.T) {
 	}
 	defer a.Close()
 	if a.Freya == nil || a.Repo == nil || a.HTTP == nil || a.Hub == nil || a.Audit == nil || a.Metrics == nil || a.Blob == nil ||
-		a.Sealer == nil || a.Limiter == nil || a.Events.Pub == nil || a.Templates == nil {
+		a.Sealer == nil || a.Limiter == nil || a.Events.Pub == nil || a.Templates == nil ||
+		a.PKI == nil || a.Me == nil || a.Contacts == nil {
 		t.Fatalf("app not fully wired: %+v", a)
 	}
 	do := func(path, tok string) *httptest.ResponseRecorder {

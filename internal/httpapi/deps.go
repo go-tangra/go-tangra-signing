@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/go-tangra/go-tangra-signing/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/certs"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/stream"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/templates"
 )
@@ -19,6 +20,7 @@ type Deps struct {
 	Health      func() map[string]string // component status for /health
 	Templates   *templates.Service       // folders, templates, builder, detection
 	MaxPDFBytes int64                    // upload bound (limits_signing.max_pdf_bytes)
+	Me          *certs.Me                // the caller's own certificate
 }
 
 // Register mounts the handlers of every wired dependency.
@@ -41,6 +43,9 @@ func (s *Server) Register(d Deps) {
 	}
 	if d.Templates != nil {
 		s.registerTemplates(d.Templates, d.MaxPDFBytes)
+	}
+	if d.Me != nil {
+		s.registerMe(d.Me)
 	}
 }
 

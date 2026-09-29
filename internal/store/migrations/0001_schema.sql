@@ -150,6 +150,13 @@ CREATE TABLE signing_certificates (
 CREATE UNIQUE INDEX signing_certificates_serial ON signing_certificates (tenant_id, serial);
 CREATE UNIQUE INDEX signing_certificates_active_signer ON signing_certificates (tenant_id, owner_user_id)
   WHERE kind = 'signer' AND status = 'active';
+-- One current CA per tenant (renewal supersedes the old one first) and one
+-- active audit-trail certificate per CA: concurrent lazy creation loses to
+-- the unique index and re-reads (research D4).
+CREATE UNIQUE INDEX signing_certificates_current_ca ON signing_certificates (tenant_id)
+  WHERE kind = 'ca' AND status = 'active' AND superseded_by IS NULL;
+CREATE UNIQUE INDEX signing_certificates_system ON signing_certificates (tenant_id, issuer_id)
+  WHERE kind = 'system' AND status = 'active';
 CREATE INDEX signing_certificates_list ON signing_certificates (tenant_id, kind, status, created_at DESC);
 
 CREATE TABLE signing_qes_preparations (

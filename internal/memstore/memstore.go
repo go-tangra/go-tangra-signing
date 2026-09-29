@@ -816,6 +816,14 @@ func (m *Mem) CreateCertificate(_ context.Context, c store.Certificate) error {
 			x.OwnerUserID != nil && c.OwnerUserID != nil && *x.OwnerUserID == *c.OwnerUserID {
 			return repo.ErrConflict
 		}
+		if c.Kind == store.KindCA && x.Kind == store.KindCA && c.Status == store.CertActive && x.Status == store.CertActive &&
+			c.SupersededBy == nil && x.SupersededBy == nil {
+			return repo.ErrConflict
+		}
+		if c.Kind == store.KindSystem && x.Kind == store.KindSystem && c.Status == store.CertActive && x.Status == store.CertActive &&
+			c.IssuerID != nil && x.IssuerID != nil && *c.IssuerID == *x.IssuerID {
+			return repo.ErrConflict
+		}
 	}
 	m.d.certs[c.ID] = c
 	return nil

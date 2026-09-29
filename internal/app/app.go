@@ -17,6 +17,7 @@ import (
 
 	"github.com/go-tangra/go-tangra-lcm/sdk/v4/pkg/lcmidentity"
 	"github.com/go-tangra/go-tangra/v4"
+	"google.golang.org/grpc"
 
 	authv1 "github.com/go-tangra/go-tangra-auth/sdk/v4/api/proto/auth/v1"
 	"github.com/go-tangra/go-tangra-auth/sdk/v4/pkg/authclient"
@@ -25,10 +26,14 @@ import (
 	"github.com/go-tangra/go-tangra-signing/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/blob"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/certs"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/config"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/contacts"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/events"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/httpapi"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/metrics"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/pincrypto"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/pki"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/repo"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/repo/repodb"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/sealed"
@@ -43,12 +48,13 @@ import (
 type Options struct {
 	Logger   slog.Handler
 	Verifier httpapi.Verifier
-	Checker  authz.Checker    // API-permission checker override (default: auth Authorization/Check)
-	Repo     repo.Store       // store override (tests: memstore); skips the DB
-	Stream   stream.Client    // event-bus client override (tests: stream.NewMemory())
-	Blob     blob.Store       // object store override (tests: blob.NewFake())
-	KEK      []byte           // key-encryption key override (tests)
-	Now      func() time.Time // clock override (tests)
+	Checker  authz.Checker      // API-permission checker override (default: auth Authorization/Check)
+	Contacts contacts.Directory // user directory override (tests: contacts.Fake)
+	Repo     repo.Store         // store override (tests: memstore); skips the DB
+	Stream   stream.Client      // event-bus client override (tests: stream.NewMemory())
+	Blob     blob.Store         // object store override (tests: blob.NewFake())
+	KEK      []byte             // key-encryption key override (tests)
+	Now      func() time.Time   // clock override (tests)
 	Freya    []freya.Option
 	Migrate  bool
 	Remote   fs.FS // built federated UI remote (nil serves no remote)
@@ -74,6 +80,9 @@ type App struct {
 	Now      func() time.Time
 
 	Templates *templates.Service
+	PKI       *pki.PKI
+	Contacts  contacts.Directory
+	Me        *certs.Me
 
 	workers []func(context.Context)
 	closers []func()
@@ -117,7 +126,18 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 	}
 
 	// Domain services.
-	l := cfg.Limits
+	l, sg := cfg.Limits, cfg.Signing
+	a.Contacts = o.Contacts
+	if a.Contacts == nil {
+		a.Contacts = contacts.Client{Dial: func(ctx context.Context) (grpc.ClientConnInterface, error) {
+			return a.Freya.Client(ctx, cfg.Auth.Service)
+		}}
+	}
+	a.PKI = pki.New(pki.Deps{Store: a.Repo, Sealer: a.Sealer, Now: a.Now, Config: pki.Config{CAValidityYears: sg.CAValidityYears,
+		CARenewBeforeYears: sg.CARenewBeforeYears, CertValidityYears: sg.CertValidityYears, CRLValidityDays: sg.CRLValidityDays,
+		PINIterations: sg.PINIterations}})
+	a.Me = certs.New(certs.Deps{Store: a.Repo, PKI: a.PKI, Contacts: a.Contacts, Audit: a.Audit, Now: a.Now,
+		Rules: pincrypto.Rules{Min: sg.PINMin, Max: sg.PINMax}, Lockout: pincrypto.Lockout{Attempts: sg.LockAttempts, Duration: cfg.LockDuration()}})
 	a.Templates = templates.New(templates.Deps{Store: a.Repo, Blob: a.Blob, Audit: a.Audit, Now: a.Now,
 		Limits: templates.Limits{MaxPDFBytes: l.MaxPDFBytes, MaxPages: l.MaxPDFPages, MaxFields: l.MaxFields, MaxParties: l.MaxSigners,
 			ParseTimeout: cfg.ParseTimeout(), MaxPageSize: l.MaxPageSize}})
@@ -130,7 +150,7 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 	if a.HTTP, err = httpapi.NewHandler(a.Freya, hopts...); err != nil {
 		return nil, err
 	}
-	a.HTTP.Register(httpapi.Deps{Hub: a.Hub, Health: a.health, Templates: a.Templates, MaxPDFBytes: l.MaxPDFBytes})
+	a.HTTP.Register(httpapi.Deps{Hub: a.Hub, Health: a.health, Templates: a.Templates, MaxPDFBytes: l.MaxPDFBytes, Me: a.Me})
 	a.Freya.HTTP().HandlePrefix("/", a.HTTP.Handler())
 	return a, nil
 }
