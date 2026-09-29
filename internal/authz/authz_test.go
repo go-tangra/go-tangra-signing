@@ -50,24 +50,13 @@ func TestRequireUser(t *testing.T) {
 	}
 }
 
-func TestMember(t *testing.T) {
-	// Member needs no checker and no permission, only a signed-in tenant user.
-	if !Allowed(ctx, nil, User(tn, "u", nil), Member) {
-		t.Fatal("member refused")
+func TestSign(t *testing.T) {
+	c := Static{"member": {SigningSign}}
+	if !Allowed(ctx, c, User(tn, "member", nil), SigningSign) || Allowed(ctx, c, User(tn, "member", nil), SigningRead) {
+		t.Fatal("signing:sign alone opens the signer routes only")
 	}
-	for _, s := range []Subjects{User("", "u", nil), User(tn, "", nil), Service("spiffe://example.org/svc/x"),
-		{TenantID: tn, UserID: "u", ActorKind: "robot"}} {
-		if Allowed(ctx, Static{"u": Permissions}, s, Member) {
-			t.Fatalf("member accepted for %+v", s)
-		}
-	}
-	if !Allowed(ctx, nil, System(), Member) {
-		t.Fatal("system is allowed everything")
-	}
-	// A checker answering yes for "member" must not matter: Member is never
-	// looked up as a permission.
-	if Allowed(ctx, CheckerFunc(func(context.Context, string, string, string) bool { return true }), User("", "u", nil), Member) {
-		t.Fatal("member without tenant")
+	if Allowed(ctx, c, User(tn, "stranger", nil), SigningSign) || Allowed(ctx, c, Service("member"), SigningSign) {
+		t.Fatal("signing:sign must be granted")
 	}
 }
 
@@ -149,7 +138,7 @@ func TestRelations(t *testing.T) {
 }
 
 func TestVocabulary(t *testing.T) {
-	if len(Permissions) != 6 || !Known(BackupManage) || !Known(Member) || Known("x:y") {
+	if len(Permissions) != 7 || !Known(BackupManage) || !Known(SigningSign) || Known("member") || Known("x:y") {
 		t.Fatal("permissions")
 	}
 	if r, act, ok := Split(SubmissionsCreate); !ok || r != "submissions" || act != "create" {

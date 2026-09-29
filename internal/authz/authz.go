@@ -4,7 +4,10 @@
 // in depth behind the gateway) through a Checker (the auth service's
 // Authorization/Check). A caller acts within its own tenant.
 //
-// Two relationships are checked in code on top of the permissions:
+// signing:sign is granted to every built-in tenant role (members included):
+// it opens the signer pages, the inbox and the caller's own certificate, and
+// the service then checks the relationship. Two relationships are checked in
+// code on top of the permissions:
 //   - participant: the caller is a signer of the submission — they may view it,
 //     sign or decline their own slot and download the document (FR-017);
 //   - sender: the caller created the submission — they may cancel, resend,
@@ -33,6 +36,7 @@ const (
 
 // API permissions (resource:action).
 const (
+	SigningSign        = "signing:sign"
 	SigningRead        = "signing:read"
 	TemplatesManage    = "templates:manage"
 	SubmissionsCreate  = "submissions:create"
@@ -41,13 +45,8 @@ const (
 	BackupManage       = "backup:manage"
 )
 
-// Member is the pseudo-permission of routes open to any signed-in user of the
-// tenant (signing pages, own certificate, inbox); the relation checks happen
-// in the service.
-const Member = "member"
-
 // Permissions lists every module permission.
-var Permissions = []string{SigningRead, TemplatesManage, SubmissionsCreate, SubmissionsManage, CertificatesManage, BackupManage}
+var Permissions = []string{SigningSign, SigningRead, TemplatesManage, SubmissionsCreate, SubmissionsManage, CertificatesManage, BackupManage}
 
 // RolePlatformAdmin confers the cross-tenant scope.
 const RolePlatformAdmin = "platform-admin"
@@ -127,11 +126,8 @@ func (s Subjects) ActorID() string {
 	return s.ActorKind
 }
 
-// Known reports whether perm is a module permission or Member.
+// Known reports whether perm is a module permission.
 func Known(perm string) bool {
-	if perm == Member {
-		return true
-	}
 	for _, p := range Permissions {
 		if p == perm {
 			return true
@@ -141,8 +137,8 @@ func Known(perm string) bool {
 }
 
 // Require checks that the caller holds perm. Users are checked through c in
-// their own tenant (nil c refuses); Member needs only a signed-in user; the
-// system subject is allowed everything; services hold no browser permission.
+// their own tenant (nil c refuses); the system subject is allowed everything;
+// services hold no browser permission.
 func Require(ctx context.Context, c Checker, s Subjects, perm string) error {
 	if !Known(perm) {
 		return fmt.Errorf("%w: unknown permission %q", ErrForbidden, perm)
@@ -151,10 +147,7 @@ func Require(ctx context.Context, c Checker, s Subjects, perm string) error {
 	case ActorSystem:
 		return nil
 	case ActorUser:
-		if perm == Member && s.IsMember() {
-			return nil
-		}
-		if perm != Member && c != nil && s.IsMember() && c.Has(ctx, s.TenantID, s.UserID, perm) {
+		if c != nil && s.IsMember() && c.Has(ctx, s.TenantID, s.UserID, perm) {
 			return nil
 		}
 	}

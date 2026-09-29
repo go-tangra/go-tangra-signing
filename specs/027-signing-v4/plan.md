@@ -189,7 +189,7 @@ committed last on the branch, dropped at release (as 026).
 
 | Item | Why needed | Simpler alternative rejected because |
 |------|------------|--------------------------------------|
-| Seven new PDF/CMS dependencies + pdf.js | PAdES signing, overlays, detection, audit PDF, rendering have no v4 precedent; all proven in v3 | writing a PDF writer/parser in-repo is high-risk; upstream-only pdfsign lacks the external (BISS) split |
+| Seven new PDF/CMS dependencies + pdf.js | PAdES signing, overlays, detection, audit PDF, rendering have no v4 precedent; all proven in v3 | writing a PDF writer/parser in-repo is high-risk; the v3 goSign fork rewrote the catalog and dropped earlier signature fields; upstream digitorus/pdfsign (already used by v3 local signing) is used instead, BISS via a capture signer |
 | New auth RPC `Profiles.Contacts` | signers are platform users and need their e-mail for mail and certificate subject | widening `Lookup` leaks e-mail to every allowed module; typed e-mails contradict decision 2 |
 | Global `connect-src` allowance for BISS | the edge CSP is global (F13); BISS runs on the user's machine | per-route CSP would need an edge redesign; allowance is connect-only |
 | In-repo rule evaluator (Go + TS) | server-authoritative conditions/formulas on untrusted input | `expr-lang` executes a far larger language than the spec needs |

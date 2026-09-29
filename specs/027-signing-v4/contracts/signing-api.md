@@ -1,8 +1,9 @@
 # Contract: Signing HTTP API (browser, via the gateway)
 
 Prefix `/api/signing/v1`, declared in `api/openapi/signing.yaml` with
-`x-freya-permission` per operation. `member` = any authenticated user of the tenant
-(relationship checks in code, research D7). Errors use the platform envelope
+`x-freya-permission` per operation. `member` below means the permission
+`signing:sign`, granted to every built-in tenant role (members included); the
+module then checks the relationship in code (research D7). Errors use the platform envelope
 `{error:{code,message,field?}}`; foreign/unauthorised ids → `404 not_found`.
 Mutating calls carry the gateway CSRF header.
 

@@ -45,10 +45,18 @@ resolves user → e-mail (notification does not hold e-mails either); widen `Loo
 
 ## D2. PDF engine: port the v3 in-repo signer, keep the v3 libraries
 
-**Decision**: move v3 `pkg/pdf/{sign,verify,revocation}` into `internal/pdf/…` of the v4
-module, fixing it rather than rewriting: incremental updates only (earlier signatures
-stay valid), SHA-256, CMS/PAdES B-B (ETSI.CAdES.detached) with signing-certificate-v2
-attribute, DocMDP only on the first (certification) signature. Dependencies:
+**Decision** (revised during implementation, 2026-09-29): sign with upstream
+`digitorus/pdfsign` — what v3's local signing already used — not the vendored goSign
+fork (`pkg/pdf/sign`), which rewrites the catalog with only the new AcroForm field
+(earlier signature fields vanish), never attaches its widget to a page and ignores
+xref streams. Signer signatures are approval signatures without DocMDP (SHA-256,
+signing-certificate-v2). A signer's field values are drawn as image-appearance
+annotations by an in-repo incremental writer (`internal/pdf/incr`) in an update
+appended before the signature, so earlier signatures stay valid and Cyrillic needs
+no PDF font embedding. BISS uses pdfsign with a capture signer (digest out,
+placeholder signature in) and the returned card signature is placed by rebuilding
+the CMS inside the reserved /Contents space. Administrator signing uses a
+certification signature (DocMDP P=2). Dependencies:
 `digitorus/pdf`, `digitorus/pkcs7`, `digitorus/timestamp`, `pdfcpu/pdfcpu` (field
 overlays, page count/limits), `signintech/gopdf` (audit trail),
 `menta2k/go-pdfplumber` (detection), `menta2k/go-transliteration` (CN).

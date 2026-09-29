@@ -683,8 +683,11 @@ and certificates. Private keys are never exported in clear.
   - `certificates:manage` (CA, certificates, revoke, administrator
     certificates, document signing)
   - `backup:manage`
-  Signing their own assigned documents and managing their own certificate
-  needs only tenant membership.
+  - `signing:sign` (sign their own assigned documents, decline, see their
+    inbox, manage their own certificate) — granted to every built-in tenant
+    role, members included, so it needs only tenant membership in practice.
+    The gateway requires a declared permission on every route; the module
+    additionally checks that the caller is the assigned signer.
 - **FR-049**: The module MUST register the built-in module roles:
   - Signing Administrator (all);
   - Signing Operator (read, templates, submissions);
