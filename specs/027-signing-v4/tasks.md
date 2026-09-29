@@ -102,9 +102,9 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 ### Tests (write first, must fail)
 - [x] T051 [P] [US2] `internal/pdf/sign/sign_test.go` — port v3 signer tests; PAdES B-B attributes (signing-certificate-v2), SHA-256, incremental update keeps earlier signatures valid (sign twice, verify both), certification (DocMDP) only first, visible appearance on the first signature field, external-signing split round-trip.
 - [x] T052 [P] [US2] `internal/pdf/overlay/overlay_test.go` — text/number/date/checkbox/select/radio/cells/image/stamp values placed at fractions on the right page; Cyrillic text; signature image placement; stamps for extra signature fields; already-signed input keeps signatures (incremental).
-- [ ] T053 [P] [US2] `internal/submissions/submissions_test.go` — create (template active + same tenant, signers are active members via Contacts, parties covered, positions, prefill validated, expiry/reminder defaults from template), frozen fields, send (sequential invites first, parallel all), inbox queries, sender vs `submissions:manage`, tenant scoping.
+- [x] T053 [P] [US2] `internal/submissions/submissions_test.go` — create (template active + same tenant, signers are active members via Contacts, parties covered, positions, prefill validated, expiry/reminder defaults from template), frozen fields, send (sequential invites first, parallel all), inbox queries, sender vs `submissions:manage`, tenant scoping.
 - [ ] T054 [P] [US2] `internal/signing/signing_test.go` — every FR-011 refusal (not the signer, draft/cancelled/expired/completed, not your turn, already signed/declined, missing required), wrong PIN → nothing signed + counter incremented in its own tx + `attempts_left`, locked → 423, expired/revoked certificate refused, success creates version n+1 and marks signed, next signer invited, last signer completes (final_version, job queued, event published), object cleanup on failure, rate limit.
-- [ ] T055 [P] [US2] `internal/mail/mail_test.go` — template keys and variables per event, portal links, failures recorded as `mail_error` + history event, no field values in variables.
+- [x] T055 [P] [US2] `internal/mail/mail_test.go` — template keys and variables per event, portal links, failures recorded as `mail_error` + history event, no field values in variables.
 - [ ] T056 [P] [US2] `tests/integration/signing_integration_test.go` (`//go:build integration`) — two parallel signers signing concurrently: both signatures present and valid, versions 1 and 2, no lost update.
 
 ### Implementation
@@ -112,7 +112,7 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 - [x] T058 [P] [US2] `internal/pdf/overlay/overlay.go` — port v3 overlay/stamp code (`pdf_generator.go`, `local_signing.go` stamp rendering, embedded fonts).
 - [ ] T059 [US2] `internal/submissions/submissions.go` + `internal/httpapi/submissions.go` — create/get/list/send, inbox, users picker (`/users`), document/version downloads with participant/sender/read checks.
 - [ ] T060 [US2] `internal/signing/signing.go` + `internal/httpapi/signing.go` — session view (own fields only), open, sign pipeline (research D3), completion.
-- [ ] T061 [P] [US2] `internal/mail/mail.go` — notification client (`SendKey`), link builder, failure recording.
+- [x] T061 [P] [US2] `internal/mail/mail.go` — notification client (`SendKey`), link builder, failure recording.
 - [ ] T062 [P] [US2] UI tests `ui/tests/unit/{sign.spec.ts,submissions.spec.ts,signaturepad.spec.ts}` — signing page shows own fields only, required validation, PIN errors (attempts left, locked), not-your-turn state, submission create drawer (signers per party, order, prefill), progress view.
 - [ ] T063 [US2] UI `ui/src/views/submissions/` (list, create drawer with user picker per party, detail with signer states), `ui/src/views/inbox/` (To sign / Signed by me, live via `signing.inbox`), `ui/src/views/sign/` (PDF with own field inputs, `SignaturePad.vue` draw/type, PIN dialog, certificate setup redirect), downloads.
 
@@ -144,7 +144,7 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 ### Tests (write first, must fail)
 - [ ] T075 [P] [US5] `internal/signing/decline_test.go` — decline cancels, notifies sender and others, publishes `signing.submission.cancelled`, reason length bounds, only the signer can decline.
 - [ ] T076 [P] [US5] `internal/tasks/tasks_test.go` — `signing:expire-submissions` and `signing:send-reminders` via the SDK server over bufconn: platform scope only (tenant request refused), caller must be svc/scheduler, expiry exactly once across two runs, reminders exactly once per due signer and bounded by max, sweeps (expired preparations, orphan objects, due CRLs), DB error → Retry.
-- [ ] T077 [P] [US5] `internal/submissions/control_test.go` — cancel, resend (new invitation, history), replace signer (only unsigned; new Contacts lookup), delete removes objects.
+- [x] T077 [P] [US5] `internal/submissions/control_test.go` — cancel, resend (new invitation, history), replace signer (only unsigned; new Contacts lookup), delete removes objects.
 
 ### Implementation
 - [ ] T078 [US5] `internal/signing/decline.go`, `internal/submissions/control.go` + handlers.
