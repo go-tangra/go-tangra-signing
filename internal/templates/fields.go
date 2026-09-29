@@ -1,10 +1,12 @@
 package templates
 
 import (
+	"errors"
 	"regexp"
 	"strings"
 
 	"github.com/go-tangra/go-tangra-signing/v4/internal/apperr"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/rules"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/store"
 )
 
@@ -102,6 +104,19 @@ func ValidateFields(fields []store.Field, parties []store.Party, pages, max int)
 				}
 			}
 		}
+	}
+	return nil
+}
+
+// ValidateRules refuses syntax errors, unknown fields and cycles in the
+// conditions and formulas, naming the offending field (FR-042).
+func ValidateRules(fields []store.Field) error {
+	if err := rules.Validate(fields); err != nil {
+		var re *rules.Error
+		if errors.As(err, &re) {
+			return apperr.InvalidRule.WithField(re.Field).WithDetail(map[string]any{"message": re.Msg})
+		}
+		return err
 	}
 	return nil
 }

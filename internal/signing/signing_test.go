@@ -548,7 +548,7 @@ func TestDecline(t *testing.T) {
 func TestRulesHook(t *testing.T) {
 	e := newEnv(t, func(d *Deps) {
 		d.Rules = func(fields []store.Field, values map[string]string) (Evaluation, error) {
-			ev, _ := plain(fields, values)
+			ev, _ := Rules(fields, values)
 			ev.Hidden["photo"] = values["agree"] != "true"
 			ev.Required["agree"] = true
 			ev.Computed["name"] = "COMPUTED"

@@ -347,3 +347,28 @@ func TestFolders(t *testing.T) {
 		t.Fatal("audit")
 	}
 }
+
+func TestSaveFieldsValidatesRules(t *testing.T) {
+	e := newEnv(t)
+	tpl := e.upload(t, "Rules")
+	parties := []store.Party{{Key: "p1", Name: "Employee"}}
+	f := func(id, name, typ, formula string) store.Field {
+		return store.Field{ID: id, Name: name, Type: typ, Party: "p1", Page: 1, X: 0.1, Y: 0.1, W: 0.2, H: 0.05, Formula: formula}
+	}
+	cyclic := []store.Field{f("x", "Gross", "number", "{Net} + 1"), f("y", "Net", "number", "{Gross} - 1")}
+	_, err := e.svc.SaveFields(ctx, e.admin, tpl.ID, tpl.Version, parties, cyclic)
+	var ae *apperr.Error
+	if !errors.As(err, &ae) || ae.Reason != "invalid_rule" || ae.Field != "Gross" || ae.Detail["message"] == "" {
+		t.Fatalf("cycle: %v %+v", err, ae)
+	}
+	if _, err := e.svc.SaveFields(ctx, e.admin, tpl.ID, tpl.Version, parties, []store.Field{f("t", "Total", "number", "{Missing} * 2")}); !errors.Is(err, apperr.InvalidRule) {
+		t.Fatalf("unknown ref: %v", err)
+	}
+	ok := []store.Field{f("s", "Salary", "number", ""), f("b", "Bonus", "number", "round({Salary} * 0.1, 2)")}
+	if _, err := e.svc.SaveFields(ctx, e.admin, tpl.ID, tpl.Version, parties, ok); err != nil {
+		t.Fatalf("valid formula refused: %v", err)
+	}
+	if !e.audit.has(audit.TemplateFields, audit.OutcomeRefused) {
+		t.Fatal("refusal audited")
+	}
+}

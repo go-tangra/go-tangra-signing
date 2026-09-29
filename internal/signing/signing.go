@@ -38,6 +38,7 @@ import (
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pdf/sign"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pki"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/repo"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/rules"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/store"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/submissions"
 )
@@ -50,16 +51,21 @@ type Evaluation struct {
 	Computed map[string]string // field id → server-computed value
 }
 
-// Evaluator evaluates the rules; nil means no rules (every field visible,
-// required as configured, no formulas).
+// Evaluator evaluates the rules; nil means Rules.
 type Evaluator func(fields []store.Field, values map[string]string) (Evaluation, error)
 
-func plain(fields []store.Field, _ map[string]string) (Evaluation, error) {
-	ev := Evaluation{Hidden: map[string]bool{}, Required: map[string]bool{}, Computed: map[string]string{}}
-	for _, f := range fields {
-		ev.Required[f.ID] = f.Required
+// Rules is the default Evaluator: the conditions and formulas of package
+// rules (a rule error reads as invalid_rule naming the field).
+func Rules(fields []store.Field, values map[string]string) (Evaluation, error) {
+	r, err := rules.Evaluate(fields, values)
+	if err != nil {
+		var re *rules.Error
+		if errors.As(err, &re) {
+			return Evaluation{}, apperr.InvalidRule.WithField(re.Field)
+		}
+		return Evaluation{}, err
 	}
-	return ev, nil
+	return Evaluation{Hidden: r.Hidden, Required: r.Required, Computed: r.Computed}, nil
 }
 
 // Limits bound signing input.
@@ -105,7 +111,7 @@ func New(d Deps) *Service {
 		d.Now = func() time.Time { return time.Now().UTC() }
 	}
 	if d.Rules == nil {
-		d.Rules = plain
+		d.Rules = Rules
 	}
 	if d.Limits.MaxPDFBytes <= 0 {
 		d.Limits.MaxPDFBytes = 50 << 20

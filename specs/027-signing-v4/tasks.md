@@ -164,12 +164,12 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 ## Phase 11: User Story 6 — Conditions and formulas (P3)
 
 ### Tests (write first, must fail)
-- [ ] T085 [P] [US6] `internal/rules/rules_test.go` + `rules_fuzz_test.go` + `testdata/vectors.json` — conditions (all ops, all/any, visible/required), formula grammar (precedence, parentheses, round/min/max/sum, unknown field, division by zero → empty, cycles detected, deep nesting bounded), deterministic 2-dp output. 100 %.
+- [x] T085 [P] [US6] `internal/rules/rules_test.go` + `rules_fuzz_test.go` + `testdata/vectors.json` — conditions (all ops, all/any, visible/required), formula grammar (precedence, parentheses, round/min/max/sum, unknown field, division by zero → empty, cycles detected, deep nesting bounded), deterministic 2-dp output. 100 %.
 - [ ] T086 [P] [US6] `ui/tests/unit/rules.spec.ts` — same vectors file through the TS evaluator (identical results).
-- [ ] T087 [P] [US6] `internal/signing/rules_flow_test.go` — hidden fields ignored, conditionally required enforced, tampered calculated value replaced by server value in the PDF; template save refuses invalid/cyclic rules naming the field.
+- [x] T087 [P] [US6] `internal/signing/rules_flow_test.go` — hidden fields ignored, conditionally required enforced, tampered calculated value replaced by server value in the PDF; template save refuses invalid/cyclic rules naming the field.
 
 ### Implementation
-- [ ] T088 [US6] `internal/rules/{conditions.go,formula.go,graph.go}`; wire into `internal/templates/fields.go` validation and the signing pipeline.
+- [x] T088 [US6] `internal/rules/{conditions.go,formula.go,graph.go}`; wire into `internal/templates/fields.go` validation and the signing pipeline.
 - [ ] T089 [US6] `ui/src/rules/` (TS evaluator), builder condition/formula editors in `FieldProps.vue`, live evaluation on the signing page.
 
 ## Phase 12: User Story 9 — Backup and restore (P3)

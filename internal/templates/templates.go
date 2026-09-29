@@ -37,8 +37,8 @@ type Limits struct {
 	MaxPageSize  int
 }
 
-// RuleValidator checks conditions and formulas in depth (package rules, US6);
-// nil accepts the structural validation of ValidateFields.
+// RuleValidator checks conditions and formulas in depth; nil means
+// ValidateRules (package rules, US6).
 type RuleValidator func(fields []store.Field) error
 
 // Deps wire the service.
@@ -61,6 +61,9 @@ func New(d Deps) *Service {
 	}
 	if d.Limits.MaxPageSize <= 0 {
 		d.Limits.MaxPageSize = 100
+	}
+	if d.Rules == nil {
+		d.Rules = ValidateRules
 	}
 	return &Service{d: d}
 }
@@ -476,10 +479,9 @@ func (s *Service) SaveFields(ctx context.Context, subj authz.Subjects, id string
 		s.record(ctx, subj, audit.TemplateFields, audit.SubjectTemplate, id, audit.OutcomeRefused, reasonOf(err), nil)
 		return store.Template{}, err
 	}
-	if s.d.Rules != nil {
-		if err := s.d.Rules(fields); err != nil {
-			return store.Template{}, err
-		}
+	if err := s.d.Rules(fields); err != nil {
+		s.record(ctx, subj, audit.TemplateFields, audit.SubjectTemplate, id, audit.OutcomeRefused, reasonOf(err), nil)
+		return store.Template{}, err
 	}
 	t.Parties, t.Fields = parties, fields
 	if t.Status == store.TemplateActive {
