@@ -64,6 +64,7 @@ type submissionView struct {
 	CompletedAt    *time.Time      `json:"completed_at"`
 	CreatedAt      time.Time       `json:"created_at"`
 	CreatedBy      string          `json:"created_by"`
+	Source         string          `json:"source"`
 	Signers        []signerView    `json:"signers"`
 	CanControl     bool            `json:"can_control"`
 }
@@ -77,7 +78,7 @@ func viewSubmission(d submissions.Detail) submissionView {
 	return submissionView{ID: s.ID, TemplateID: s.TemplateID, Name: s.Name, Mode: s.Mode, Status: s.Status, ExpiresAt: s.ExpiresAt,
 		Reminder: s.Reminder, CurrentVersion: s.CurrentVersion, FinalVersion: s.FinalVersion, AuditTrail: s.AuditTrailKey != "",
 		CancelReason: s.CancelReason, SentAt: s.SentAt, CompletedAt: s.CompletedAt, CreatedAt: s.CreatedAt, CreatedBy: s.CreatedBy,
-		Signers: signers, CanControl: d.CanControl}
+		Source: s.Source, Signers: signers, CanControl: d.CanControl}
 }
 
 type eventView struct {

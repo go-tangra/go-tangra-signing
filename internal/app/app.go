@@ -218,6 +218,7 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 	a.Backup = backup.New(backup.Deps{Store: a.Repo, Blob: a.Blob, Audit: a.Audit, KeyCheck: a.Sealer.KeyCheck(), MaxBytes: l.MaxBackupBytes, Now: a.Now,
 		Values: fieldvalues.Box{E: a.Sealer}})
 	a.wireScheduler()
+	a.wireModuleAPI()
 
 	// Mesh HTTP surface (reached only through the gateway).
 	hopts := []httpapi.Option{httpapi.WithVerifier(a.Verifier), httpapi.WithChecker(a.Checker), httpapi.WithLogger(a.Log)}

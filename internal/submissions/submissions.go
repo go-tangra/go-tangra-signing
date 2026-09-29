@@ -158,6 +158,18 @@ func (s *Service) create(ctx context.Context, subj authz.Subjects, in CreateInpu
 	if err := authz.Require(ctx, s.d.Checker, subj, authz.SubmissionsCreate); err != nil {
 		return Detail{}, apperr.Forbidden
 	}
+	return s.createFor(ctx, subj.TenantID, subj.UserID, in, origin{})
+}
+
+// origin marks a submission created through the module API (feature 028).
+type origin struct {
+	Source, Ref, Key string
+}
+
+// createFor freezes the template into a draft submission of tenant created
+// by createdBy (the caller's permission has been checked by the caller).
+func (s *Service) createFor(ctx context.Context, tenant, createdBy string, in CreateInput, o origin) (Detail, error) {
+	subj := authz.Subjects{TenantID: tenant, UserID: createdBy}
 	if in.Mode != store.ModeSequential && in.Mode != store.ModeParallel {
 		return Detail{}, apperr.Validation.WithField("mode")
 	}
@@ -194,6 +206,7 @@ func (s *Service) create(ctx context.Context, subj authz.Subjects, in CreateInpu
 		ID: id, TenantID: subj.TenantID, TemplateID: tpl.ID, Name: name, PDFSHA256: tpl.PDFSHA256,
 		Fields: fields, Parties: tpl.Parties, Mode: in.Mode, Status: store.SubmissionDraft, ExpiresAt: expires,
 		Reminder: reminder, CreatedAt: now, CreatedBy: subj.UserID, UpdatedAt: now,
+		Source: o.Source, SourceRef: o.Ref, IdempotencyKey: o.Key,
 	}
 	signers, err := s.signers(ctx, subj.TenantID, sub, tpl.Parties, in.Signers)
 	if err != nil {

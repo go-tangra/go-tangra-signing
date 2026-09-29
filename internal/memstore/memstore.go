@@ -557,12 +557,34 @@ func (m *Mem) CreateSubmission(_ context.Context, s store.Submission, signers []
 	if !ok || t.TenantID != s.TenantID {
 		return repo.ErrNotFound
 	}
+	if s.IdempotencyKey != "" {
+		for _, o := range m.d.subs {
+			if o.TenantID == s.TenantID && o.Source == s.Source && o.IdempotencyKey == s.IdempotencyKey {
+				return repo.ErrConflict
+			}
+		}
+	}
 	m.d.subs[s.ID] = cloneSubmission(s)
 	for _, sg := range signers {
 		m.d.signers[sg.ID] = cloneSigner(sg)
 	}
 	m.d.versions[verKey(v0.SubmissionID, v0.Version)] = v0
 	return nil
+}
+
+// SubmissionByIdempotency implements repo.Store.
+func (m *Mem) SubmissionByIdempotency(_ context.Context, tenantID, source, key string) (store.Submission, []store.Signer, error) {
+	unlock, err := m.lock("SubmissionByIdempotency")
+	defer unlock()
+	if err != nil {
+		return store.Submission{}, nil, err
+	}
+	for _, s := range m.d.subs {
+		if key != "" && s.TenantID == tenantID && s.Source == source && s.IdempotencyKey == key {
+			return cloneSubmission(s), m.signersOf(s.ID), nil
+		}
+	}
+	return store.Submission{}, nil, repo.ErrNotFound
 }
 
 func verKey(sub string, v int) string { return sub + "/" + strconv.Itoa(v) }

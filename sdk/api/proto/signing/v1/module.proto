@@ -1,0 +1,126 @@
+syntax = "proto3";
+
+// signing.v1.ModuleSubmissions is the module-to-module API of the document
+// signing module (feature 028). It is NOT proxied by the gateway: the caller is
+// an authenticated service on the Freya SPIFFE mTLS channel, admitted by the
+// module's deploy/policy.yaml (only svc/hr today). The tenant comes from the
+// request and the actor from the verified SPIFFE identity. A module only sees
+// and changes submissions it created itself (source = its service name);
+// signers and the sender are active members of the tenant.
+package signing.v1;
+
+option go_package = "github.com/go-tangra/go-tangra-signing/sdk/v4/api/proto/signing/v1;signingv1";
+
+service ModuleSubmissions {
+  // ListTemplates lists the tenant's active templates with parties and fields
+  // (never the PDF or any value).
+  rpc ListTemplates(ListTemplatesRequest) returns (ListTemplatesResponse);
+  // CreateAndSend creates a sequential submission from a template and sends
+  // it; replays with the same idempotency key return the same submission.
+  rpc CreateAndSend(CreateAndSendRequest) returns (CreateAndSendResponse);
+  // GetSubmission returns a submission's state.
+  rpc GetSubmission(GetSubmissionRequest) returns (GetSubmissionResponse);
+  // Cancel cancels an in-progress submission.
+  rpc Cancel(CancelRequest) returns (CancelResponse);
+  // Delete deletes a submission with its documents.
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+  // FinalDocument streams the signed PDF of a completed submission.
+  rpc FinalDocument(FinalDocumentRequest) returns (stream DocumentChunk);
+}
+
+message ListTemplatesRequest {
+  string tenant_id = 1;
+}
+
+message TemplateParty {
+  string id = 1;
+  string name = 2;
+}
+
+message TemplateField {
+  string id = 1;
+  string name = 2;
+  string type = 3;
+  string party = 4;
+  // text_valued fields accept a prefill value.
+  bool text_valued = 5;
+}
+
+message TemplateInfo {
+  string id = 1;
+  string name = 2;
+  repeated TemplateParty parties = 3;
+  repeated TemplateField fields = 4;
+}
+
+message ListTemplatesResponse {
+  repeated TemplateInfo templates = 1;
+}
+
+message SignerRef {
+  string user_id = 1;
+  string party = 2;
+}
+
+message CreateAndSendRequest {
+  string tenant_id = 1;
+  string template_id = 2;
+  // The user shown as sender (created_by); an active member of the tenant.
+  string sender_user_id = 3;
+  string name = 4;
+  // Signers in signing order (sequential); 1-10.
+  repeated SignerRef signers = 5;
+  // Template field id → value.
+  map<string, string> prefill = 6;
+  string source_ref = 7;
+  string idempotency_key = 8;
+}
+
+message CreateAndSendResponse {
+  string submission_id = 1;
+  string status = 2;
+}
+
+message GetSubmissionRequest {
+  string tenant_id = 1;
+  string submission_id = 2;
+}
+
+message GetSubmissionResponse {
+  string submission_id = 1;
+  // in_progress | completed | cancelled | expired
+  string status = 2;
+  // cancelled | declined for cancelled submissions, else empty.
+  string cancel_reason_code = 3;
+  int32 final_version = 4;
+}
+
+message CancelRequest {
+  string tenant_id = 1;
+  string submission_id = 2;
+  // hr_cancelled | hr_rejected | member_left
+  string reason_code = 3;
+}
+
+message CancelResponse {
+  string status = 1;
+}
+
+message DeleteRequest {
+  string tenant_id = 1;
+  string submission_id = 2;
+}
+
+message DeleteResponse {}
+
+message FinalDocumentRequest {
+  string tenant_id = 1;
+  string submission_id = 2;
+}
+
+message DocumentChunk {
+  bytes data = 1;
+  // Set on the first chunk only.
+  string file_name = 2;
+  int64 size = 3;
+}

@@ -172,7 +172,17 @@ type Submission struct {
 	CreatedAt        time.Time
 	CreatedBy        string
 	UpdatedAt        time.Time
+	// Source is the module that created the submission through the module API
+	// ("" = a user in the browser, "hr" = the hr module); SourceRef is that
+	// module's reference (a leave request id) and IdempotencyKey makes its
+	// creation replay-safe.
+	Source         string
+	SourceRef      string
+	IdempotencyKey string
 }
+
+// Submission sources (module API callers).
+const SourceHR = "hr"
 
 // Open reports whether signers may act on the submission at now.
 func (s Submission) Open(now time.Time) bool {

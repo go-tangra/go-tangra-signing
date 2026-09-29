@@ -10,6 +10,8 @@ import (
 	sdktask "github.com/go-tangra/go-tangra-scheduler/sdk/v4/pkg/taskexec"
 	"github.com/go-tangra/go-tangra/v4/authn"
 
+	signingv1 "github.com/go-tangra/go-tangra-signing/sdk/v4/api/proto/signing/v1"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/grpcapi"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/tasks"
 )
 
@@ -50,5 +52,24 @@ func schedulerCaller(trustDomain string) func(ctx context.Context) (string, bool
 			return "", false
 		}
 		return p.ID.ServiceName(), true
+	}
+}
+
+// wireModuleAPI serves signing.v1.ModuleSubmissions (feature 028): the mesh
+// policy admits only svc/hr, and the server re-checks the peer's trust domain
+// and service name.
+func (a *App) wireModuleAPI() {
+	signingv1.RegisterModuleSubmissionsServer(a.Freya.GRPC(), &grpcapi.Server{Subs: a.Submissions, Caller: moduleCaller(a.Cfg.Config.TrustDomain)})
+}
+
+// moduleCaller returns the verified peer of a module API call, only for a
+// peer of signing's own trust domain.
+func moduleCaller(trustDomain string) func(ctx context.Context) (grpcapi.Peer, bool) {
+	return func(ctx context.Context) (grpcapi.Peer, bool) {
+		p, ok := authn.FromContext(ctx)
+		if !ok || p.ID.TrustDomain() != trustDomain {
+			return grpcapi.Peer{}, false
+		}
+		return grpcapi.Peer{Service: p.ID.ServiceName(), SPIFFEID: p.ID.String()}, true
 	}
 }

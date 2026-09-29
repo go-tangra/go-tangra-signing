@@ -246,6 +246,7 @@ components:
         completed_at: { type: [string, 'null'], format: date-time }
         created_at: { type: string, format: date-time }
         created_by: { type: string }
+        source: { type: string, enum: ['', hr], description: 'module that started the submission (module API); empty = a user' }
         signers: { type: array, items: { $ref: '#/components/schemas/SignerView' } }
         can_control: { type: boolean }
     SubmissionPage:

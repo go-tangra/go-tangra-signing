@@ -216,6 +216,7 @@ const rows = computed(() => [...(sub.value?.signers ?? [])].sort((a, b) => a.pos
     </template>
     <template #badges>
       <UiStatusChip v-if="sub" :status="sub.status" :label="SUBMISSION_STATUS_LABELS[sub.status]" :colors="SUBMISSION_STATUS_COLORS" data-test="submission-status" />
+      <UiBadge v-if="sub?.source === 'hr'" size="xs" data-test="submission-source">Source: HR</UiBadge>
     </template>
     <template v-if="sub && canControl" #actions>
       <UiButton v-if="sub.status === 'draft'" icon="mdi-send-outline" :loading="busy === 'send'" data-test="submission-send" @click="send">Send</UiButton>

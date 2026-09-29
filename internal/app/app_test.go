@@ -277,4 +277,7 @@ func TestSchedulerWiring(t *testing.T) {
 	if _, ok := schedulerCaller("example.org")(context.Background()); ok {
 		t.Fatal("a call without a verified peer has no caller")
 	}
+	if _, ok := moduleCaller("example.org")(context.Background()); ok {
+		t.Fatal("a module call without a verified peer has no caller")
+	}
 }

@@ -68,6 +68,7 @@ func Run(t *testing.T, newStore func(t *testing.T) repo.Store) {
 	t.Run("folders", func(t *testing.T) { folders(t, newStore(t)) })
 	t.Run("templates", func(t *testing.T) { templates(t, newStore(t)) })
 	t.Run("submissions", func(t *testing.T) { submissions(t, newStore(t)) })
+	t.Run("module submissions", func(t *testing.T) { moduleSubmissions(t, newStore(t)) })
 	t.Run("tx", func(t *testing.T) { tx(t, newStore(t)) })
 	t.Run("certificates", func(t *testing.T) { certificates(t, newStore(t)) })
 	t.Run("qes and events", func(t *testing.T) { qesAndEvents(t, newStore(t)) })
@@ -626,5 +627,45 @@ func scheduled(t *testing.T, s repo.Store) {
 	must(t, err)
 	if len(tenants) != 2 {
 		t.Fatalf("tenants = %v", tenants)
+	}
+}
+
+// moduleSubmissions pins the module API storage (feature 028): source,
+// reference and idempotency key round-trip; a key is unique per tenant and
+// source; lookups are tenant- and source-scoped.
+func moduleSubmissions(t *testing.T, st repo.Store) {
+	tpl := Template(TenantA, "Leave form")
+	if err := st.CreateTemplate(ctx, tpl); err != nil {
+		t.Fatal(err)
+	}
+	s, signers, v0 := Submission(tpl)
+	s.Source, s.SourceRef, s.IdempotencyKey = store.SourceHR, "req-1", "req-1:1"
+	if err := st.CreateSubmission(ctx, s, signers, v0); err != nil {
+		t.Fatal(err)
+	}
+	got, sg, err := st.SubmissionByIdempotency(ctx, TenantA, store.SourceHR, "req-1:1")
+	if err != nil || got.ID != s.ID || got.Source != store.SourceHR || got.SourceRef != "req-1" || len(sg) != 2 {
+		t.Fatalf("by idempotency: %+v %v", got, err)
+	}
+	if g, _, _ := st.GetSubmission(ctx, TenantA, s.ID); g.IdempotencyKey != "req-1:1" {
+		t.Fatal("key round trip")
+	}
+	dup, dsg, dv0 := Submission(tpl)
+	dup.Source, dup.IdempotencyKey = store.SourceHR, "req-1:1"
+	if err := st.CreateSubmission(ctx, dup, dsg, dv0); !errors.Is(err, repo.ErrConflict) {
+		t.Fatalf("duplicate key: %v", err)
+	}
+	for _, c := range []struct{ tenant, source, key string }{{TenantB, store.SourceHR, "req-1:1"}, {TenantA, "", "req-1:1"}, {TenantA, store.SourceHR, ""}} {
+		if _, _, err := st.SubmissionByIdempotency(ctx, c.tenant, c.source, c.key); !errors.Is(err, repo.ErrNotFound) {
+			t.Fatalf("scoped lookup %+v: %v", c, err)
+		}
+	}
+	plain, psg, pv0 := Submission(tpl)
+	if err := st.CreateSubmission(ctx, plain, psg, pv0); err != nil { // browser submissions have no key
+		t.Fatal(err)
+	}
+	other, osg, ov0 := Submission(tpl)
+	if err := st.CreateSubmission(ctx, other, osg, ov0); err != nil {
+		t.Fatal("two keyless submissions")
 	}
 }

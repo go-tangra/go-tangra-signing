@@ -106,6 +106,9 @@ type Store interface {
 	// Submissions, signers, versions.
 	CreateSubmission(ctx context.Context, s store.Submission, signers []store.Signer, v0 store.DocumentVersion) error
 	GetSubmission(ctx context.Context, tenantID, id string) (store.Submission, []store.Signer, error)
+	// SubmissionByIdempotency finds a module-created submission by its
+	// idempotency key (module API replays).
+	SubmissionByIdempotency(ctx context.Context, tenantID, source, key string) (store.Submission, []store.Signer, error)
 	// LockSubmission is GetSubmission holding the row lock until the end of Tx.
 	LockSubmission(ctx context.Context, tenantID, id string) (store.Submission, []store.Signer, error)
 	ListSubmissions(ctx context.Context, tenantID string, f SubmissionFilter) ([]store.Submission, int, error)
