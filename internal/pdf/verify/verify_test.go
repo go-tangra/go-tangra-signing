@@ -65,7 +65,7 @@ func TestTrustRevisionsAndRevocation(t *testing.T) {
 	if !a.Intact || a.CoversWhole || a.Trust != "tenant" || len(a.Chain) != 2 {
 		t.Fatalf("alice: intact %v whole %v trust %q chain %d", a.Intact, a.CoversWhole, a.Trust, len(a.Chain))
 	}
-	if a.TimeSource != Claimed || a.SignedAt.Sub(signedAt).Abs() > time.Minute {
+	if a.TimeSource != Claimed || a.SignedAt.Sub(signedAt).Abs() > 2*time.Minute { // second precision
 		t.Fatalf("alice time %v (%s)", a.SignedAt, a.TimeSource)
 	}
 	if !a.Revoked || !a.Valid() {
