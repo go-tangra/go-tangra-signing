@@ -954,6 +954,10 @@ export interface components {
             hash_algorithm: string;
             /** Format: date-time */
             expires_at: string;
+            /** @description BISS signedContents: the origin certificate's signature of the content (absent when no origin certificate is configured) */
+            signed_contents_b64?: string;
+            /** @description BISS signedContentsCert: the origin certificate (DER, base64) */
+            signed_contents_cert_b64?: string;
         };
         QESComplete: {
             preparation_id: components["schemas"]["Uuid"];

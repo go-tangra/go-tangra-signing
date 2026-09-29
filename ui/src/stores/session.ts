@@ -109,16 +109,21 @@ export const useSession = defineStore('signing-session', () => {
     return Object.keys(out).length === 0
   }
 
-  /** The multipart body of POST /signing/{id}/sign. */
-  function formData(pin: string): FormData {
-    const form = new FormData()
+  /** The signer's own text values to submit (computed ones included, blanks left out). */
+  function ownValues(): Record<string, string> {
     const own: Record<string, string> = {}
     for (const f of fields.value) {
       if (!isTextValued(f.type)) continue
       const v = evaluation.value.computed[f.id] ?? values.value[f.id] ?? ''
       if (v !== '') own[f.id] = v
     }
-    form.append('values', JSON.stringify(own))
+    return own
+  }
+
+  /** The multipart body of POST /signing/{id}/sign. */
+  function formData(pin: string): FormData {
+    const form = new FormData()
+    form.append('values', JSON.stringify(ownValues()))
     form.append('pin', pin)
     if (signature.value) form.append('signature', signature.value, signature.value.type === 'image/jpeg' ? 'signature.jpg' : 'signature.png')
     for (const f of fields.value) {
@@ -177,6 +182,6 @@ export const useSession = defineStore('signing-session', () => {
 
   return {
     session, values, uploads, signature, errors, loading, signing, error, allValues, evaluation, fields, needsSignature,
-    isRequired, reset, load, markOpened, setValue, setUpload, validate, formData, sign, decline, documentUrl,
+    isRequired, reset, load, markOpened, setValue, setUpload, validate, ownValues, formData, sign, decline, documentUrl,
   }
 })

@@ -87,3 +87,45 @@ export type SignResult = S['SignResult']
 export type Certificate = S['Certificate']
 export type MyCertificate = S['MyCertificate']
 export type SignedEntry = NonNullable<MyCertificate['signed']>[number]
+
+// --- qualified signature with a card through B-Trust BISS (US4) ---
+export type QESPrepare = S['QESPrepare']
+export type QESPrepared = S['QESPrepared']
+export type QESComplete = S['QESComplete']
+
+// --- certificate administration and document signing (US5) ---
+export type CertificatePage = S['CertificatePage']
+export type CertificateKind = Certificate['kind']
+export type CertificateStatus = Certificate['status']
+export type AdminCertificateCreate = S['AdminCertificateCreate']
+export type RevocationReason = S['Revoke']['reason']
+export type SignedDocument = S['SignedDocument']
+
+/** List filter of GET /certificates (blank values are not sent). */
+export interface CertificateFilter {
+  q?: string | undefined
+  kind?: CertificateKind | undefined
+  status?: CertificateStatus | undefined
+}
+
+/** The PDF to sign or verify: an uploaded file, or a stored submission version (the current one when version is omitted). */
+export type DocumentSource = { file: File } | { submission_id: string; version?: number | undefined }
+
+/** The fields of POST /documents/sign besides the document (blank values are not sent). */
+export interface DocumentSignOptions {
+  certificate_id: string
+  reason?: string | undefined
+  location?: string | undefined
+  contact?: string | undefined
+  tsa_url?: string | undefined
+  /** A Warden secret id holding the TSA credentials. */
+  tsa_secret_ref?: string | undefined
+}
+
+export const CERTIFICATE_KINDS: readonly CertificateKind[] = ['ca', 'system', 'signer', 'admin']
+export const CERTIFICATE_STATUSES: readonly CertificateStatus[] = ['active', 'revoked', 'expired', 'needs_reissue']
+export const REVOCATION_REASONS: readonly RevocationReason[] = ['unspecified', 'key_compromise', 'affiliation_changed', 'superseded', 'cessation_of_operation']
+
+// --- verification (US5) ---
+export type VerifySignature = S['VerifySignature']
+export type VerifyResult = S['VerifyResult']

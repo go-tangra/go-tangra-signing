@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { useConfirm } from '@go-tangra/ui'
 import Templates from '@/views/templates/index.vue'
+import TemplateDrawer from '@/views/templates/drawer.vue'
 import { useTemplates } from '@/stores/templates'
 import { useFolders } from '@/stores/folders'
 import type { Template } from '@/api/types'
@@ -249,6 +250,68 @@ describe('templates view', () => {
     confirm.answer(true)
     await flushPromises()
     expect(w.find('[data-test="template-error"]').text()).toBe('The folder is not empty.')
+    w.unmount()
+  })
+})
+
+describe('template defaults (drawer)', () => {
+  const mountDrawer = async (t: Template) => {
+    const w = mount(TemplateDrawer, { props: { open: true, template: t, folders }, attachTo: document.body })
+    await flushPromises()
+    return w
+  }
+  const patchBody = (calls: { method: string; body: unknown }[]) => calls.filter((c) => c.method === 'PATCH').at(-1)!.body as Record<string, unknown>
+
+  it('shows the current defaults and clears one with null', async () => {
+    const calls = fetchMock(api())
+    const w = await mountDrawer(template({ id: 't2', default_expiry_days: 14, default_reminder: { interval_days: 3, max: 5 } }))
+    expect((q('#template-expire') as HTMLInputElement).checked).toBe(true)
+    expect((q('#template-expiry-days') as HTMLInputElement).value).toBe('14')
+    expect([(q('#template-interval') as HTMLInputElement).value, (q('#template-max') as HTMLInputElement).value]).toEqual(['3', '5'])
+
+    const remind = q('#template-remind') as HTMLInputElement
+    remind.click()
+    await flushPromises()
+    expect(q('#template-interval')).toBeNull()
+    await click('[data-test="template-save"]')
+    const body = patchBody(calls)
+    expect([body.default_expiry_days, body.default_reminder]).toEqual([14, null])
+    expect(w.emitted('saved')).toHaveLength(1)
+    w.unmount()
+  })
+
+  it('sets an expiry and reminders within the limits (checked before saving)', async () => {
+    const calls = fetchMock(api())
+    const w = await mountDrawer(template({ id: 't2', default_expiry_days: null, default_reminder: null }))
+    expect(q('#template-expiry-days')).toBeNull()
+    ;(q('#template-expire') as HTMLInputElement).click()
+    ;(q('#template-remind') as HTMLInputElement).click()
+    await flushPromises()
+    await setValue('#template-expiry-days', '400')
+    await setValue('#template-interval', '0')
+    await setValue('#template-max', '21')
+    await click('[data-test="template-save"]')
+    const txt = q('[data-test="template-defaults"]')!.textContent!
+    for (const s of ['Between 1 and 365 days.', 'Between 1 and 30 days.', 'Between 1 and 20.']) expect(txt).toContain(s)
+    expect(calls.some((c) => c.method === 'PATCH')).toBe(false)
+
+    await setValue('#template-expiry-days', '60')
+    await setValue('#template-interval', '7')
+    await setValue('#template-max', '4')
+    await click('[data-test="template-save"]')
+    expect(patchBody(calls)).toEqual({ name: 'Employment contract', description: '', folder_id: null, tags: ['hr'], default_expiry_days: 60, default_reminder: { interval_days: 7, max: 4 } })
+    w.unmount()
+  })
+
+  it('without defaults both are sent as null; a refusal on them lands on the input', async () => {
+    const calls = fetchMock(api((path, method) => (path === 'templates/t2' && method === 'PATCH' && calls.length > 1 ? { status: 400, body: { reason: 'validation_failed', field: 'default_expiry_days' } } : undefined)))
+    const w = await mountDrawer(template({ id: 't2' }))
+    await click('[data-test="template-save"]')
+    expect([patchBody(calls).default_expiry_days, patchBody(calls).default_reminder]).toEqual([null, null])
+    ;(q('#template-expire') as HTMLInputElement).click()
+    await flushPromises()
+    await click('[data-test="template-save"]')
+    expect(q('[data-test="template-defaults"]')!.textContent).toContain('Please check the highlighted fields.')
     w.unmount()
   })
 })

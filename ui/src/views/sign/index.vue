@@ -5,12 +5,13 @@
 // personal certificate) / Decline. Banners explain why signing is not possible
 // (not your turn, already signed, submission closed) and the certificate state
 // (none → set it up and come back; locked → until when). An invited slot is
-// marked opened once when the page loads.
-import { computed, inject, onBeforeUnmount, reactive, ref, watch } from 'vue'
+// marked opened once when the page loads. "Sign with qualified card" signs
+// with a smart card through B-Trust BISS instead (BissButton).
+import { computed, inject, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { routeLocationKey, routerKey } from 'vue-router'
 import { UiAlert, UiBadge, UiButton, UiCard, UiDialog, UiErrorState, UiPage, UiSkeleton, UiTextarea, useToast } from '@go-tangra/ui'
 import { describeReason, describeRefusal } from '@/api/client'
-import type { Field } from '@/api/types'
+import type { Field, SignResult } from '@/api/types'
 import { useSession } from '@/stores/session'
 import { TYPE_LABELS } from '@/utils/fields'
 import { when } from '@/utils/format'
@@ -19,6 +20,7 @@ import PdfPages from '@/components/PdfPages.vue'
 import SignOverlay from '@/components/SignOverlay.vue'
 import SignaturePad from '@/components/SignaturePad.vue'
 import PinDialog from '@/components/PinDialog.vue'
+import BissButton from '@/components/BissButton.vue'
 
 const s = useSession()
 const toast = useToast()
@@ -104,7 +106,8 @@ const banner = ref('')
 const certMissing = ref(false)
 const pin = reactive({ open: false, error: '', attemptsLeft: null as number | null, lockedUntil: '' })
 
-function startSign(): void {
+/** Checks the signer's fields and signature before either way of signing; highlights what is wrong. */
+function checkFields(): boolean {
   banner.value = ''
   padError.value = ''
   const ok = s.validate()
@@ -115,8 +118,13 @@ function startSign(): void {
     const first = s.fields.find((f) => s.errors[f.id])
     if (first) focusField(first)
     else if (needsPad) goToPad()
-    return
+    return false
   }
+  return true
+}
+
+function startSign(): void {
+  if (!checkFields()) return
   if (cert.value?.state === 'none') {
     certMissing.value = true
     return
@@ -153,6 +161,25 @@ async function submitPin(value: string): Promise<void> {
       pin.open = false
       banner.value = out.message
   }
+}
+
+// --- qualified card (BISS) ---
+const qesBusy = ref(false)
+function onQesSigned(result: SignResult): void {
+  toast.show({ kind: 'success', title: 'Document signed with your qualified card', ...(result.submission_status === 'completed' ? { text: 'Every party has signed; the document is complete.' } : {}) })
+}
+function onQesField(id: string): void {
+  const f = s.fields.find((x) => x.id === id)
+  if (f) focusField(f)
+}
+/** The document moved on meanwhile: reload the session and the PDF. */
+async function onDocumentChanged(): Promise<void> {
+  const id = signerId.value
+  if (!id) return
+  await s.load(id)
+  pdfUrl.value = ''
+  await nextTick()
+  pdfUrl.value = s.documentUrl(id)
 }
 
 // --- decline ---
@@ -274,9 +301,10 @@ async function retry(): Promise<void> {
 
           <UiCard title="Sign">
             <div class="flex flex-col gap-2">
-              <UiButton block icon="mdi-key" :loading="s.signing" :disabled="!certUsable && cert?.state !== 'none'" data-test="sign-submit" @click="startSign">Sign with my certificate</UiButton>
-              <!-- Qualified electronic signature (B-Trust BISS card) arrives with its own story (US4): its button goes here. -->
-              <div data-test="sign-qes-slot" />
+              <UiButton block icon="mdi-key" :loading="s.signing" :disabled="qesBusy || (!certUsable && cert?.state !== 'none')" data-test="sign-submit" @click="startSign">Sign with my certificate</UiButton>
+              <div data-test="sign-qes-slot">
+                <BissButton :signer-id="signerId" :check="checkFields" :disabled="s.signing" @signed="onQesSigned" @field="onQesField" @changed="onDocumentChanged" @busy="qesBusy = $event" />
+              </div>
             </div>
           </UiCard>
         </aside>
