@@ -108,6 +108,23 @@ type App struct {
 	closers []func()
 }
 
+// lockedNotice e-mails the owner of a certificate that just got locked.
+func (a *App) lockedNotice(ctx context.Context, c store.Certificate, until time.Time) {
+	if c.OwnerUserID == nil {
+		return
+	}
+	found, err := a.Contacts.Contacts(ctx, c.TenantID, []string{*c.OwnerUserID})
+	if err != nil {
+		return
+	}
+	who, ok := found[*c.OwnerUserID]
+	if !ok {
+		return
+	}
+	_ = a.Mail.Send(ctx, c.TenantID, mail.CertificateLocked, who.Email, map[string]string{"signer": who.DisplayName,
+		"locked_until": until.UTC().Format("2006-01-02 15:04 UTC"), "link": a.Mail.CertificateLink()}, c.ID)
+}
+
 // Build wires the service.
 func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error) {
 	a = &App{Cfg: cfg}
@@ -157,7 +174,8 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 		CARenewBeforeYears: sg.CARenewBeforeYears, CertValidityYears: sg.CertValidityYears, CRLValidityDays: sg.CRLValidityDays,
 		PINIterations: sg.PINIterations}})
 	a.Me = certs.New(certs.Deps{Store: a.Repo, PKI: a.PKI, Contacts: a.Contacts, Audit: a.Audit, Now: a.Now,
-		Rules: pincrypto.Rules{Min: sg.PINMin, Max: sg.PINMax}, Lockout: pincrypto.Lockout{Attempts: sg.LockAttempts, Duration: cfg.LockDuration()}})
+		Rules: pincrypto.Rules{Min: sg.PINMin, Max: sg.PINMax}, Lockout: pincrypto.Lockout{Attempts: sg.LockAttempts, Duration: cfg.LockDuration()},
+		OnLocked: a.lockedNotice})
 	a.Templates = templates.New(templates.Deps{Store: a.Repo, Blob: a.Blob, Audit: a.Audit, Now: a.Now,
 		Limits: templates.Limits{MaxPDFBytes: l.MaxPDFBytes, MaxPages: l.MaxPDFPages, MaxFields: l.MaxFields, MaxParties: l.MaxSigners,
 			ParseTimeout: cfg.ParseTimeout(), MaxPageSize: l.MaxPageSize}})

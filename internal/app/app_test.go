@@ -6,7 +6,10 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"github.com/go-tangra/go-tangra-notification/sdk/v4/pkg/notifyclient"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/contacts"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pdf/pdftest"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/store"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/warden"
 	"net/http/httptest"
 	"os"
@@ -231,6 +234,32 @@ func TestQESOrigin(t *testing.T) {
 	cfg.QES = config.QES{OriginCertFile: keyFile, OriginKeyFile: keyFile}
 	if _, err := Build(context.Background(), cfg, options()); err == nil {
 		t.Fatal("build with a bad origin")
+	}
+}
+
+type notices struct{ keys, to []string }
+
+func (n *notices) SendKey(_ context.Context, _, key, to string, _ map[string]string, _ string) (notifyclient.Result, error) {
+	n.keys, n.to = append(n.keys, key), append(n.to, to)
+	return notifyclient.Result{Sent: true}, nil
+}
+
+func TestLockedNotice(t *testing.T) {
+	n := &notices{}
+	o := options()
+	o.Notify = n
+	o.Contacts = &contacts.Fake{Users: map[string][]contacts.Contact{appTenant: {{UserID: "u1", DisplayName: "U", Email: "u@example.org"}}}}
+	a, err := Build(context.Background(), testConfig(), o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	owner, stranger := "u1", "nobody"
+	a.lockedNotice(context.Background(), store.Certificate{ID: "c", TenantID: appTenant, OwnerUserID: &owner}, time.Now())
+	a.lockedNotice(context.Background(), store.Certificate{ID: "c", TenantID: appTenant, OwnerUserID: &stranger}, time.Now())
+	a.lockedNotice(context.Background(), store.Certificate{ID: "c", TenantID: appTenant}, time.Now())
+	if len(n.keys) != 1 || n.keys[0] != "signing.certificate_locked" || n.to[0] != "u@example.org" {
+		t.Fatalf("notices %+v", n)
 	}
 }
 
