@@ -165,17 +165,17 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 
 ### Tests (write first, must fail)
 - [x] T085 [P] [US6] `internal/rules/rules_test.go` + `rules_fuzz_test.go` + `testdata/vectors.json` — conditions (all ops, all/any, visible/required), formula grammar (precedence, parentheses, round/min/max/sum, unknown field, division by zero → empty, cycles detected, deep nesting bounded), deterministic 2-dp output. 100 %.
-- [ ] T086 [P] [US6] `ui/tests/unit/rules.spec.ts` — same vectors file through the TS evaluator (identical results).
+- [x] T086 [P] [US6] `ui/tests/unit/rules.spec.ts` — same vectors file through the TS evaluator (identical results).
 - [x] T087 [P] [US6] `internal/signing/rules_flow_test.go` — hidden fields ignored, conditionally required enforced, tampered calculated value replaced by server value in the PDF; template save refuses invalid/cyclic rules naming the field.
 
 ### Implementation
 - [x] T088 [US6] `internal/rules/{conditions.go,formula.go,graph.go}`; wire into `internal/templates/fields.go` validation and the signing pipeline.
-- [ ] T089 [US6] `ui/src/rules/` (TS evaluator), builder condition/formula editors in `FieldProps.vue`, live evaluation on the signing page.
+- [x] T089 [US6] `ui/src/rules/` (TS evaluator), builder condition/formula editors in `FieldProps.vue`, live evaluation on the signing page.
 
 ## Phase 12: User Story 9 — Backup and restore (P3)
 
 - [x] T090 [P] [US9] `internal/backup/backup_test.go` — export streams records + objects within `max_backup_bytes`; import skip/overwrite; PIN-encrypted keys kept; sealed keys kept only with the same KEK (key-check value), otherwise dropped and `needs_reissue`; platform admin cross-tenant only; audit.
-- [ ] T091 [US9] `internal/backup/backup.go` + handlers `/backup/export`, `/backup/import`; UI backup panel on the admin page (platform/tenant admin).
+- [x] T091 [US9] `internal/backup/backup.go` + handlers `/backup/export`, `/backup/import`; UI backup panel on the admin page (platform/tenant admin).
 
 ## Phase 13: Polish & cross-cutting
 
