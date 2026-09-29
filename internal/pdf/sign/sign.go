@@ -61,6 +61,10 @@ type TSA struct {
 	URL, Username, Password string
 }
 
+// maxPage bounds a visible signature's page number (documents are limited
+// far below it by limits_signing.max_pdf_pages).
+const maxPage = 1 << 20
+
 // Options describe the signature dictionary.
 type Options struct {
 	Name, Reason, Location, Contact string
@@ -98,8 +102,9 @@ func (o Options) data(id Identity) (pdfsign.SignData, error) {
 		d.Signature.DocMDPPerm = pdfsign.AllowFillingExistingFormFieldsAndSignaturesPerms
 	}
 	if v := o.Visible; v != nil && !o.Certify {
+		page := min(max(v.Page, 1), maxPage)
 		d.Appearance = pdfsign.Appearance{
-			Visible: true, Page: uint32(max(v.Page, 1)),
+			Visible: true, Page: uint32(page), // #nosec G115 -- clamped to [1, maxPage]
 			LowerLeftX: v.Rect[0], LowerLeftY: v.Rect[1], UpperRightX: v.Rect[2], UpperRightY: v.Rect[3],
 			Image: v.Image,
 		}

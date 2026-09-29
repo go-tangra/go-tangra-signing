@@ -70,13 +70,13 @@ func parseTLV(b []byte, depth int) (*tlv, []byte, error) {
 
 func lengthBytes(n int) []byte {
 	if n < 0x80 {
-		return []byte{byte(n)}
+		return []byte{byte(n)} // #nosec G115 -- n < 0x80
 	}
 	var out []byte
 	for x := n; x > 0; x >>= 8 {
-		out = append([]byte{byte(x)}, out...)
+		out = append([]byte{byte(x & 0xff)}, out...) // #nosec G115 -- the low octet
 	}
-	return append([]byte{0x80 | byte(len(out))}, out...)
+	return append([]byte{0x80 | byte(len(out))}, out...) // #nosec G115 -- at most 8 length octets
 }
 
 func (t *tlv) encode() []byte {

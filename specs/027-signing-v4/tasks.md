@@ -184,7 +184,7 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 - [x] T094 [P] Performance check — 50-page 20 MB PDF local signing < 5 s on CI hardware (SC-003), list endpoints at 10k rows < 1 s.
 - [ ] T095 [P] UI polish — icons in the kit safelist (unit test), dark theme check, a11y e2e (`ui/tests/e2e/a11y.spec.ts`) for all routes, empty/error states.
 - [ ] T096 [P] `README.md`, `SECURITY.md` (threat model of spec SR, key handling, BISS CSP note), `deploy/README.md`.
-- [ ] T097 `make lint vuln cover` green (≥ 80 %, 100 % security packages); `govulncheck` clean; quickstart automated section passes.
+- [x] T097 `make lint vuln cover` green (≥ 80 %, 100 % security packages); `govulncheck` clean; quickstart automated section passes.
 - [ ] T098 go-tangra-docker (branch `v4`): `docker-compose.yaml.example` (signing, signing-token, volume, Valkey user, gateway allow), production overlay, `configs/signing.yaml`, `policies/signing.yaml` + consumer policy updates, `init-db.sql`, `.env.example` (`SIGNING_IMAGE`, `SIGNING_DB_PASSWORD`, object store keys), `scripts/prod-init.sh` (SERVICES + KEK + bucket), portal `edge.connect_sources` in the gateway config, PRODUCTION/README sections.
 
 ## Phase 14: Release **(release)**
