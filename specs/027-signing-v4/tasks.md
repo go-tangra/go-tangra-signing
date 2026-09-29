@@ -174,7 +174,7 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 
 ## Phase 12: User Story 9 — Backup and restore (P3)
 
-- [ ] T090 [P] [US9] `internal/backup/backup_test.go` — export streams records + objects within `max_backup_bytes`; import skip/overwrite; PIN-encrypted keys kept; sealed keys kept only with the same KEK (key-check value), otherwise dropped and `needs_reissue`; platform admin cross-tenant only; audit.
+- [x] T090 [P] [US9] `internal/backup/backup_test.go` — export streams records + objects within `max_backup_bytes`; import skip/overwrite; PIN-encrypted keys kept; sealed keys kept only with the same KEK (key-check value), otherwise dropped and `needs_reissue`; platform admin cross-tenant only; audit.
 - [ ] T091 [US9] `internal/backup/backup.go` + handlers `/backup/export`, `/backup/import`; UI backup panel on the admin page (platform/tenant admin).
 
 ## Phase 13: Polish & cross-cutting
