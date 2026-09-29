@@ -181,7 +181,7 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 
 - [x] T092 [P] Leak test `tests/integration/leak_test.go` — run a full flow with known PIN, values and key material; assert none appear in logs, audit, events (stream), e-mail variables, backups or DB columns in clear (SC-005).
 - [x] T093 [P] Isolation suite `tests/integration/isolation_test.go` — tenant B against every tenant-A route (templates, pdf, submissions, documents, signing, certificates, verify by submission) → 404 (SC-004).
-- [ ] T094 [P] Performance check — 50-page 20 MB PDF local signing < 5 s on CI hardware (SC-003), list endpoints at 10k rows < 1 s.
+- [x] T094 [P] Performance check — 50-page 20 MB PDF local signing < 5 s on CI hardware (SC-003), list endpoints at 10k rows < 1 s.
 - [ ] T095 [P] UI polish — icons in the kit safelist (unit test), dark theme check, a11y e2e (`ui/tests/e2e/a11y.spec.ts`) for all routes, empty/error states.
 - [ ] T096 [P] `README.md`, `SECURITY.md` (threat model of spec SR, key handling, BISS CSP note), `deploy/README.md`.
 - [ ] T097 `make lint vuln cover` green (≥ 80 %, 100 % security packages); `govulncheck` clean; quickstart automated section passes.
