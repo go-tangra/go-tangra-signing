@@ -35,6 +35,7 @@ import (
 	"github.com/go-tangra/go-tangra-signing/v4/internal/store"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/stream"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/stream/valkeykv"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/templates"
 	"github.com/go-tangra/go-tangra-signing/v4/pkg/signingmanifest"
 )
 
@@ -71,6 +72,8 @@ type App struct {
 	Sealer   *sealed.Envelope
 	HTTP     *httpapi.Server
 	Now      func() time.Time
+
+	Templates *templates.Service
 
 	workers []func(context.Context)
 	closers []func()
@@ -113,6 +116,12 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 		return nil, fmt.Errorf("metrics: %w", err)
 	}
 
+	// Domain services.
+	l := cfg.Limits
+	a.Templates = templates.New(templates.Deps{Store: a.Repo, Blob: a.Blob, Audit: a.Audit, Now: a.Now,
+		Limits: templates.Limits{MaxPDFBytes: l.MaxPDFBytes, MaxPages: l.MaxPDFPages, MaxFields: l.MaxFields, MaxParties: l.MaxSigners,
+			ParseTimeout: cfg.ParseTimeout(), MaxPageSize: l.MaxPageSize}})
+
 	// Mesh HTTP surface (reached only through the gateway).
 	hopts := []httpapi.Option{httpapi.WithVerifier(a.Verifier), httpapi.WithChecker(a.Checker), httpapi.WithLogger(a.Log)}
 	if o.Remote != nil {
@@ -121,7 +130,7 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 	if a.HTTP, err = httpapi.NewHandler(a.Freya, hopts...); err != nil {
 		return nil, err
 	}
-	a.HTTP.Register(httpapi.Deps{Hub: a.Hub, Health: a.health})
+	a.HTTP.Register(httpapi.Deps{Hub: a.Hub, Health: a.health, Templates: a.Templates, MaxPDFBytes: l.MaxPDFBytes})
 	a.Freya.HTTP().HandlePrefix("/", a.HTTP.Handler())
 	return a, nil
 }

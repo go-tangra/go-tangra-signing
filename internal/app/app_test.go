@@ -60,7 +60,7 @@ func TestBuildWiresTheService(t *testing.T) {
 	}
 	defer a.Close()
 	if a.Freya == nil || a.Repo == nil || a.HTTP == nil || a.Hub == nil || a.Audit == nil || a.Metrics == nil || a.Blob == nil ||
-		a.Sealer == nil || a.Limiter == nil || a.Events.Pub == nil {
+		a.Sealer == nil || a.Limiter == nil || a.Events.Pub == nil || a.Templates == nil {
 		t.Fatalf("app not fully wired: %+v", a)
 	}
 	do := func(path, tok string) *httptest.ResponseRecorder {
@@ -77,6 +77,9 @@ func TestBuildWiresTheService(t *testing.T) {
 	}
 	if w := do("/api/signing/v1/templates", ""); w.Code != 401 {
 		t.Fatalf("anonymous: %d", w.Code)
+	}
+	if w := do("/api/signing/v1/templates", "user"); w.Code != 200 || !strings.Contains(w.Body.String(), `"total":0`) {
+		t.Fatalf("templates: %d %s", w.Code, w.Body)
 	}
 	if w := do("/api/signing/v1/certificates", "user"); w.Code != 403 {
 		t.Fatalf("missing permission: %d", w.Code)

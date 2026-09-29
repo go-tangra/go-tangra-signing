@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-tangra/go-tangra-signing/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/stream"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/templates"
 )
 
 // Prefix of the browser API.
@@ -14,8 +15,10 @@ const Prefix = "/api/signing/v1"
 // Deps wire the HTTP handlers. A route whose service is not wired answers 501
 // not_implemented.
 type Deps struct {
-	Hub    *stream.Hub
-	Health func() map[string]string // component status for /health
+	Hub         *stream.Hub
+	Health      func() map[string]string // component status for /health
+	Templates   *templates.Service       // folders, templates, builder, detection
+	MaxPDFBytes int64                    // upload bound (limits_signing.max_pdf_bytes)
 }
 
 // Register mounts the handlers of every wired dependency.
@@ -35,6 +38,9 @@ func (s *Server) Register(d Deps) {
 	})
 	if d.Hub != nil {
 		s.RegisterStream(d.Hub)
+	}
+	if d.Templates != nil {
+		s.registerTemplates(d.Templates, d.MaxPDFBytes)
 	}
 }
 
