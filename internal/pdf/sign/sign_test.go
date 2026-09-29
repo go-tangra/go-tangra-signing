@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-		"github.com/go-tangra/go-tangra-signing/v4/internal/pdf/incr"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/pdf/incr"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pdf/pdftest"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pdf/render"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pdf/verify"

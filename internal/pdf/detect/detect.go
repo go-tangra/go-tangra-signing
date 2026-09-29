@@ -162,10 +162,10 @@ func findPlaceholderRuns(page *plumber.Page, pageNum int) []placeholderRun {
 func findUniformReplacementRuns(page *plumber.Page, pageNum int) []placeholderRun {
 	chars := page.Chars()
 
-	const minRunLen = 10        // need enough chars to distinguish from short text
-	const minRunWidth = 40.0    // minimum width in points
-	const maxGap = 3.0          // max gap between consecutive chars
-	const rowTolerance = 3.0    // Y tolerance for same-line grouping
+	const minRunLen = 10          // need enough chars to distinguish from short text
+	const minRunWidth = 40.0      // minimum width in points
+	const maxGap = 3.0            // max gap between consecutive chars
+	const rowTolerance = 3.0      // Y tolerance for same-line grouping
 	const uniformThreshold = 0.85 // 85% of chars must have the same width
 
 	// Sort by Y descending then X ascending
@@ -246,10 +246,10 @@ func findCharacterRuns(page *plumber.Page, pageNum int) []placeholderRun {
 	pageW := page.Width()
 	pageH := page.Height()
 
-	const maxGap = 2.0        // max gap between consecutive dots (real dots are tightly packed)
-	const yTolerance = 2.0    // Y tolerance for same-line grouping
-	const minRunLen = 5       // minimum dots in a run to be a placeholder
-	const minEllipsisRun = 2  // ellipsis runs need only 2 (each … = 3 dots visually)
+	const maxGap = 2.0       // max gap between consecutive dots (real dots are tightly packed)
+	const yTolerance = 2.0   // Y tolerance for same-line grouping
+	const minRunLen = 5      // minimum dots in a run to be a placeholder
+	const minEllipsisRun = 2 // ellipsis runs need only 2 (each … = 3 dots visually)
 
 	// Collect dot/ellipsis characters using width-based filtering
 	var dots []plumber.Char
@@ -472,4 +472,3 @@ func clamp(v, min, max float64) float64 {
 	}
 	return v
 }
- 
