@@ -76,4 +76,8 @@ signing:
   audit_job_max_attempts: 10
   audit_job_interval_ms: 2000
 verify: { use_system_roots: true, extra_roots_file: "" }
+# B-Trust BISS origin proof (signedContents): the portal's certificate and key
+# (PEM). Both or neither; without them BISS installations that require the
+# proof refuse to sign.
+qes: { origin_cert_file: "", origin_key_file: "" }
 gateway: { service: gateway, issuer: https://localhost:8443 }
