@@ -50,12 +50,12 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 
 ## Phase 3: Cross-module prerequisites (parallel with Phases 4–6)
 
-- [ ] T026 [P] go-tangra (framework, branch `027-connect-sources`): tests first in `transport/edge/headers_test.go` + `server_test.go` (empty = unchanged header byte-for-byte; valid origins spliced into `connect-src`; invalid origin/path/http refused by `NewServer`), then `edge.Config.ConnectSources` + `connectSources()`; CHANGELOG 4.2.4.
-- [ ] T027 [P] go-tangra-portal-v4 (branch `027-connect-sources`): config `edge.connect_sources` (+ validation test), passed through `edgeConfig`; TEMP replace on the framework.
+- [x] T026 [P] go-tangra (framework, branch `027-connect-sources`): tests first in `transport/edge/headers_test.go` + `server_test.go` (empty = unchanged header byte-for-byte; valid origins spliced into `connect-src`; invalid origin/path/http refused by `NewServer`), then `edge.Config.ConnectSources` + `connectSources()`; CHANGELOG 4.2.4.
+- [x] T027 [P] go-tangra-portal-v4 (branch `027-connect-sources`): config `edge.connect_sources` (+ validation test), passed through `edgeConfig`; TEMP replace on the framework.
 - [x] T028 [P] go-tangra-auth (branch `027-profiles-contacts`): proto `Profiles.Contacts` (contracts/cross-module.md) + generated; tests first (tenant grant mismatch refused, inactive/foreign/unknown omitted, ≤ 100 ids, phone never returned, audit count only, policy denies other services); server implementation; `deploy/policy.yaml` rule `signing-profiles` + svc/signing in Authorization/Check and module-role registration rules.
-- [ ] T029 [P] go-tangra-notification-v4 (branch `027-signing-mail`): tests first (templates render with required variables, missing variable refused, key prefix enforcement for svc/signing); nine `signing.*` system templates; policy `modules-send` gains svc/signing.
-- [ ] T030 [P] go-tangra-scheduler-v4 (branch `027-signing`): policy `modules-register` + `discovery.static.signing`; go-tangra-warden-v4 (branch `027-signing`): policy on-behalf read for svc/signing (+ policy tests where present).
-- [ ] T031 [P] go-tangra/deploy/stack (branch `027-signing`): compose `signing-token`, `signing` (depends lcm, gateway, timescaledb, valkey, rustfs), `configs/signing.yaml`, init-db (database, role, extensions), Valkey ACL user, RustFS bucket, gateway `-allow svc/signing=/api/signing;signing`, portal `edge.connect_sources` (BISS origins), consumer policies.
+- [x] T029 [P] go-tangra-notification-v4 (branch `027-signing-mail`): tests first (templates render with required variables, missing variable refused, key prefix enforcement for svc/signing); nine `signing.*` system templates; policy `modules-send` gains svc/signing.
+- [x] T030 [P] go-tangra-scheduler-v4 (branch `027-signing`): policy `modules-register` + `discovery.static.signing`; go-tangra-warden-v4 (branch `027-signing`): policy on-behalf read for svc/signing (+ policy tests where present).
+- [x] T031 [P] go-tangra/deploy/stack (branch `027-signing`): compose `signing-token`, `signing` (depends lcm, gateway, timescaledb, valkey, rustfs), `configs/signing.yaml`, init-db (database, role, extensions), Valkey ACL user, RustFS bucket, gateway `-allow svc/signing=/api/signing;signing`, portal `edge.connect_sources` (BISS origins), consumer policies.
 
 ## Phase 4: User Story 1 — Templates and builder (P1) 🎯 MVP part 1
 
