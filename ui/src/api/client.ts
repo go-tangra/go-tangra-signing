@@ -61,3 +61,43 @@ export function describeRefusal(err: unknown): string {
   const f = refusalField(err)
   return f ? `${describe(err)} (${f})` : describe(err)
 }
+
+/** A value of the refusal's detail object (`attempts_left`, `locked_until`…), if any. */
+export function refusalDetail(err: unknown, key: string): unknown {
+  return err instanceof ApiError ? err.detail?.[key] : undefined
+}
+
+/** The wording registered for a reason code (the session's `reason` when it cannot sign). */
+export function describeReason(reason: string): string {
+  return describe(new ApiError(0, reason))
+}
+
+/**
+ * POSTs a multipart/form-data body with several parts (the kit's upload()
+ * sends one file). Same conventions as the kit client: session cookie, the
+ * CSRF header, JSON answers, refusals as ApiError with reason and detail.
+ */
+export async function postForm<T = unknown>(path: string, form: FormData): Promise<T> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/${path}`, {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'X-CSRF-Token': csrfToken() },
+      credentials: 'same-origin',
+      body: form,
+    })
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError(0, 'network')
+  }
+  if (res.status === 204) return undefined as T
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
+  if (!res.ok) {
+    const reason = typeof data.reason === 'string' ? data.reason : 'error'
+    const rest = Object.fromEntries(Object.entries(data).filter(([k]) => k !== 'reason' && k !== 'detail'))
+    // The field a refusal names stays readable next to a detail object.
+    const detail = typeof data.detail === 'object' && data.detail !== null ? { ...rest, ...(data.detail as Record<string, unknown>) } : rest
+    throw new ApiError(res.status, reason, Object.keys(detail).length ? detail : undefined)
+  }
+  return data as T
+}

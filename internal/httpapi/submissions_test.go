@@ -38,8 +38,8 @@ type subsEnv struct {
 	s    *Server
 	blob *blob.Fake
 	mem  *memstore.Mem
-	me  *certs.Me
-	tpl store.Template
+	me   *certs.Me
+	tpl  store.Template
 }
 
 func subsAPI(t *testing.T) subsEnv {
