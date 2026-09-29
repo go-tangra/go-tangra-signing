@@ -96,13 +96,14 @@ func Open(ctx context.Context, data []byte, l Limits) (*Doc, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	ch := make(chan result, 1) // buffered: a timed-out reader never blocks
+	rd := read                 // captured: a timed-out parse keeps its own reader
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
 				ch <- result{err: fmt.Errorf("%w: parser panic", ErrInvalid)}
 			}
 		}()
-		c, err := read(data)
+		c, err := rd(data)
 		ch <- result{ctx: c, err: err}
 	}()
 	var r result
