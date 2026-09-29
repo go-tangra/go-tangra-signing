@@ -44,6 +44,7 @@ import (
 	"github.com/go-tangra/go-tangra-signing/v4/internal/stream"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/stream/valkeykv"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/submissions"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/tasks"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/templates"
 	"github.com/go-tangra/go-tangra-signing/v4/pkg/signingmanifest"
 )
@@ -92,6 +93,7 @@ type App struct {
 	Submissions *submissions.Service
 	Signing     *signing.Service
 	Jobs        *jobs.Worker
+	Tasks       *tasks.Runner
 
 	workers []func(context.Context)
 	closers []func()
@@ -167,6 +169,8 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 		Limited: func(ctx context.Context, tenantID, userID string) (bool, error) {
 			return a.Limiter.Limited(ctx, "sign", tenantID+":"+userID, l.SigningsPerMinute, a.Now())
 		}})
+
+	a.wireScheduler()
 
 	// Mesh HTTP surface (reached only through the gateway).
 	hopts := []httpapi.Option{httpapi.WithVerifier(a.Verifier), httpapi.WithChecker(a.Checker), httpapi.WithLogger(a.Log)}

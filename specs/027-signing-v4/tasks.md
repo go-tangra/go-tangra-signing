@@ -143,12 +143,12 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 
 ### Tests (write first, must fail)
 - [x] T075 [P] [US5] `internal/signing/decline_test.go` — decline cancels, notifies sender and others, publishes `signing.submission.cancelled`, reason length bounds, only the signer can decline.
-- [ ] T076 [P] [US5] `internal/tasks/tasks_test.go` — `signing:expire-submissions` and `signing:send-reminders` via the SDK server over bufconn: platform scope only (tenant request refused), caller must be svc/scheduler, expiry exactly once across two runs, reminders exactly once per due signer and bounded by max, sweeps (expired preparations, orphan objects, due CRLs), DB error → Retry.
+- [x] T076 [P] [US5] `internal/tasks/tasks_test.go` — `signing:expire-submissions` and `signing:send-reminders` via the SDK server over bufconn: platform scope only (tenant request refused), caller must be svc/scheduler, expiry exactly once across two runs, reminders exactly once per due signer and bounded by max, sweeps (expired preparations, orphan objects, due CRLs), DB error → Retry.
 - [x] T077 [P] [US5] `internal/submissions/control_test.go` — cancel, resend (new invitation, history), replace signer (only unsigned; new Contacts lookup), delete removes objects.
 
 ### Implementation
 - [x] T078 [US5] `internal/signing/decline.go`, `internal/submissions/control.go` + handlers.
-- [ ] T079 [US5] `internal/tasks/{expire.go,reminders.go,descriptors.go}` + `internal/app/scheduler.go` (executor server + Registrar, config `task_scheduler`), policy rule `scheduler-execute`.
+- [x] T079 [US5] `internal/tasks/{expire.go,reminders.go,descriptors.go}` + `internal/app/scheduler.go` (executor server + Registrar, config `task_scheduler`), policy rule `scheduler-execute`.
 - [ ] T080 [US5] UI: decline dialog on the signing page; cancel/resend/replace/delete actions and event history timeline on the submission detail; expiry/reminder fields in the create drawer and template defaults.
 
 ## Phase 10: User Story 8 — Audit trail (P2)

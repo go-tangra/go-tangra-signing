@@ -403,8 +403,8 @@ func MarkInvited(ctx context.Context, tx repo.Store, sub store.Submission, due [
 
 // ---------------------------------------------------------------- mail
 
-// senderName is the display name of the submission's sender.
-func (s *Service) senderName(ctx context.Context, sub store.Submission) string {
+// SenderName is the display name of the submission's sender.
+func (s *Service) SenderName(ctx context.Context, sub store.Submission) string {
 	if s.d.Contacts == nil || sub.CreatedBy == "" {
 		return ""
 	}
@@ -418,7 +418,7 @@ func (s *Service) senderName(ctx context.Context, sub store.Submission) string {
 // Invite e-mails the given signers (key: invitation or next_signer) and
 // refreshes their inboxes. Called after the transaction committed.
 func (s *Service) Invite(ctx context.Context, sub store.Submission, signers []store.Signer, key string) {
-	sender := s.senderName(ctx, sub)
+	sender := s.SenderName(ctx, sub)
 	for _, sg := range signers {
 		vars := map[string]string{"document": sub.Name, "sender": sender, "signer": sg.Name, "link": s.d.Mail.SignLink(sg.ID)}
 		s.Mailed(ctx, sub, sg, key, s.d.Mail.Send(ctx, sub.TenantID, key, sg.Email, vars, sub.ID))

@@ -163,3 +163,19 @@ func TestBuildFailures(t *testing.T) {
 		t.Fatal("unreachable database accepted")
 	}
 }
+
+func TestSchedulerWiring(t *testing.T) {
+	cfg := testConfig()
+	cfg.TaskScheduler.Enabled = true
+	a, err := Build(context.Background(), cfg, options())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	if a.Tasks == nil || len(a.workers) != 2 { // jobs worker + registrar
+		t.Fatalf("tasks %v workers %d", a.Tasks, len(a.workers))
+	}
+	if _, ok := schedulerCaller("example.org")(context.Background()); ok {
+		t.Fatal("a call without a verified peer has no caller")
+	}
+}
