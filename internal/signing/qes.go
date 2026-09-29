@@ -13,6 +13,7 @@ import (
 	"github.com/go-tangra/go-tangra-signing/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/blob"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/fieldvalues"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pdf/sign"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pdf/verify"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/qes"
@@ -104,12 +105,16 @@ func (s *Service) prepareQES(ctx context.Context, subj authz.Subjects, signerID 
 		return QESPrepared{}, pdfErr(err)
 	}
 	id := store.NewID()
+	sealedValues, err := s.d.Values.SealMap(p.values, fieldvalues.PreparationAD(id))
+	if err != nil {
+		return QESPrepared{}, err
+	}
 	key := blob.QESPrepared(sub.TenantID, id)
 	if _, err := s.d.Blob.Put(ctx, key, bytes.NewReader(prep.PDF), int64(len(prep.PDF)), "application/pdf"); err != nil {
 		return QESPrepared{}, err
 	}
 	q := store.QESPreparation{ID: id, TenantID: sub.TenantID, SignerID: sg.ID, ChainDER: qes.ChainDER(chain), SignedAttrs: prep.SignedAttrs,
-		Digest: prep.Digest, PreparedKey: key, BasedOnVersion: sub.CurrentVersion, Values: p.values, ExpiresAt: now.Add(s.qesTTL()), CreatedAt: now}
+		Digest: prep.Digest, PreparedKey: key, BasedOnVersion: sub.CurrentVersion, Values: sealedValues, ExpiresAt: now.Add(s.qesTTL()), CreatedAt: now}
 	if err := s.d.Store.CreateQES(ctx, q); err != nil {
 		_ = s.d.Blob.Delete(context.WithoutCancel(ctx), key)
 		return QESPrepared{}, err
@@ -168,6 +173,10 @@ func (s *Service) completeQES(ctx context.Context, subj authz.Subjects, signerID
 	if err := qes.Verify(chain[0].PublicKey, q.Digest, sig); err != nil {
 		return Result{}, apperr.QESSignatureInvalid
 	}
+	values, err := s.d.Values.OpenMap(q.Values, fieldvalues.PreparationAD(q.ID))
+	if err != nil {
+		return Result{}, apperr.PreparationExpired
+	}
 	prepared, err := s.read(ctx, q.PreparedKey)
 	if err != nil {
 		return Result{}, apperr.PreparationExpired
@@ -195,7 +204,7 @@ func (s *Service) completeQES(ctx context.Context, subj authz.Subjects, signerID
 		if err := tx.MarkQESUsed(ctx, subj.TenantID, q.ID, now); err != nil {
 			return err
 		}
-		c, err = s.commit(ctx, tx, subj, sub, all, sg, finished{pdf: pdf, values: q.Values, method: store.MethodQES,
+		c, err = s.commit(ctx, tx, subj, sub, all, sg, finished{pdf: pdf, values: values, method: store.MethodQES,
 			subject: chain[0].Subject.CommonName, serial: chain[0].SerialNumber.Text(16), issuer: chain[0].Issuer.CommonName,
 			ip: ip, ua: ua}, now)
 		return err

@@ -17,10 +17,12 @@ import (
 	"github.com/go-tangra/go-tangra-signing/v4/internal/blob"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/contacts"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/events"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/fieldvalues"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/mail"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/memstore"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pdf/pdftest"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/repo"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/sealed"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/store"
 )
 
@@ -649,4 +651,22 @@ func TestValues(t *testing.T) {
 func countKeys(e *env) int {
 	keys, _ := e.blob.List(ctx, "", 100000)
 	return len(keys)
+}
+
+func TestPrefillsAreSealed(t *testing.T) {
+	e := newEnv(t)
+	env, _ := sealed.NewEnvelope(bytes.Repeat([]byte{5}, 32))
+	e.svc.d.Values = fieldvalues.Box{E: env}
+	d := e.create(t, store.ModeParallel)
+	sub, _, _ := e.mem.GetSubmission(ctx, tenant, d.Submission.ID)
+	for _, f := range sub.Fields {
+		if f.ID == "salary" {
+			if bytes.Contains([]byte(f.Prefill), []byte("5000")) || f.Prefill == "" {
+				t.Fatalf("prefill in clear: %q", f.Prefill)
+			}
+			if v, err := e.svc.d.Values.OpenString(f.Prefill, fieldvalues.PrefillAD(sub.ID, f.ID)); err != nil || v != "5000,50" {
+				t.Fatalf("open prefill %q %v", v, err)
+			}
+		}
+	}
 }

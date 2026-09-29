@@ -34,7 +34,7 @@ func TestRulesInSigning(t *testing.T) {
 	if _, err := e.svc.Sign(ctx, user("alice"), a, in); err != nil {
 		t.Fatalf("hidden required field enforced: %v", err)
 	}
-	sg, _ := e.mem.GetSigner(ctx, tenant, a)
+	sg := e.signer(t, a)
 	if _, ok := sg.Values["city"]; ok {
 		t.Fatal("a hidden field's value was kept")
 	}
@@ -44,7 +44,7 @@ func TestRulesInSigning(t *testing.T) {
 	if err != nil || res.SubmissionStatus != store.SubmissionCompleted {
 		t.Fatalf("bob: %+v %v", res, err)
 	}
-	if sg, _ := e.mem.GetSigner(ctx, tenant, b); sg.Values["bonus"] != "500" {
+	if sg := e.signer(t, b); sg.Values["bonus"] != "500" {
 		t.Fatalf("computed value %q", sg.Values["bonus"])
 	}
 }

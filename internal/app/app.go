@@ -32,6 +32,7 @@ import (
 	"github.com/go-tangra/go-tangra-signing/v4/internal/contacts"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/documents"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/events"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/fieldvalues"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/httpapi"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/jobs"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/mail"
@@ -165,8 +166,9 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 		notify = &lazyNotify{app: a, service: cfg.Notification.Service}
 	}
 	a.Mail = mail.Mailer{Sender: notify, PortalBaseURL: cfg.Links.PortalBaseURL, Log: a.Log}
+	values := fieldvalues.Box{E: a.Sealer}
 	a.Submissions = submissions.New(submissions.Deps{Store: a.Repo, Blob: a.Blob, Audit: a.Audit, Checker: a.Checker,
-		Contacts: a.Contacts, Mail: a.Mail, Events: a.Events, Now: a.Now,
+		Contacts: a.Contacts, Mail: a.Mail, Events: a.Events, Now: a.Now, Values: values,
 		Limits: submissions.Limits{MaxSigners: l.MaxSigners, MaxPDFBytes: l.MaxPDFBytes}})
 	a.Jobs = jobs.New(jobs.Deps{Store: a.Repo, Blob: a.Blob, PKI: a.PKI, Subs: a.Submissions, Contacts: a.Contacts,
 		Events: a.Events, Log: a.Log, Now: a.Now, MaxBytes: l.MaxPDFBytes, Interval: cfg.AuditJobInterval()})
@@ -175,7 +177,8 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 	if err != nil {
 		return nil, err
 	}
-	a.Signing = signing.New(signing.Deps{OnCompleted: a.Jobs.Kick, QESTTL: cfg.QESPreparationTTL(), Origin: origin, Store: a.Repo, Blob: a.Blob, Audit: a.Audit, Subs: a.Submissions, Me: a.Me, PKI: a.PKI,
+	a.Signing = signing.New(signing.Deps{OnCompleted: a.Jobs.Kick, QESTTL: cfg.QESPreparationTTL(), Origin: origin, Values: values,
+		Store: a.Repo, Blob: a.Blob, Audit: a.Audit, Subs: a.Submissions, Me: a.Me, PKI: a.PKI,
 		Events: a.Events, Metrics: a.Metrics, Now: a.Now,
 		Limits: signing.Limits{MaxPDFBytes: l.MaxPDFBytes, MaxImageBytes: int(l.MaxImageBytes), MaxFileBytes: l.MaxFieldUploadBytes},
 		Limited: func(ctx context.Context, tenantID, userID string) (bool, error) {
@@ -193,7 +196,8 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 	}
 	a.Documents = documents.New(documents.Deps{Store: a.Repo, Blob: a.Blob, Audit: a.Audit, PKI: a.PKI, Warden: wc, Subs: a.Submissions,
 		Roots: roots, Now: a.Now, Limits: limits.Limits{MaxBytes: l.MaxPDFBytes, MaxPages: l.MaxPDFPages, Timeout: cfg.ParseTimeout()}})
-	a.Backup = backup.New(backup.Deps{Store: a.Repo, Blob: a.Blob, Audit: a.Audit, KeyCheck: a.Sealer.KeyCheck(), MaxBytes: l.MaxBackupBytes, Now: a.Now})
+	a.Backup = backup.New(backup.Deps{Store: a.Repo, Blob: a.Blob, Audit: a.Audit, KeyCheck: a.Sealer.KeyCheck(), MaxBytes: l.MaxBackupBytes, Now: a.Now,
+		Values: fieldvalues.Box{E: a.Sealer}})
 	a.wireScheduler()
 
 	// Mesh HTTP surface (reached only through the gateway).

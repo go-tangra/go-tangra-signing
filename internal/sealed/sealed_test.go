@@ -152,3 +152,24 @@ func TestSealRandomFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestSealData(t *testing.T) {
+	e, err := NewEnvelope(bytes.Repeat([]byte{3}, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	big := bytes.Repeat([]byte("v"), MaxPlaintextBytes+1)
+	if _, err := e.Seal(big, []byte("ad")); err != ErrTooLarge {
+		t.Fatalf("Seal bound: %v", err)
+	}
+	blob, err := e.SealData(big, []byte("ad"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pt, err := e.Open(blob, []byte("ad")); err != nil || !bytes.Equal(pt, big) {
+		t.Fatalf("open: %v", err)
+	}
+	if _, err := e.SealData(make([]byte, MaxDataBytes+1), nil); err != ErrTooLarge {
+		t.Fatalf("SealData bound: %v", err)
+	}
+}

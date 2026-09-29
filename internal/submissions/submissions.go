@@ -29,6 +29,7 @@ import (
 	"github.com/go-tangra/go-tangra-signing/v4/internal/blob"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/contacts"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/events"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/fieldvalues"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/mail"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/repo"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/store"
@@ -53,6 +54,7 @@ type Deps struct {
 	Events   events.Emitter
 	Now      func() time.Time
 	Limits   Limits
+	Values   fieldvalues.Box // seals prefills (SC-005)
 }
 
 // Service manages submissions.
@@ -182,8 +184,14 @@ func (s *Service) create(ctx context.Context, subj authz.Subjects, in CreateInpu
 	if err != nil {
 		return Detail{}, err
 	}
+	id := store.NewID()
+	for i, f := range fields {
+		if fields[i].Prefill, err = s.d.Values.SealString(f.Prefill, fieldvalues.PrefillAD(id, f.ID)); err != nil {
+			return Detail{}, err
+		}
+	}
 	sub := store.Submission{
-		ID: store.NewID(), TenantID: subj.TenantID, TemplateID: tpl.ID, Name: name, PDFSHA256: tpl.PDFSHA256,
+		ID: id, TenantID: subj.TenantID, TemplateID: tpl.ID, Name: name, PDFSHA256: tpl.PDFSHA256,
 		Fields: fields, Parties: tpl.Parties, Mode: in.Mode, Status: store.SubmissionDraft, ExpiresAt: expires,
 		Reminder: reminder, CreatedAt: now, CreatedBy: subj.UserID, UpdatedAt: now,
 	}

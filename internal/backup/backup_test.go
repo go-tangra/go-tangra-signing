@@ -16,6 +16,7 @@ import (
 	"github.com/go-tangra/go-tangra-signing/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/blob"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/fieldvalues"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/memstore"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pdf/pdftest"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pincrypto"
@@ -332,4 +333,53 @@ func TestHostileArchives(t *testing.T) {
 	if !dst.audit.has(audit.BackupImport, audit.OutcomeRefused) {
 		t.Fatal("refusal audited")
 	}
+}
+
+func TestSealedValuesAreRekeyed(t *testing.T) {
+	src := newStack(t, 7)
+	_, sub := src.seed(t)
+	srcBox := fieldvalues.Box{E: mustEnvelope(t, 7)}
+	_, signers, _ := src.mem.GetSubmission(ctx, tenantA, sub.ID)
+	sg := signers[0]
+	sealedVals, err := srcBox.SealMap(sg.Values, fieldvalues.SignerAD(sg.ID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sg.Values = sealedVals
+	src.mem.PutSigner(sg)
+	archive := src.export(t, "")
+
+	dst := newStack(t, 7)
+	dst.svc.d.Values = fieldvalues.Box{E: mustEnvelope(t, 7)}
+	if _, err := dst.svc.Import(ctx, admin(tenantB), "", ModeSkip, bytes.NewReader(archive)); err != nil {
+		t.Fatal(err)
+	}
+	_, got, _ := dst.mem.GetSubmission(ctx, tenantB, sub.ID)
+	if _, ok := got[0].Values["_sealed"]; !ok {
+		t.Fatal("values must stay sealed")
+	}
+	vals, err := dst.svc.d.Values.OpenMap(got[0].Values, fieldvalues.SignerAD(sg.ID))
+	if err != nil || !blob.InTenant(vals["photo"], tenantB) || !dst.blob.Has(vals["photo"]) || vals["name"] != "Мария" {
+		t.Fatalf("rekeyed values %v %v", vals, err)
+	}
+
+	// Under another KEK the sealed values travel untouched.
+	other := newStack(t, 9)
+	other.svc.d.Values = fieldvalues.Box{E: mustEnvelope(t, 9)}
+	if _, err := other.svc.Import(ctx, admin(tenantB), "", ModeSkip, bytes.NewReader(archive)); err != nil {
+		t.Fatal(err)
+	}
+	_, got, _ = other.mem.GetSubmission(ctx, tenantB, sub.ID)
+	if got[0].Values["_sealed"] != sealedVals["_sealed"] {
+		t.Fatal("unreadable values must be kept as they are")
+	}
+}
+
+func mustEnvelope(t *testing.T, k byte) *sealed.Envelope {
+	t.Helper()
+	e, err := sealed.NewEnvelope(bytes.Repeat([]byte{k}, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return e
 }

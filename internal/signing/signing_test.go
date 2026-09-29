@@ -22,6 +22,7 @@ import (
 	"github.com/go-tangra/go-tangra-signing/v4/internal/certs"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/contacts"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/events"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/fieldvalues"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/mail"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/memstore"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pdf/pdftest"
@@ -105,6 +106,23 @@ type env struct {
 	events *events.Recorder
 	now    time.Time
 	tpl    store.Template
+	box    fieldvalues.Box
+}
+
+// signer reads a signer row with its values opened (they are sealed at rest).
+func (e *env) signer(t *testing.T, id string) store.Signer {
+	t.Helper()
+	sg, err := e.mem.GetSigner(ctx, tenant, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, sealed := sg.Values["_sealed"]; len(sg.Values) > 0 && !sealed {
+		t.Fatalf("signer values stored in clear: %v", sg.Values)
+	}
+	if sg.Values, err = e.box.OpenMap(sg.Values, fieldvalues.SignerAD(id)); err != nil {
+		t.Fatal(err)
+	}
+	return sg
 }
 
 var perms = authz.Static{
@@ -133,9 +151,11 @@ func newEnv(t *testing.T, opts ...func(*Deps)) *env {
 	e.me = certs.New(certs.Deps{Store: e.mem, PKI: e.pki, Contacts: dir, Audit: e.audit, Now: clock,
 		Rules: pincrypto.Rules{Min: 6, Max: 32}, Lockout: pincrypto.Lockout{Attempts: 3, Duration: 15 * time.Minute}})
 	emitter := events.Emitter{Pub: e.events}
+	e.box = fieldvalues.Box{E: sealer}
 	e.subs = submissions.New(submissions.Deps{Store: e.mem, Blob: e.blob, Audit: e.audit, Checker: perms, Contacts: dir,
-		Mail: mail.Mailer{Sender: e.mail, PortalBaseURL: "https://portal.example.org"}, Events: emitter, Now: clock})
-	d := Deps{Store: e.mem, Blob: e.blob, Audit: e.audit, Subs: e.subs, Me: e.me, PKI: e.pki, Events: emitter, Now: clock, Location: "Sofia"}
+		Mail: mail.Mailer{Sender: e.mail, PortalBaseURL: "https://portal.example.org"}, Events: emitter, Now: clock, Values: e.box})
+	d := Deps{Store: e.mem, Blob: e.blob, Audit: e.audit, Subs: e.subs, Me: e.me, PKI: e.pki, Events: emitter, Now: clock, Location: "Sofia",
+		Values: e.box}
 	for _, o := range opts {
 		o(&d)
 	}
@@ -282,7 +302,7 @@ func TestSequentialFlowCompletes(t *testing.T) {
 	if err != nil || res.SignerStatus != store.SignerSigned || res.SubmissionStatus != store.SubmissionInProgress {
 		t.Fatalf("alice sign: %+v %v", res, err)
 	}
-	sg, _ := e.mem.GetSigner(ctx, tenant, a)
+	sg := e.signer(t, a)
 	if sg.Values["name"] != "Мария" || sg.Values["agree"] != "true" || !blob.InTenant(sg.Values["photo"], tenant) || !e.blob.Has(sg.Values["cv"]) ||
 		sg.Method != store.MethodLocal || sg.CertSerial == "" || sg.CertSubject != "Alice Ivanova" || sg.IP != "10.0.0.1" || sg.SignedAt == nil {
 		t.Fatalf("alice signer row: %+v", sg)
@@ -567,7 +587,7 @@ func TestRulesHook(t *testing.T) {
 	if _, err := e.svc.Sign(ctx, user("alice"), a, in); err != nil {
 		t.Fatal(err)
 	}
-	if sg, _ := e.mem.GetSigner(ctx, tenant, a); sg.Values["name"] != "COMPUTED" {
+	if sg := e.signer(t, a); sg.Values["name"] != "COMPUTED" {
 		t.Fatalf("computed value must win: %v", sg.Values)
 	}
 

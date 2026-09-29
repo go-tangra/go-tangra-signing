@@ -99,10 +99,22 @@ func decodeKEK(raw []byte) ([]byte, error) {
 	return nil, ErrKEK
 }
 
+// MaxDataBytes bounds SealData (field values of one signer).
+const MaxDataBytes = 4 << 20
+
 // Seal encrypts plaintext bound to associated data (see ADCertKey).
 // Layout: nonce | wrapped DEK | nonce | ciphertext.
 func (e *Envelope) Seal(plaintext, ad []byte) ([]byte, error) {
-	if len(plaintext) > MaxPlaintextBytes {
+	return e.seal(plaintext, ad, MaxPlaintextBytes)
+}
+
+// SealData is Seal for larger records (up to MaxDataBytes); Open opens both.
+func (e *Envelope) SealData(plaintext, ad []byte) ([]byte, error) {
+	return e.seal(plaintext, ad, MaxDataBytes)
+}
+
+func (e *Envelope) seal(plaintext, ad []byte, max int) ([]byte, error) {
+	if len(plaintext) > max {
 		return nil, ErrTooLarge
 	}
 	dek := make([]byte, 32)

@@ -35,6 +35,7 @@ import (
 	"github.com/go-tangra/go-tangra-signing/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/blob"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/fieldvalues"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/repo"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/store"
 )
@@ -96,6 +97,7 @@ type Deps struct {
 	KeyCheck []byte // the module KEK's key-check value
 	MaxBytes int64  // archive bound (limits_signing.max_backup_bytes)
 	Now      func() time.Time
+	Values   fieldvalues.Box // re-keys sealed signer values on import
 }
 
 // Service exports and imports.
@@ -246,7 +248,10 @@ func (s *Service) write(ctx context.Context, tenant string, r Records, w io.Writ
 		_, err := tw.Write(data)
 		return err
 	}
-	keys := objectKeys(tenant, r)
+	keys, err := s.objectKeys(ctx, tenant, r)
+	if err != nil {
+		return err
+	}
 	m := Manifest{SchemaVersion: SchemaVersion, ExportedAt: now, TenantID: tenant, KeyCheck: hex.EncodeToString(s.d.KeyCheck),
 		Counts: Counts{Folders: len(r.Folders), Templates: len(r.Templates), Submissions: len(r.Submissions), Certificates: len(r.Certificates), Objects: len(keys)}}
 	mj, _ := json.Marshal(m)
@@ -281,9 +286,10 @@ func (s *Service) write(ctx context.Context, tenant string, r Records, w io.Writ
 	return gz.Close()
 }
 
-// objectKeys lists the tenant objects the records reference, plus signer
-// uploads under the submissions.
-func objectKeys(tenant string, r Records) []string {
+// objectKeys lists the tenant objects the records reference plus every
+// object under each submission (signer uploads live there; their keys sit
+// in sealed values).
+func (s *Service) objectKeys(ctx context.Context, tenant string, r Records) ([]string, error) {
 	seen := map[string]bool{}
 	var out []string
 	add := func(k string) {
@@ -301,16 +307,16 @@ func objectKeys(tenant string, r Records) []string {
 		for _, v := range sub.Versions {
 			add(v.ObjectKey)
 		}
-		for _, sg := range sub.Signers {
-			for _, v := range sg.Values {
-				if strings.HasPrefix(v, blob.SubmissionPrefix(tenant, sub.Submission.ID)) {
-					add(v)
-				}
-			}
+		keys, err := s.d.Blob.List(ctx, blob.SubmissionPrefix(tenant, sub.Submission.ID), maxEntries)
+		if err != nil {
+			return nil, err
+		}
+		for _, k := range keys {
+			add(k)
 		}
 	}
 	sort.Strings(out)
-	return out
+	return out, nil
 }
 
 // ---------------------------------------------------------------- import
@@ -588,12 +594,8 @@ func (s *Service) importSubmission(ctx context.Context, tenant, from, mode strin
 		if sg.SubmissionID != sub.ID {
 			return apperr.InvalidBackup
 		}
-		for k, v := range sg.Values {
-			if strings.HasPrefix(v, blob.TenantPrefix(from)) {
-				if sg.Values[k], ok = rekey(v, from, tenant); !ok {
-					return apperr.InvalidBackup
-				}
-			}
+		if err := s.rekeyValues(&sg, from, tenant); err != nil {
+			return err
 		}
 		signers = append(signers, sg)
 	}
@@ -642,6 +644,39 @@ func (s *Service) importSubmission(ctx context.Context, tenant, from, mode strin
 		}
 		return nil
 	})
+}
+
+// rekeyValues moves the upload keys inside a signer's values to the target
+// tenant. Sealed values are opened and sealed again when the KEK allows;
+// under another KEK they stay as they are (and cannot be read there).
+func (s *Service) rekeyValues(sg *store.Signer, from, to string) error {
+	if from == to || len(sg.Values) == 0 {
+		return nil
+	}
+	ad := fieldvalues.SignerAD(sg.ID)
+	vals, err := s.d.Values.OpenMap(sg.Values, ad)
+	if err != nil {
+		return nil // another KEK: nothing readable to move
+	}
+	moved := map[string]string{}
+	for k, v := range vals {
+		if strings.HasPrefix(v, blob.TenantPrefix(from)) {
+			nv, ok := rekey(v, from, to)
+			if !ok {
+				return apperr.InvalidBackup
+			}
+			v = nv
+		}
+		moved[k] = v
+	}
+	_, wasSealed := sg.Values["_sealed"]
+	if wasSealed {
+		if moved, err = s.d.Values.SealMap(moved, ad); err != nil {
+			return err
+		}
+	}
+	sg.Values = moved
+	return nil
 }
 
 // String is a short summary (no values).

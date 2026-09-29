@@ -68,7 +68,7 @@ func TestQESAfterLocalSignature(t *testing.T) {
 	if err != nil || res.SubmissionStatus != store.SubmissionCompleted {
 		t.Fatalf("complete: %+v %v", res, err)
 	}
-	sg, _ := e.mem.GetSigner(ctx, tenant, b)
+	sg := e.signer(t, b)
 	if sg.Method != store.MethodQES || sg.CertSubject != "Боб Строителя" || sg.CertIssuer != "Test Qualified CA" || sg.CertSerial == "" ||
 		sg.Values["salary"] != "6000" || sg.IP != "10.9.9.9" || sg.CertificateID != nil {
 		t.Fatalf("qes signer %+v", sg)
@@ -79,7 +79,7 @@ func TestQESAfterLocalSignature(t *testing.T) {
 	if err != nil || len(sigs) != 2 || !sigs[0].Valid() || !sigs[1].Valid() || sigs[0].Trust != "tenant" || sigs[1].Trust != "qualified" {
 		t.Fatalf("both signatures valid: %+v %v", sigs, err)
 	}
-	if q, _ := e.mem.GetQES(ctx, tenant, prep.ID); q.UsedAt == nil {
+	if q, _ := e.mem.GetQES(ctx, tenant, prep.ID); q.UsedAt == nil || q.Values["salary"] != "" {
 		t.Fatal("preparation not marked used")
 	}
 	if e.blob.Has(blobKey(prep.ID)) {

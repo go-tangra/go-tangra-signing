@@ -30,6 +30,7 @@ import (
 	"github.com/go-tangra/go-tangra-signing/v4/internal/blob"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/certs"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/events"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/fieldvalues"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/mail"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/metrics"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pdf/incr"
@@ -100,6 +101,8 @@ type Deps struct {
 	// signs BISS's signedContents when configured.
 	QESTTL time.Duration
 	Origin *Origin
+	// Values seals submitted values and opens prefills (SC-005).
+	Values fieldvalues.Box
 }
 
 // Service signs.
@@ -214,26 +217,24 @@ func (s *Service) Session(ctx context.Context, subj authz.Subjects, signerID str
 		return Session{}, err
 	}
 	now := s.d.Now()
+	known, err := s.known(sub, all)
+	if err != nil {
+		return Session{}, err
+	}
 	out := Session{Submission: sub, Signer: sg, Values: map[string]string{}}
 	for _, f := range sub.Fields {
-		if f.Prefill != "" {
-			out.Values[f.ID] = f.Prefill
-		}
 		bare := f
 		bare.Prefill = ""
 		out.AllFields = append(out.AllFields, bare)
 		if f.Party == sg.Party {
-			out.Fields = append(out.Fields, f)
+			own := f
+			own.Prefill = known.prefills[f.ID]
+			out.Fields = append(out.Fields, own)
 		}
 	}
-	for _, x := range all {
-		if x.Status != store.SignerSigned {
-			continue
-		}
-		for id, v := range x.Values {
-			if !strings.HasPrefix(v, blob.TenantPrefix(sub.TenantID)) { // object keys stay private
-				out.Values[id] = v
-			}
+	for id, v := range known.values {
+		if !strings.HasPrefix(v, blob.TenantPrefix(sub.TenantID)) { // object keys stay private
+			out.Values[id] = v
 		}
 	}
 	var cert *store.Certificate
@@ -316,22 +317,47 @@ type prepared struct {
 	uploads map[string][]byte
 }
 
+// knownValues are the opened prefills and the values of signers who signed.
+type knownValues struct {
+	prefills map[string]string // field id → prefill
+	values   map[string]string // prefills overlaid with signed values
+}
+
+func (s *Service) known(sub store.Submission, all []store.Signer) (knownValues, error) {
+	k := knownValues{prefills: map[string]string{}, values: map[string]string{}}
+	for _, f := range sub.Fields {
+		if f.Prefill == "" {
+			continue
+		}
+		v, err := s.d.Values.OpenString(f.Prefill, fieldvalues.PrefillAD(sub.ID, f.ID))
+		if err != nil {
+			return k, err
+		}
+		k.prefills[f.ID], k.values[f.ID] = v, v
+	}
+	for _, x := range all {
+		if x.Status != store.SignerSigned {
+			continue
+		}
+		vals, err := s.d.Values.OpenMap(x.Values, fieldvalues.SignerAD(x.ID))
+		if err != nil {
+			return k, err
+		}
+		for id, v := range vals {
+			k.values[id] = v
+		}
+	}
+	return k, nil
+}
+
 // check validates values and uploads against the signer's fields and the
 // rules (FR-011 last point); hidden fields are ignored.
 func (s *Service) check(sub store.Submission, all []store.Signer, sg store.Signer, in Input) (prepared, error) {
-	merged := map[string]string{}
-	for _, f := range sub.Fields {
-		if f.Prefill != "" {
-			merged[f.ID] = f.Prefill
-		}
+	known, err := s.known(sub, all)
+	if err != nil {
+		return prepared{}, err
 	}
-	for _, x := range all {
-		if x.Status == store.SignerSigned {
-			for k, v := range x.Values {
-				merged[k] = v
-			}
-		}
-	}
+	merged := known.values
 	own := map[string]store.Field{}
 	for _, f := range sub.Fields {
 		if f.Party == sg.Party {
@@ -542,6 +568,9 @@ func (s *Service) commit(ctx context.Context, tx repo.Store, subj authz.Subjects
 	sid := sg.ID
 	if err := tx.AddVersion(ctx, store.DocumentVersion{SubmissionID: sub.ID, Version: v, TenantID: sub.TenantID,
 		ObjectKey: vkey, SHA256: sum, Size: int64(len(f.pdf)), SignerID: &sid, CreatedAt: now}); err != nil {
+		return c, err
+	}
+	if values, err = s.d.Values.SealMap(values, fieldvalues.SignerAD(sg.ID)); err != nil {
 		return c, err
 	}
 	sg.Status, sg.Values, sg.Method, sg.CertificateID = store.SignerSigned, values, f.method, f.certID
