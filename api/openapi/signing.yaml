@@ -952,7 +952,7 @@ paths:
     post:
       operationId: exportBackup
       x-freya-permission: 'backup:manage'
-      x-freya-timeout-seconds: 600
+      x-freya-timeout-seconds: 300
       parameters:
         - { $ref: '#/components/parameters/csrf' }
         - { name: tenant_id, in: query, schema: { type: string, format: uuid }, description: 'platform administrators only' }
@@ -963,8 +963,8 @@ paths:
     post:
       operationId: importBackup
       x-freya-permission: 'backup:manage'
-      x-freya-max-body-bytes: 2147483648
-      x-freya-timeout-seconds: 600
+      x-freya-max-body-bytes: 1073741824
+      x-freya-timeout-seconds: 300
       parameters:
         - { $ref: '#/components/parameters/csrf' }
         - { name: mode, in: query, schema: { type: string, enum: [skip, overwrite] } }
