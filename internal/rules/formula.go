@@ -292,7 +292,9 @@ func (n *node) eval(val func(name string) float64) (float64, bool) {
 // evaluator uses the same steps, so both give identical results).
 func Round(v float64, digits int) float64 {
 	p := math.Pow(10, float64(digits))
-	r := math.Floor(math.Abs(v)*p+0.5+1e-9) / p
+	// The explicit conversion keeps the product rounded on its own, so no
+	// platform fuses it into the addition (FMA) and results match JavaScript.
+	r := math.Floor(float64(math.Abs(v)*p)+0.5+1e-9) / p
 	if v < 0 {
 		return -r
 	}
