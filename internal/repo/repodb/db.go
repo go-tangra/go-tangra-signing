@@ -369,13 +369,13 @@ func (d *DB) DeleteTemplate(ctx context.Context, tenantID, id string) error {
 
 const submissionCols = `id, tenant_id, template_id, name, pdf_key, pdf_sha256, fields, parties, mode, status, expires_at, reminder,
  current_version, final_version, audit_trail_key, audit_trail_sha256, sent_at, completed_at, cancelled_at, cancel_reason,
- created_at, created_by, updated_at`
+ created_at, created_by, updated_at, source, source_ref, idempotency_key`
 
 func scanSubmission(sc scanner) (s store.Submission, err error) {
 	var fields, parties, reminder []byte
 	err = sc.Scan(&s.ID, &s.TenantID, &s.TemplateID, &s.Name, &s.PDFKey, &s.PDFSHA256, &fields, &parties, &s.Mode, &s.Status, &s.ExpiresAt,
 		&reminder, &s.CurrentVersion, &s.FinalVersion, &s.AuditTrailKey, &s.AuditTrailSHA256, &s.SentAt, &s.CompletedAt, &s.CancelledAt,
-		&s.CancelReason, &s.CreatedAt, &s.CreatedBy, &s.UpdatedAt)
+		&s.CancelReason, &s.CreatedAt, &s.CreatedBy, &s.UpdatedAt, &s.Source, &s.SourceRef, &s.IdempotencyKey)
 	if err != nil {
 		return s, err
 	}
@@ -444,10 +444,11 @@ func (d *DB) CreateSubmission(ctx context.Context, s store.Submission, signers [
 			return repo.ErrNotFound
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO signing_submissions (`+submissionCols+`)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)`,
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)`,
 			s.ID, s.TenantID, s.TemplateID, s.Name, s.PDFKey, s.PDFSHA256, js(s.Fields), js(s.Parties), s.Mode, s.Status, s.ExpiresAt,
 			reminderJSON(s.Reminder), s.CurrentVersion, s.FinalVersion, s.AuditTrailKey, s.AuditTrailSHA256, s.SentAt, s.CompletedAt,
-			s.CancelledAt, s.CancelReason, orNow(s.CreatedAt), s.CreatedBy, orNow(s.UpdatedAt)); err != nil {
+			s.CancelledAt, s.CancelReason, orNow(s.CreatedAt), s.CreatedBy, orNow(s.UpdatedAt), s.Source, s.SourceRef,
+			s.IdempotencyKey); err != nil {
 			return err
 		}
 		for _, sg := range signers {
@@ -490,6 +491,20 @@ func (d *DB) getSubmission(ctx context.Context, tenantID, id, lock string) (s st
 // GetSubmission implements repo.Store.
 func (d *DB) GetSubmission(ctx context.Context, tenantID, id string) (store.Submission, []store.Signer, error) {
 	return d.getSubmission(ctx, tenantID, id, "")
+}
+
+// SubmissionByIdempotency implements repo.Store.
+func (d *DB) SubmissionByIdempotency(ctx context.Context, tenantID, source, key string) (s store.Submission, sg []store.Signer, err error) {
+	err = d.run(ctx, tenantID, func(tx pgx.Tx) error {
+		s, err = scanSubmission(tx.QueryRow(ctx, `SELECT `+submissionCols+` FROM signing_submissions
+			WHERE tenant_id=$1 AND source=$2 AND idempotency_key=$3 AND idempotency_key <> ''`, tenantID, source, key))
+		if err != nil {
+			return err
+		}
+		sg, err = signersOf(ctx, tx, tenantID, s.ID)
+		return err
+	})
+	return s, sg, mapErr(err)
 }
 
 // LockSubmission implements repo.Store.
@@ -625,7 +640,7 @@ func (d *DB) Inbox(ctx context.Context, tenantID, userID string, signed bool, p,
 				&sg.InvitedAt, &sg.OpenedAt, &sg.SignedAt, &sg.DeclinedAt, &sg.RemindersSent, &sg.NextReminderAt, &sg.MailError,
 				&s.ID, &s.TenantID, &s.TemplateID, &s.Name, &s.PDFKey, &s.PDFSHA256, &fields, &parties, &s.Mode, &s.Status, &s.ExpiresAt,
 				&reminder, &s.CurrentVersion, &s.FinalVersion, &s.AuditTrailKey, &s.AuditTrailSHA256, &s.SentAt, &s.CompletedAt, &s.CancelledAt,
-				&s.CancelReason, &s.CreatedAt, &s.CreatedBy, &s.UpdatedAt); err != nil {
+				&s.CancelReason, &s.CreatedAt, &s.CreatedBy, &s.UpdatedAt, &s.Source, &s.SourceRef, &s.IdempotencyKey); err != nil {
 				return err
 			}
 			sg.Values = map[string]string{}

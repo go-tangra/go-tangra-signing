@@ -15,6 +15,7 @@ require (
 	github.com/go-tangra/go-tangra-notification/sdk/v4 v4.2.0
 	github.com/go-tangra/go-tangra-portal/sdk/v4 v4.0.0
 	github.com/go-tangra/go-tangra-scheduler/sdk/v4 v4.0.0
+	github.com/go-tangra/go-tangra-signing/sdk/v4 v4.0.0
 	github.com/go-tangra/go-tangra-warden/sdk/v4 v4.0.0
 	github.com/go-tangra/go-tangra/v4 v4.2.3
 	github.com/jackc/pgx/v5 v5.11.0
@@ -126,3 +127,5 @@ require (
 	gopkg.in/ini.v1 v1.67.3 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
+
+replace github.com/go-tangra/go-tangra-signing/sdk/v4 => ./sdk

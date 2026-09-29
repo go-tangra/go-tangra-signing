@@ -850,6 +850,11 @@ export interface components {
             /** Format: date-time */
             created_at?: string;
             created_by?: string;
+            /**
+             * @description module that started the submission (module API); empty = a user
+             * @enum {string}
+             */
+            source?: "" | "hr";
             signers: components["schemas"]["SignerView"][];
             can_control?: boolean;
         };
