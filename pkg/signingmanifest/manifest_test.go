@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 
@@ -215,6 +216,27 @@ func TestRoutesValidationBranches(t *testing.T) {
 	for i, ext := range bad {
 		if _, err := Routes(docWith(ext)); err == nil {
 			t.Errorf("case %d accepted", i)
+		}
+	}
+}
+
+// The gateway refuses a manifest whose routes exceed its limits
+// (portal internal/manifest: timeout ≤ 5 min, body ≤ 1 GiB).
+func TestRoutesWithinGatewayLimits(t *testing.T) {
+	m, err := Manifest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := m.Proto()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range p.GetRoutes() {
+		if d := r.GetTimeout().AsDuration(); d > 5*time.Minute {
+			t.Errorf("%s %s: timeout %v above the gateway's 5 min", r.GetMethod(), r.GetPath(), d)
+		}
+		if r.GetMaxBodyBytes() > 1<<30 {
+			t.Errorf("%s %s: body bound %d above the gateway's 1 GiB", r.GetMethod(), r.GetPath(), r.GetMaxBodyBytes())
 		}
 	}
 }
