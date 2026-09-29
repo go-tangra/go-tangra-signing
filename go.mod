@@ -12,6 +12,7 @@ require (
 	github.com/go-tangra/go-tangra/v4 v4.2.3
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/menta2k/go-pdfplumber v0.0.0-20260322062525-72c744524563
+	github.com/menta2k/go-transliteration v0.0.0-20260325071158-812b44907811
 	github.com/minio/minio-go/v7 v7.3.0
 	github.com/pdfcpu/pdfcpu v0.11.1
 	github.com/pressly/goose/v3 v3.28.0
@@ -118,3 +119,5 @@ require (
 	gopkg.in/ini.v1 v1.67.3 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
+
+replace github.com/go-tangra/go-tangra-auth/sdk/v4 => ../go-tangra-auth/sdk
