@@ -99,7 +99,7 @@ type parser struct {
 }
 
 func (p *parser) peek() token { return p.toks[p.pos] }
-func (p *parser) next() token  { t := p.toks[p.pos]; p.pos++; return t }
+func (p *parser) next() token { t := p.toks[p.pos]; p.pos++; return t }
 
 func bp(op string) int {
 	switch op {
