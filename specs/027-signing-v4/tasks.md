@@ -126,18 +126,18 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 ### Implementation
 - [x] T067 [US7] `internal/pdf/verify/` — port v3 verifier with research D11.
 - [x] T068 [US7] `internal/certs/admin.go`, `internal/warden/warden.go`, `internal/httpapi/{certificates.go,documents.go,verify.go}` — `/certificates*`, `/ca/crl`, `/documents/sign`, `/documents/{id}`, `/verify`.
-- [ ] T069 [US7] UI `ui/src/views/admin/` (Certificates list/detail/revoke/create, Sign document with Warden secret picker) and `ui/src/views/verify/` (upload or pick a submission, results table).
+- [x] T069 [US7] UI `ui/src/views/admin/` (Certificates list/detail/revoke/create, Sign document with Warden secret picker) and `ui/src/views/verify/` (upload or pick a submission, results table).
 
 ## Phase 8: User Story 4 — QES with B-Trust BISS (P2)
 
 ### Tests (write first, must fail)
 - [x] T070 [P] [US4] `internal/qes/qes_test.go` + fuzz — prepare builds signedAttrs/digest over the prepared PDF; complete accepts a valid simulated card signature (raw ECDSA/RSA and CMS forms), refuses: wrong key, other chain than prepared, tampered digest, expired/used preparation, `document_changed` (version moved), leaf not valid now, missing KU; garbage input never panics. 100 %.
 - [x] T071 [P] [US4] `internal/signing/qes_flow_test.go` — end-to-end prepare → simulated sign → complete produces a PDF verified by `pdf/verify`; earlier signatures remain valid; signer recorded with card subject/serial/issuer; preparation survives a new service instance (shared storage).
-- [ ] T072 [P] [US4] UI `ui/tests/unit/biss.spec.ts` — port detection over 53952–53955, getsigner/sign flow with mocked fetch, clear states (not installed, refused, timeout).
+- [x] T072 [P] [US4] UI `ui/tests/unit/biss.spec.ts` — port detection over 53952–53955, getsigner/sign flow with mocked fetch, clear states (not installed, refused, timeout).
 
 ### Implementation
 - [x] T073 [US4] `internal/qes/qes.go` (pure verification core) + `internal/signing/qes.go` + `internal/httpapi/qes.go` — prepare/complete (research D6), preparation rows and objects.
-- [ ] T074 [US4] UI `ui/src/components/BissButton.vue` + `ui/src/composables/useBiss.ts` (port v3 `useBiss.ts`, no credentials sent anywhere but localhost BISS).
+- [x] T074 [US4] UI `ui/src/components/BissButton.vue` + `ui/src/composables/useBiss.ts` (port v3 `useBiss.ts`, no credentials sent anywhere but localhost BISS).
 
 ## Phase 9: User Story 5 — Decline, cancel, resend, expiry, reminders (P2)
 
@@ -149,7 +149,7 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 ### Implementation
 - [x] T078 [US5] `internal/signing/decline.go`, `internal/submissions/control.go` + handlers.
 - [x] T079 [US5] `internal/tasks/{expire.go,reminders.go,descriptors.go}` + `internal/app/scheduler.go` (executor server + Registrar, config `task_scheduler`), policy rule `scheduler-execute`.
-- [ ] T080 [US5] UI: decline dialog on the signing page; cancel/resend/replace/delete actions and event history timeline on the submission detail; expiry/reminder fields in the create drawer and template defaults.
+- [x] T080 [US5] UI: decline dialog on the signing page; cancel/resend/replace/delete actions and event history timeline on the submission detail; expiry/reminder fields in the create drawer and template defaults.
 
 ## Phase 10: User Story 8 — Audit trail (P2)
 
