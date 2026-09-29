@@ -1,0 +1,172 @@
+{
+  "comment": "Shared test vectors of the Go (internal/rules) and TypeScript (ui/src/rules) evaluators. Each case gives fields and values; 'want' lists hidden field ids, field ids required now, and formula results; 'invalid' names the field whose rules Validate refuses.",
+  "cases": [
+    {
+      "name": "precedence and decimal comma",
+      "fields": [
+        {"id": "a", "name": "A", "type": "number"},
+        {"id": "b", "name": "B", "type": "number"},
+        {"id": "t", "name": "Total", "type": "number", "formula": "{A} + {B} * 2"}
+      ],
+      "values": {"a": "1.5", "b": "2,25"},
+      "want": {"hidden": [], "required": [], "computed": {"t": "6"}}
+    },
+    {
+      "name": "parentheses, division and two decimals",
+      "fields": [
+        {"id": "a", "name": "A", "type": "number"},
+        {"id": "b", "name": "B", "type": "number"},
+        {"id": "q", "name": "Quarter", "type": "number", "formula": "({A} + {B}) / 4"},
+        {"id": "t", "name": "Third", "type": "number", "formula": "{A} / 3"}
+      ],
+      "values": {"a": "1", "b": "2"},
+      "want": {"hidden": [], "required": [], "computed": {"q": "0.75", "t": "0.33"}}
+    },
+    {
+      "name": "division by zero is empty",
+      "fields": [
+        {"id": "a", "name": "A", "type": "number"},
+        {"id": "b", "name": "B", "type": "number"},
+        {"id": "r", "name": "Ratio", "type": "number", "formula": "{A} / {B}"},
+        {"id": "n", "name": "Nested", "type": "number", "formula": "round({Ratio} + 1)"},
+        {"id": "s", "name": "Sum", "type": "number", "formula": "sum(1 / {B}, 2)"},
+        {"id": "p", "name": "Plus", "type": "number", "formula": "(1 / {B}) + 1"},
+        {"id": "m", "name": "Minus", "type": "number", "formula": "-(1 / {B})"}
+      ],
+      "values": {"a": "5", "b": "0"},
+      "want": {"hidden": [], "required": [], "computed": {"r": "", "n": "1", "s": "", "p": "", "m": ""}}
+    },
+    {
+      "name": "round half away from zero",
+      "fields": [
+        {"id": "a", "name": "A", "type": "number"},
+        {"id": "r1", "name": "R1", "type": "number", "formula": "round({A} / 3, 2)"},
+        {"id": "r2", "name": "R2", "type": "number", "formula": "round(2.5)"},
+        {"id": "r3", "name": "R3", "type": "number", "formula": "round(-2.5)"},
+        {"id": "r4", "name": "R4", "type": "number", "formula": "round(1.005, 2)"},
+        {"id": "r5", "name": "R5", "type": "number", "formula": "round(7, 1.5)"}
+      ],
+      "values": {"a": "10"},
+      "want": {"hidden": [], "required": [], "computed": {"r1": "3.33", "r2": "3", "r3": "-3", "r4": "1.01", "r5": ""}}
+    },
+    {
+      "name": "min, max, sum and unary minus",
+      "fields": [
+        {"id": "a", "name": "A", "type": "number"},
+        {"id": "b", "name": "B", "type": "number"},
+        {"id": "m", "name": "Mix", "type": "number", "formula": "sum({A}, {B}, 10) - max({A}, {B}) + min(1, 2, -3)"},
+        {"id": "u", "name": "Unary", "type": "number", "formula": "-{A} * -2"},
+        {"id": "z", "name": "Zero", "type": "number", "formula": "{A} - 4"}
+      ],
+      "values": {"a": "4", "b": "6"},
+      "want": {"hidden": [], "required": [], "computed": {"m": "11", "u": "8", "z": "0"}}
+    },
+    {
+      "name": "empty and text values count as zero",
+      "fields": [
+        {"id": "a", "name": "A", "type": "number"},
+        {"id": "b", "name": "B", "type": "text"},
+        {"id": "t", "name": "Total", "type": "number", "formula": "{A} + {B} + 1"}
+      ],
+      "values": {"a": "", "b": "abc"},
+      "want": {"hidden": [], "required": [], "computed": {"t": "1"}}
+    },
+    {
+      "name": "formulas over formulas, case-insensitive names",
+      "fields": [
+        {"id": "y", "name": "Y", "type": "number", "formula": "{x} + 1"},
+        {"id": "x", "name": "X", "type": "number", "formula": "{ salary } * 2"},
+        {"id": "s", "name": "Salary", "type": "number"}
+      ],
+      "values": {"s": "1234.5", "x": "999", "y": "tampered"},
+      "want": {"hidden": [], "required": [], "computed": {"x": "2469", "y": "2470"}}
+    },
+    {
+      "name": "visible when all rules hold",
+      "fields": [
+        {"id": "agree", "name": "Agree", "type": "checkbox"},
+        {"id": "city", "name": "City", "type": "text", "required": true,
+         "conditions": {"mode": "all", "effect": "visible", "rules": [{"field": "agree", "op": "checked"}]}}
+      ],
+      "values": {"agree": "false", "city": "Sofia"},
+      "want": {"hidden": ["city"], "required": [], "computed": {}}
+    },
+    {
+      "name": "required when any rule holds",
+      "fields": [
+        {"id": "city", "name": "City", "type": "select", "options": ["Sofia", "Varna"]},
+        {"id": "name", "name": "Name", "type": "text"},
+        {"id": "id", "name": "ID number", "type": "cells",
+         "conditions": {"mode": "any", "effect": "required", "rules": [{"field": "city", "op": "eq", "value": "Varna"}, {"field": "name", "op": "contains", "value": "IVAN"}]}}
+      ],
+      "values": {"city": "Sofia", "name": "Ivan Petrov"},
+      "want": {"hidden": [], "required": ["id"], "computed": {}}
+    },
+    {
+      "name": "hidden fields count as empty downstream",
+      "fields": [
+        {"id": "agree", "name": "Agree", "type": "checkbox"},
+        {"id": "city", "name": "City", "type": "text",
+         "conditions": {"mode": "all", "effect": "visible", "rules": [{"field": "agree", "op": "checked"}]}},
+        {"id": "zip", "name": "Zip", "type": "text",
+         "conditions": {"mode": "all", "effect": "visible", "rules": [{"field": "city", "op": "not_empty"}]}},
+        {"id": "salary", "name": "Salary", "type": "number",
+         "conditions": {"mode": "all", "effect": "visible", "rules": [{"field": "agree", "op": "checked"}]}},
+        {"id": "total", "name": "Total", "type": "number", "formula": "{Salary} + 100"},
+        {"id": "bonus", "name": "Bonus", "type": "number", "formula": "{Salary} * 2",
+         "conditions": {"mode": "all", "effect": "visible", "rules": [{"field": "agree", "op": "checked"}]}}
+      ],
+      "values": {"agree": "", "city": "Sofia", "zip": "1000", "salary": "5000"},
+      "want": {"hidden": ["city", "zip", "salary", "bonus"], "required": [], "computed": {"total": "100"}}
+    },
+    {
+      "name": "neq, empty and unchecked",
+      "fields": [
+        {"id": "a", "name": "A", "type": "text"},
+        {"id": "c", "name": "C", "type": "checkbox"},
+        {"id": "x", "name": "X", "type": "text", "conditions": {"mode": "all", "effect": "required", "rules": [{"field": "a", "op": "neq", "value": " yes "}]}},
+        {"id": "y", "name": "Y", "type": "text", "conditions": {"mode": "all", "effect": "visible", "rules": [{"field": "a", "op": "empty"}]}},
+        {"id": "z", "name": "Z", "type": "text", "required": true, "conditions": {"mode": "any", "effect": "visible", "rules": [{"field": "c", "op": "unchecked"}]}}
+      ],
+      "values": {"a": "no", "c": "true"},
+      "want": {"hidden": ["y", "z"], "required": ["x"], "computed": {}}
+    },
+    {
+      "name": "out-of-range results are empty",
+      "fields": [
+        {"id": "a", "name": "A", "type": "number"},
+        {"id": "big", "name": "Big", "type": "number", "formula": "{A} * 1000000 * 1000000"}
+      ],
+      "values": {"a": "5000"},
+      "want": {"hidden": [], "required": [], "computed": {"big": ""}}
+    },
+    {"name": "syntax error", "invalid": "Total",
+     "fields": [{"id": "a", "name": "A", "type": "number"}, {"id": "t", "name": "Total", "type": "number", "formula": "{A} +"}]},
+    {"name": "unknown field", "invalid": "Total",
+     "fields": [{"id": "t", "name": "Total", "type": "number", "formula": "{Nope} * 2"}]},
+    {"name": "self reference", "invalid": "Total",
+     "fields": [{"id": "t", "name": "Total", "type": "number", "formula": "{Total} + 1"}]},
+    {"name": "formula cycle", "invalid": "X",
+     "fields": [{"id": "x", "name": "X", "type": "number", "formula": "{Y} + 1"}, {"id": "y", "name": "Y", "type": "number", "formula": "{X} + 1"}]},
+    {"name": "condition cycle", "invalid": "F1",
+     "fields": [
+       {"id": "f1", "name": "F1", "type": "text", "conditions": {"mode": "all", "effect": "visible", "rules": [{"field": "f2", "op": "not_empty"}]}},
+       {"id": "f2", "name": "F2", "type": "text", "conditions": {"mode": "all", "effect": "visible", "rules": [{"field": "f1", "op": "not_empty"}]}}]},
+    {"name": "formula on a text field", "invalid": "Note",
+     "fields": [{"id": "n", "name": "Note", "type": "text", "formula": "1 + 1"}]},
+    {"name": "unknown function", "invalid": "P",
+     "fields": [{"id": "p", "name": "P", "type": "number", "formula": "pow(2, 3)"}]},
+    {"name": "bad character", "invalid": "M",
+     "fields": [{"id": "a", "name": "A", "type": "number"}, {"id": "m", "name": "M", "type": "number", "formula": "{A} % 2"}]},
+    {"name": "round with three arguments", "invalid": "R",
+     "fields": [{"id": "r", "name": "R", "type": "number", "formula": "round(1, 2, 3)"}]},
+    {"name": "condition on an unknown field", "invalid": "C",
+     "fields": [{"id": "c", "name": "C", "type": "text", "conditions": {"mode": "all", "effect": "visible", "rules": [{"field": "ghost", "op": "empty"}]}}]},
+    {"name": "unclosed reference", "invalid": "U",
+     "fields": [{"id": "u", "name": "U", "type": "number", "formula": "{A + 1"}]},
+    {"name": "missing parenthesis", "invalid": "U",
+     "fields": [{"id": "u", "name": "U", "type": "number", "formula": "(1 + 2"}]},
+    {"name": "bad number", "invalid": "U",
+     "fields": [{"id": "u", "name": "U", "type": "number", "formula": "1.2.3"}]}
+  ]
+}

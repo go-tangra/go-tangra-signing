@@ -1,3 +1,0 @@
-import { Module, ModuleFederation, createInstance, getInstance, getRemoteEntry, getRemoteInfo, init, loadRemote, loadScript, loadScriptNode, loadShare, loadShareSync, preloadRemote, registerGlobalPlugins, registerPlugins, registerRemotes, registerShared } from "./index.js";
-
-export { Module, ModuleFederation, createInstance, getInstance, getRemoteEntry, getRemoteInfo, init, loadRemote, loadScript, loadScriptNode, loadShare, loadShareSync, preloadRemote, registerGlobalPlugins, registerPlugins, registerRemotes, registerShared };

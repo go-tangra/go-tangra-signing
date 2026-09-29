@@ -1,0 +1,974 @@
+openapi: 3.1.0
+info:
+  title: Signing API
+  version: 1.0.0
+  description: >
+    Document signing module of the go-tangra v4 platform (feature 027): PDF
+    templates with a field builder, submissions signed by platform users in
+    sequential or parallel order with PAdES signatures from a per-tenant
+    signing CA (PIN-protected personal certificates) or qualified cards (B-Trust
+    BISS), administrator certificates, document signing, verification, audit
+    trails and backup. Gateway-proxied under /api/signing. Every route declares
+    an x-freya-permission (or x-freya-public); mutating routes carry the
+    platform CSRF header. signing:sign is granted to every tenant role; the
+    module additionally checks that the caller is the signer or the sender.
+    Foreign or unauthorised ids answer 404 not_found.
+servers:
+  - url: /
+components:
+  parameters:
+    csrf:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema: { type: string, maxLength: 128 }
+    id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    sid:
+      name: sid
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    signerId:
+      name: signer_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    page:
+      name: page
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100000 }
+    pageSize:
+      name: page_size
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100 }
+    q:
+      name: q
+      in: query
+      required: false
+      schema: { type: string, maxLength: 200 }
+  schemas:
+    Error:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          description: >
+            unauthenticated | forbidden | not_found | malformed_body | body_too_large |
+            validation_failed | conflict | temporarily_unavailable | not_implemented |
+            invalid_pdf | payload_too_large | invalid_field | invalid_rule | version_conflict |
+            template_in_use | template_not_active | folder_not_empty | name_taken |
+            invalid_signer | invalid_prefill | not_draft | signer_final | missing_required |
+            invalid_value | pin_invalid | certificate_locked | certificate_missing |
+            certificate_unusable | certificate_exists | not_your_turn | submission_not_open |
+            already_signed | rate_limited | qes_signature_invalid | preparation_expired |
+            document_changed | tsa_failed | contact_missing | backup_too_large | invalid_backup
+        field: { type: string }
+        detail: { type: object }
+    Uuid: { type: string, format: uuid }
+    Party:
+      type: object
+      additionalProperties: false
+      required: [key, name]
+      properties:
+        key: { type: string, pattern: '^[a-z0-9_-]{1,40}$' }
+        name: { type: string, minLength: 1, maxLength: 80 }
+    Rule:
+      type: object
+      additionalProperties: false
+      required: [field, op]
+      properties:
+        field: { type: string, minLength: 1, maxLength: 120 }
+        op: { type: string, enum: [eq, neq, contains, empty, not_empty, checked, unchecked] }
+        value: { type: string, maxLength: 500 }
+    Conditions:
+      type: object
+      additionalProperties: false
+      required: [mode, effect, rules]
+      properties:
+        mode: { type: string, enum: [all, any] }
+        effect: { type: string, enum: [visible, required] }
+        rules: { type: array, minItems: 1, maxItems: 20, items: { $ref: '#/components/schemas/Rule' } }
+    FieldType:
+      type: string
+      enum: [text, number, signature, initials, date, checkbox, select, radio, image, file, cells, stamp]
+    Field:
+      type: object
+      additionalProperties: false
+      required: [id, name, type, party, page, x, y, w, h]
+      properties:
+        id: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        type: { $ref: '#/components/schemas/FieldType' }
+        party: { type: string, maxLength: 40 }
+        page: { type: integer, minimum: 1, maximum: 5000 }
+        x: { type: number, minimum: 0, maximum: 1 }
+        y: { type: number, minimum: 0, maximum: 1 }
+        w: { type: number, minimum: 0, maximum: 1 }
+        h: { type: number, minimum: 0, maximum: 1 }
+        required: { type: boolean }
+        font: { type: string, maxLength: 40 }
+        font_size: { type: number, minimum: 0, maximum: 72 }
+        options: { type: array, maxItems: 50, items: { type: string, maxLength: 120 } }
+        default: { type: string, maxLength: 2000 }
+        conditions: { $ref: '#/components/schemas/Conditions' }
+        formula: { type: string, maxLength: 500 }
+    Reminder:
+      type: object
+      additionalProperties: false
+      required: [interval_days, max]
+      properties:
+        interval_days: { type: integer, minimum: 1, maximum: 30 }
+        max: { type: integer, minimum: 1, maximum: 20 }
+    Folder:
+      type: object
+      required: [id, name, path]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        parent_id: { type: [string, 'null'], format: uuid }
+        name: { type: string }
+        path: { type: string }
+        sort_order: { type: integer }
+    FolderList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Folder' } }
+    FolderWrite:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        parent_id: { type: [string, 'null'], format: uuid }
+        sort_order: { type: integer, minimum: 0, maximum: 100000 }
+    Template:
+      type: object
+      required: [id, name, status, parties, fields, version]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        folder_id: { type: [string, 'null'], format: uuid }
+        name: { type: string }
+        description: { type: string }
+        tags: { type: array, items: { type: string } }
+        status: { type: string, enum: [draft, active, archived] }
+        file_name: { type: string }
+        pdf_size: { type: integer }
+        pdf_pages: { type: integer }
+        pdf_signed: { type: boolean }
+        parties: { type: array, items: { $ref: '#/components/schemas/Party' } }
+        fields: { type: array, items: { $ref: '#/components/schemas/Field' } }
+        default_expiry_days: { type: [integer, 'null'] }
+        default_reminder: { oneOf: [{ $ref: '#/components/schemas/Reminder' }, { type: 'null' }] }
+        version: { type: integer }
+        created_at: { type: string, format: date-time }
+        created_by: { type: string }
+        updated_at: { type: string, format: date-time }
+    TemplatePage:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Template' } }
+        total: { type: integer }
+    TemplatePatch:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 2000 }
+        folder_id: { type: [string, 'null'], format: uuid }
+        tags: { type: array, maxItems: 20, items: { type: string, minLength: 1, maxLength: 40 } }
+        status: { type: string, enum: [draft, active, archived] }
+        default_expiry_days: { type: [integer, 'null'], minimum: 1, maximum: 365 }
+        default_reminder: { oneOf: [{ $ref: '#/components/schemas/Reminder' }, { type: 'null' }] }
+    TemplateFields:
+      type: object
+      additionalProperties: false
+      required: [version, parties, fields]
+      properties:
+        version: { type: integer, minimum: 1 }
+        parties: { type: array, minItems: 1, maxItems: 50, items: { $ref: '#/components/schemas/Party' } }
+        fields: { type: array, maxItems: 5000, items: { $ref: '#/components/schemas/Field' } }
+    TemplateClone:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        folder_id: { type: [string, 'null'], format: uuid }
+    DetectedFields:
+      type: object
+      required: [fields]
+      properties:
+        fields: { type: array, items: { $ref: '#/components/schemas/Field' } }
+    SignerView:
+      type: object
+      required: [id, user_id, name, party, position, status]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        user_id: { type: string }
+        name: { type: string }
+        party: { type: string }
+        position: { type: integer }
+        status: { type: string, enum: [pending, invited, opened, signed, declined] }
+        method: { type: string }
+        cert_subject: { type: string }
+        cert_serial: { type: string }
+        cert_issuer: { type: string }
+        decline_reason: { type: string }
+        invited_at: { type: [string, 'null'], format: date-time }
+        opened_at: { type: [string, 'null'], format: date-time }
+        signed_at: { type: [string, 'null'], format: date-time }
+        declined_at: { type: [string, 'null'], format: date-time }
+        reminders_sent: { type: integer }
+        mail_error: { type: string }
+    Submission:
+      type: object
+      required: [id, template_id, name, mode, status, signers]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        template_id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string }
+        mode: { type: string, enum: [sequential, parallel] }
+        status: { type: string, enum: [draft, in_progress, completed, expired, cancelled] }
+        expires_at: { type: [string, 'null'], format: date-time }
+        reminder: { oneOf: [{ $ref: '#/components/schemas/Reminder' }, { type: 'null' }] }
+        current_version: { type: integer }
+        final_version: { type: [integer, 'null'] }
+        audit_trail: { type: boolean }
+        cancel_reason: { type: string }
+        sent_at: { type: [string, 'null'], format: date-time }
+        completed_at: { type: [string, 'null'], format: date-time }
+        created_at: { type: string, format: date-time }
+        created_by: { type: string }
+        signers: { type: array, items: { $ref: '#/components/schemas/SignerView' } }
+        can_control: { type: boolean }
+    SubmissionPage:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Submission' } }
+        total: { type: integer }
+    SubmissionCreate:
+      type: object
+      additionalProperties: false
+      required: [template_id, mode, signers]
+      properties:
+        template_id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        mode: { type: string, enum: [sequential, parallel] }
+        signers:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required: [user_id, party]
+            properties:
+              user_id: { type: string, minLength: 1, maxLength: 64 }
+              party: { type: string, maxLength: 40 }
+              position: { type: integer, minimum: 0, maximum: 1000 }
+        prefill: { type: object, additionalProperties: { type: string, maxLength: 2000 }, maxProperties: 500 }
+        expires_at: { type: [string, 'null'], format: date-time }
+        reminder: { oneOf: [{ $ref: '#/components/schemas/Reminder' }, { type: 'null' }] }
+    Reason:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    ReplaceSigner:
+      type: object
+      additionalProperties: false
+      required: [user_id]
+      properties:
+        user_id: { type: string, minLength: 1, maxLength: 64 }
+    Event:
+      type: object
+      required: [id, type, at]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        type: { type: string }
+        signer_id: { type: [string, 'null'] }
+        actor_user_id: { type: [string, 'null'] }
+        meta: { type: object }
+        at: { type: string, format: date-time }
+    EventList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Event' } }
+    InboxItem:
+      type: object
+      required: [signer_id, submission_id, submission_name, status]
+      properties:
+        signer_id: { $ref: '#/components/schemas/Uuid' }
+        submission_id: { $ref: '#/components/schemas/Uuid' }
+        submission_name: { type: string }
+        party: { type: string }
+        status: { type: string }
+        submission_status: { type: string }
+        sender: { type: string }
+        expires_at: { type: [string, 'null'], format: date-time }
+        signed_at: { type: [string, 'null'], format: date-time }
+        created_at: { type: string, format: date-time }
+    InboxPage:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/InboxItem' } }
+        total: { type: integer }
+    CertificateState:
+      type: object
+      required: [state]
+      properties:
+        state: { type: string, enum: [none, active, locked, expired, revoked] }
+        locked_until: { type: [string, 'null'], format: date-time }
+    Session:
+      type: object
+      required: [signer_id, submission_id, submission_name, party, fields, document_version, certificate, can_sign]
+      properties:
+        signer_id: { $ref: '#/components/schemas/Uuid' }
+        submission_id: { $ref: '#/components/schemas/Uuid' }
+        submission_name: { type: string }
+        party: { type: string }
+        status: { type: string }
+        fields: { type: array, items: { $ref: '#/components/schemas/Field' } }
+        all_fields: { type: array, items: { $ref: '#/components/schemas/Field' }, description: 'every field (for conditions/formulas over other parties'' values)' }
+        values: { type: object, additionalProperties: { type: string }, description: 'prefills and the values of signers who already signed (never object keys)' }
+        document_version: { type: integer }
+        certificate: { $ref: '#/components/schemas/CertificateState' }
+        can_sign: { type: boolean }
+        reason: { type: string }
+    SignResult:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string }
+        submission_status: { type: string }
+    QESPrepare:
+      type: object
+      additionalProperties: false
+      required: [values, chain]
+      properties:
+        values: { type: object, additionalProperties: { type: string, maxLength: 2000 }, maxProperties: 500 }
+        chain: { type: array, minItems: 1, maxItems: 5, items: { type: string, maxLength: 16384 } }
+        signature_image: { type: string, maxLength: 1500000, description: 'data URL of the drawn or typed signature (PNG/JPEG)' }
+    QESPrepared:
+      type: object
+      required: [preparation_id, digest_b64, signed_attrs_b64, hash_algorithm, expires_at]
+      properties:
+        preparation_id: { $ref: '#/components/schemas/Uuid' }
+        digest_b64: { type: string }
+        signed_attrs_b64: { type: string }
+        hash_algorithm: { type: string }
+        expires_at: { type: string, format: date-time }
+        signed_contents_b64: { type: string, description: 'BISS signedContents: the origin certificate''s signature of the content (absent when no origin certificate is configured)' }
+        signed_contents_cert_b64: { type: string, description: 'BISS signedContentsCert: the origin certificate (DER, base64)' }
+    QESComplete:
+      type: object
+      additionalProperties: false
+      required: [preparation_id, signature_b64]
+      properties:
+        preparation_id: { $ref: '#/components/schemas/Uuid' }
+        signature_b64: { type: string, minLength: 1, maxLength: 32768 }
+    Certificate:
+      type: object
+      required: [id, kind, subject_cn, serial, not_before, not_after, status]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        kind: { type: string, enum: [ca, system, signer, admin] }
+        issuer_id: { type: [string, 'null'], format: uuid }
+        owner_user_id: { type: [string, 'null'] }
+        subject_cn: { type: string }
+        email: { type: string }
+        serial: { type: string }
+        fingerprint_sha256: { type: string }
+        not_before: { type: string, format: date-time }
+        not_after: { type: string, format: date-time }
+        status: { type: string, enum: [active, revoked, expired, needs_reissue] }
+        revoked_at: { type: [string, 'null'], format: date-time }
+        revocation_reason: { type: string }
+        locked_until: { type: [string, 'null'], format: date-time }
+        issuer_cn: { type: string }
+        pem: { type: string }
+        created_at: { type: string, format: date-time }
+    CertificatePage:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Certificate' } }
+        total: { type: integer }
+    MyCertificate:
+      type: object
+      required: [certificate]
+      properties:
+        certificate: { oneOf: [{ $ref: '#/components/schemas/Certificate' }, { type: 'null' }] }
+        signed:
+          type: array
+          items:
+            type: object
+            properties:
+              submission_id: { type: string }
+              submission_name: { type: string }
+              signed_at: { type: string, format: date-time }
+    PIN:
+      type: object
+      additionalProperties: false
+      required: [pin]
+      properties:
+        pin: { type: string, minLength: 1, maxLength: 128 }
+    PINChange:
+      type: object
+      additionalProperties: false
+      required: [old_pin, new_pin]
+      properties:
+        old_pin: { type: string, minLength: 1, maxLength: 128 }
+        new_pin: { type: string, minLength: 1, maxLength: 128 }
+    AdminCertificateCreate:
+      type: object
+      additionalProperties: false
+      required: [subject_cn]
+      properties:
+        subject_cn: { type: string, minLength: 1, maxLength: 120 }
+        email: { type: string, format: email, maxLength: 254 }
+        validity_years: { type: integer, minimum: 1, maximum: 5 }
+    Revoke:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, enum: [unspecified, key_compromise, affiliation_changed, superseded, cessation_of_operation] }
+    SignedDocument:
+      type: object
+      required: [id]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        expires_at: { type: string, format: date-time }
+    VerifySignature:
+      type: object
+      properties:
+        signer: { type: string }
+        time: { type: [string, 'null'], format: date-time }
+        reason: { type: string }
+        location: { type: string }
+        integrity: { type: string, enum: [valid, modified] }
+        trust: { type: string, enum: [trusted, untrusted, unknown] }
+        revocation: { type: string, enum: [good, revoked, unknown] }
+        method: { type: string }
+        issuer: { type: string }
+        serial: { type: string }
+    VerifyResult:
+      type: object
+      required: [signatures]
+      properties:
+        signatures: { type: array, items: { $ref: '#/components/schemas/VerifySignature' } }
+        modified_after_last_signature: { type: boolean }
+    Member:
+      type: object
+      required: [user_id, display_name]
+      properties:
+        user_id: { type: string }
+        display_name: { type: string }
+    MemberList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Member' } }
+  responses:
+    Error:
+      description: refusal
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+paths:
+  /api/signing/v1/health:
+    get:
+      operationId: health
+      x-freya-public: true
+      responses:
+        '200': { description: 'component status', content: { application/json: { schema: { type: object } } } }
+  # ---- Folders
+  /api/signing/v1/folders:
+    get:
+      operationId: listFolders
+      x-freya-permission: 'signing:read'
+      responses:
+        '200': { description: 'folder tree (flat, ordered by path)', content: { application/json: { schema: { $ref: '#/components/schemas/FolderList' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createFolder
+      x-freya-permission: 'templates:manage'
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/FolderWrite' } } } }
+      responses:
+        '201': { description: created, content: { application/json: { schema: { $ref: '#/components/schemas/Folder' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/folders/{id}:
+    patch:
+      operationId: updateFolder
+      x-freya-permission: 'templates:manage'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/FolderWrite' } } } }
+      responses:
+        '200': { description: updated, content: { application/json: { schema: { $ref: '#/components/schemas/Folder' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteFolder
+      x-freya-permission: 'templates:manage'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      responses:
+        '204': { description: deleted }
+        default: { $ref: '#/components/responses/Error' }
+  # ---- Templates
+  /api/signing/v1/templates:
+    get:
+      operationId: listTemplates
+      x-freya-permission: 'signing:read'
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/pageSize' }
+        - { $ref: '#/components/parameters/q' }
+        - { name: folder_id, in: query, schema: { type: string, maxLength: 36 }, description: 'uuid, or "root" for templates outside folders' }
+        - { name: tag, in: query, schema: { type: string, maxLength: 40 } }
+        - { name: status, in: query, schema: { type: string, enum: [draft, active, archived] } }
+      responses:
+        '200': { description: 'page of templates', content: { application/json: { schema: { $ref: '#/components/schemas/TemplatePage' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createTemplate
+      description: multipart/form-data with file (PDF), name, description, folder_id, tags (comma separated).
+      x-freya-permission: 'templates:manage'
+      x-freya-max-body-bytes: 53477376
+      x-freya-timeout-seconds: 60
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      responses:
+        '201': { description: created, content: { application/json: { schema: { $ref: '#/components/schemas/Template' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/templates/{id}:
+    get:
+      operationId: getTemplate
+      x-freya-permission: 'signing:read'
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200': { description: template, content: { application/json: { schema: { $ref: '#/components/schemas/Template' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: updateTemplate
+      x-freya-permission: 'templates:manage'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TemplatePatch' } } } }
+      responses:
+        '200': { description: updated, content: { application/json: { schema: { $ref: '#/components/schemas/Template' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteTemplate
+      x-freya-permission: 'templates:manage'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      responses:
+        '204': { description: deleted }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/templates/{id}/fields:
+    put:
+      operationId: saveTemplateFields
+      x-freya-permission: 'templates:manage'
+      x-freya-max-body-bytes: 4194304
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TemplateFields' } } } }
+      responses:
+        '200': { description: saved, content: { application/json: { schema: { $ref: '#/components/schemas/Template' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/templates/{id}/clone:
+    post:
+      operationId: cloneTemplate
+      x-freya-permission: 'templates:manage'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TemplateClone' } } } }
+      responses:
+        '201': { description: cloned, content: { application/json: { schema: { $ref: '#/components/schemas/Template' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/templates/{id}/pdf:
+    get:
+      operationId: downloadTemplatePdf
+      x-freya-permission: 'signing:read'
+      x-freya-timeout-seconds: 60
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200': { description: 'the template PDF', content: { application/pdf: { schema: { type: string, format: binary } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/templates/{id}/detect-fields:
+    post:
+      operationId: detectTemplateFields
+      x-freya-permission: 'templates:manage'
+      x-freya-timeout-seconds: 60
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      responses:
+        '200': { description: 'proposed fields (not saved)', content: { application/json: { schema: { $ref: '#/components/schemas/DetectedFields' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  # ---- Submissions
+  /api/signing/v1/submissions:
+    get:
+      operationId: listSubmissions
+      x-freya-permission: 'signing:sign'
+      description: signing:read lists every submission; others see the ones they sent (mine=true is implied).
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/pageSize' }
+        - { $ref: '#/components/parameters/q' }
+        - { name: status, in: query, schema: { type: string, enum: [draft, in_progress, completed, expired, cancelled] } }
+        - { name: template_id, in: query, schema: { type: string, format: uuid } }
+        - { name: mine, in: query, schema: { type: boolean } }
+      responses:
+        '200': { description: 'page of submissions', content: { application/json: { schema: { $ref: '#/components/schemas/SubmissionPage' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createSubmission
+      x-freya-permission: 'submissions:create'
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SubmissionCreate' } } } }
+      responses:
+        '201': { description: created, content: { application/json: { schema: { $ref: '#/components/schemas/Submission' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/submissions/{id}:
+    get:
+      operationId: getSubmission
+      x-freya-permission: 'signing:sign'
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200': { description: submission, content: { application/json: { schema: { $ref: '#/components/schemas/Submission' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteSubmission
+      x-freya-permission: 'signing:sign'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      responses:
+        '204': { description: deleted }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/submissions/{id}/send:
+    post:
+      operationId: sendSubmission
+      x-freya-permission: 'signing:sign'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      responses:
+        '200': { description: sent, content: { application/json: { schema: { $ref: '#/components/schemas/Submission' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/submissions/{id}/cancel:
+    post:
+      operationId: cancelSubmission
+      x-freya-permission: 'signing:sign'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Reason' } } } }
+      responses:
+        '200': { description: cancelled, content: { application/json: { schema: { $ref: '#/components/schemas/Submission' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/submissions/{id}/signers/{sid}:
+    put:
+      operationId: replaceSigner
+      x-freya-permission: 'signing:sign'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }, { $ref: '#/components/parameters/sid' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReplaceSigner' } } } }
+      responses:
+        '200': { description: replaced, content: { application/json: { schema: { $ref: '#/components/schemas/Submission' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/submissions/{id}/signers/{sid}/resend:
+    post:
+      operationId: resendInvitation
+      x-freya-permission: 'signing:sign'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }, { $ref: '#/components/parameters/sid' }]
+      responses:
+        '200': { description: resent, content: { application/json: { schema: { $ref: '#/components/schemas/Submission' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/submissions/{id}/events:
+    get:
+      operationId: listSubmissionEvents
+      x-freya-permission: 'signing:sign'
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200': { description: history, content: { application/json: { schema: { $ref: '#/components/schemas/EventList' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/submissions/{id}/document:
+    get:
+      operationId: downloadSubmissionDocument
+      x-freya-permission: 'signing:sign'
+      x-freya-timeout-seconds: 60
+      parameters:
+        - { $ref: '#/components/parameters/id' }
+        - { name: version, in: query, schema: { type: integer, minimum: 0, maximum: 1000 } }
+      responses:
+        '200': { description: 'a document version', content: { application/pdf: { schema: { type: string, format: binary } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/submissions/{id}/audit-trail:
+    get:
+      operationId: downloadAuditTrail
+      x-freya-permission: 'signing:sign'
+      x-freya-timeout-seconds: 60
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200': { description: 'the audit-trail PDF', content: { application/pdf: { schema: { type: string, format: binary } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/submissions/{id}/package:
+    get:
+      operationId: downloadPackage
+      x-freya-permission: 'signing:sign'
+      x-freya-timeout-seconds: 120
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200': { description: 'zip with the final PDF and the audit trail', content: { application/zip: { schema: { type: string, format: binary } } } }
+        default: { $ref: '#/components/responses/Error' }
+  # ---- Signing (the caller must be the signer)
+  /api/signing/v1/inbox:
+    get:
+      operationId: inbox
+      x-freya-permission: 'signing:sign'
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/pageSize' }
+        - { name: state, in: query, schema: { type: string, enum: [to_sign, signed] } }
+      responses:
+        '200': { description: 'the caller''s signer slots', content: { application/json: { schema: { $ref: '#/components/schemas/InboxPage' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/signing/{signer_id}:
+    get:
+      operationId: getSession
+      x-freya-permission: 'signing:sign'
+      parameters: [{ $ref: '#/components/parameters/signerId' }]
+      responses:
+        '200': { description: 'the signing session of the caller''s slot', content: { application/json: { schema: { $ref: '#/components/schemas/Session' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/signing/{signer_id}/document:
+    get:
+      operationId: downloadSessionDocument
+      x-freya-permission: 'signing:sign'
+      x-freya-timeout-seconds: 60
+      parameters: [{ $ref: '#/components/parameters/signerId' }]
+      responses:
+        '200': { description: 'the current document version to sign', content: { application/pdf: { schema: { type: string, format: binary } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/signing/{signer_id}/open:
+    post:
+      operationId: openSession
+      x-freya-permission: 'signing:sign'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/signerId' }]
+      responses:
+        '204': { description: marked opened }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/signing/{signer_id}/sign:
+    post:
+      operationId: sign
+      description: >-
+        multipart/form-data: values (JSON object field id → string), pin, signature
+        (PNG/JPEG ≤ 1 MiB) and image/file field uploads named upload.<field id>.
+      x-freya-permission: 'signing:sign'
+      x-freya-max-body-bytes: 33554432
+      x-freya-timeout-seconds: 60
+      x-freya-client-address: true
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/signerId' }]
+      responses:
+        '200': { description: signed, content: { application/json: { schema: { $ref: '#/components/schemas/SignResult' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/signing/{signer_id}/decline:
+    post:
+      operationId: decline
+      x-freya-permission: 'signing:sign'
+      x-freya-client-address: true
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/signerId' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Reason' } } } }
+      responses:
+        '200': { description: declined, content: { application/json: { schema: { $ref: '#/components/schemas/SignResult' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/signing/{signer_id}/qes/prepare:
+    post:
+      operationId: prepareQES
+      x-freya-permission: 'signing:sign'
+      x-freya-max-body-bytes: 2097152
+      x-freya-timeout-seconds: 60
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/signerId' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/QESPrepare' } } } }
+      responses:
+        '200': { description: prepared, content: { application/json: { schema: { $ref: '#/components/schemas/QESPrepared' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/signing/{signer_id}/qes/complete:
+    post:
+      operationId: completeQES
+      x-freya-permission: 'signing:sign'
+      x-freya-timeout-seconds: 60
+      x-freya-client-address: true
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/signerId' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/QESComplete' } } } }
+      responses:
+        '200': { description: signed, content: { application/json: { schema: { $ref: '#/components/schemas/SignResult' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  # ---- My certificate
+  /api/signing/v1/me/certificate:
+    get:
+      operationId: getMyCertificate
+      x-freya-permission: 'signing:sign'
+      responses:
+        '200': { description: 'the caller''s active certificate', content: { application/json: { schema: { $ref: '#/components/schemas/MyCertificate' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      operationId: setupMyCertificate
+      x-freya-permission: 'signing:sign'
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PIN' } } } }
+      responses:
+        '201': { description: created, content: { application/json: { schema: { $ref: '#/components/schemas/MyCertificate' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/me/certificate/pin:
+    post:
+      operationId: changeMyPin
+      x-freya-permission: 'signing:sign'
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PINChange' } } } }
+      responses:
+        '204': { description: changed }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/me/certificate/renew:
+    post:
+      operationId: renewMyCertificate
+      x-freya-permission: 'signing:sign'
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PIN' } } } }
+      responses:
+        '201': { description: renewed, content: { application/json: { schema: { $ref: '#/components/schemas/MyCertificate' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/me/certificate/revoke:
+    post:
+      operationId: revokeMyCertificate
+      x-freya-permission: 'signing:sign'
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      responses:
+        '204': { description: revoked }
+        default: { $ref: '#/components/responses/Error' }
+  # ---- Certificates, documents, verification
+  /api/signing/v1/certificates:
+    get:
+      operationId: listCertificates
+      x-freya-permission: 'certificates:manage'
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/pageSize' }
+        - { $ref: '#/components/parameters/q' }
+        - { name: kind, in: query, schema: { type: string, enum: [ca, system, signer, admin] } }
+        - { name: status, in: query, schema: { type: string, enum: [active, revoked, expired, needs_reissue] } }
+      responses:
+        '200': { description: 'page of certificates', content: { application/json: { schema: { $ref: '#/components/schemas/CertificatePage' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createAdminCertificate
+      x-freya-permission: 'certificates:manage'
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AdminCertificateCreate' } } } }
+      responses:
+        '201': { description: created, content: { application/json: { schema: { $ref: '#/components/schemas/Certificate' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/certificates/{id}:
+    get:
+      operationId: getCertificate
+      x-freya-permission: 'certificates:manage'
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200': { description: 'certificate (never the key)', content: { application/json: { schema: { $ref: '#/components/schemas/Certificate' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/certificates/{id}/revoke:
+    post:
+      operationId: revokeCertificate
+      x-freya-permission: 'certificates:manage'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Revoke' } } } }
+      responses:
+        '200': { description: revoked, content: { application/json: { schema: { $ref: '#/components/schemas/Certificate' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/ca/crl:
+    get:
+      operationId: downloadCRL
+      x-freya-permission: 'signing:read'
+      responses:
+        '200': { description: 'DER CRL of the current tenant CA', content: { application/pkix-crl: { schema: { type: string, format: binary } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/documents/sign:
+    post:
+      operationId: signDocument
+      description: >-
+        multipart/form-data: file (PDF) or submission_id + version, certificate_id,
+        reason, location, contact, tsa_url, tsa_secret_ref (Warden secret id).
+      x-freya-permission: 'certificates:manage'
+      x-freya-max-body-bytes: 53477376
+      x-freya-timeout-seconds: 120
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      responses:
+        '201': { description: 'signed document (download within 1 h)', content: { application/json: { schema: { $ref: '#/components/schemas/SignedDocument' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/documents/{id}:
+    get:
+      operationId: downloadSignedDocument
+      x-freya-permission: 'certificates:manage'
+      x-freya-timeout-seconds: 60
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200': { description: 'the signed PDF', content: { application/pdf: { schema: { type: string, format: binary } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/verify:
+    post:
+      operationId: verifyDocument
+      description: multipart/form-data with file (PDF), or submission_id + version to verify a stored version.
+      x-freya-permission: 'signing:read'
+      x-freya-max-body-bytes: 53477376
+      x-freya-timeout-seconds: 60
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      responses:
+        '200': { description: 'verification result', content: { application/json: { schema: { $ref: '#/components/schemas/VerifyResult' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/stream:
+    get:
+      operationId: streamEvents
+      description: >-
+        Long-lived SSE stream of the caller's signing events (signing.inbox for
+        their own slots; submission completed/cancelled/expired of the tenant;
+        ids and status only). The module closes it at 290 s and the client
+        resumes with last_id.
+      x-freya-permission: 'signing:sign'
+      x-freya-timeout-seconds: 300
+      parameters: [{ name: last_id, in: query, schema: { type: string, maxLength: 64 } }]
+      responses:
+        '200': { description: 'SSE stream', content: { text/event-stream: { schema: { type: string } } } }
+        default: { $ref: '#/components/responses/Error' }
+  # ---- Users, backup
+  /api/signing/v1/users:
+    get:
+      operationId: listMembers
+      x-freya-permission: 'submissions:create'
+      parameters: [{ $ref: '#/components/parameters/q' }]
+      responses:
+        '200': { description: 'active tenant members (names only)', content: { application/json: { schema: { $ref: '#/components/schemas/MemberList' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/backup/export:
+    post:
+      operationId: exportBackup
+      x-freya-permission: 'backup:manage'
+      x-freya-timeout-seconds: 600
+      parameters:
+        - { $ref: '#/components/parameters/csrf' }
+        - { name: tenant_id, in: query, schema: { type: string, format: uuid }, description: 'platform administrators only' }
+      responses:
+        '200': { description: 'tar.gz archive', content: { application/gzip: { schema: { type: string, format: binary } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/signing/v1/backup/import:
+    post:
+      operationId: importBackup
+      x-freya-permission: 'backup:manage'
+      x-freya-max-body-bytes: 2147483648
+      x-freya-timeout-seconds: 600
+      parameters:
+        - { $ref: '#/components/parameters/csrf' }
+        - { name: mode, in: query, schema: { type: string, enum: [skip, overwrite] } }
+        - { name: tenant_id, in: query, schema: { type: string, format: uuid }, description: 'platform administrators only' }
+      responses:
+        '200': { description: 'import summary', content: { application/json: { schema: { type: object } } } }
+        default: { $ref: '#/components/responses/Error' }

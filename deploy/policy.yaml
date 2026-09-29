@@ -1,0 +1,19 @@
+# Freya service-to-service policy for the signing module
+# (contracts/mesh-policies.md). The gateway forwards browser traffic; only the
+# scheduler executes signing's task types (expire submissions, send reminders).
+# Signing exposes no other gRPC API. Its own outbound calls (auth Profiles and
+# Authorization, notification Notifier/Send, warden on-behalf secret reads,
+# scheduler task-type registration, lcm enrolment) are allowed by the callees'
+# policies.
+version: signing-dev-1
+rules:
+  - id: gateway-forwards
+    from: ["spiffe://example.org/svc/gateway"]
+    to: ["signing"]
+    operations: ["*"]
+    effect: allow
+  - id: scheduler-execute
+    from: ["spiffe://example.org/svc/scheduler"]
+    to: ["signing"]
+    operations: ["/scheduler.v1.TaskExecutor/ExecuteTask"]
+    effect: allow
