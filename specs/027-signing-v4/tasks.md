@@ -30,7 +30,7 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 - [x] T008 [P] `internal/sealed/sealed_test.go` + `internal/blob/blob_test.go` (copied from paperless with their tests; fake store).
 - [x] T009 [P] `internal/pdf/limits/limits_test.go` + `limits_fuzz_test.go` — MIME sniff, size, page count, encrypted refused, signed detection, parse timeout, panic recovery → `invalid_pdf`. 100 %.
 - [x] T010 [P] `pkg/signingmanifest/manifest_test.go` — routes from OpenAPI (every route has a known permission or `member`), permissions, roles (administrator/operator/sender/viewer), grants (owner/admin → administrator, auditor → viewer, member → none), abilities, nav.
-- [ ] T011 [P] `tests/contract/openapi_test.go` — document valid; every declared route mounted; no undeclared route; binary routes carry `x-freya-max-body-bytes`; error envelope.
+- [x] T011 (as internal/app/contract_test.go + httpapi tests) [P] `tests/contract/openapi_test.go` — document valid; every declared route mounted; no undeclared route; binary routes carry `x-freya-max-body-bytes`; error envelope.
 
 ### Implementation
 - [x] T012 `internal/config/config.go` — framework config inline + db, valkey, object_store, kek, gateway, mesh_enroll, discovery, task_scheduler, notification, warden, links (`portal_base_url`), limits (pdf bytes/pages/fields/signers, image bytes, backup bytes, rate), signing (ca/cert validity, pin min/max, lock attempts/duration), verify (`extra_roots_file`), events.
