@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -34,8 +35,9 @@ func (okSender) SendKey(context.Context, string, string, string, map[string]stri
 }
 
 type subsEnv struct {
-	s   *Server
-	mem *memstore.Mem
+	s    *Server
+	blob *blob.Fake
+	mem  *memstore.Mem
 	me  *certs.Me
 	tpl store.Template
 }
@@ -75,7 +77,7 @@ func subsAPI(t *testing.T) subsEnv {
 	if err := mem.CreateTemplate(context.Background(), tpl); err != nil {
 		t.Fatal(err)
 	}
-	return subsEnv{s: newAPI(t, Deps{Submissions: subs, Signing: sg, MaxPDFBytes: 5 << 20, MaxUpload: 5 << 20}), mem: mem, me: me, tpl: tpl}
+	return subsEnv{blob: bl, s: newAPI(t, Deps{Submissions: subs, Signing: sg, MaxPDFBytes: 5 << 20, MaxUpload: 5 << 20}), mem: mem, me: me, tpl: tpl}
 }
 
 func pngData() []byte {
@@ -228,6 +230,40 @@ func TestSubmissionRoutes(t *testing.T) {
 	expect(t, r, 200, "cancel")
 	if r.json(t)["cancel_reason"] != "typo" {
 		t.Fatalf("cancel %s", r.Body)
+	}
+}
+
+func TestPackage(t *testing.T) {
+	e := subsAPI(t)
+	id, memberSlot, _ := e.create(t)
+	expect(t, call(e.s, "POST", Prefix+"/submissions/"+id+"/send", "admin", nil, ""), 200, "send")
+	expect(t, call(e.s, "GET", Prefix+"/submissions/"+id+"/package", "admin", nil, ""), 404, "unfinished")
+	if _, err := e.me.Setup(context.Background(), authz.User(tenantA, "member", nil), "123456"); err != nil {
+		t.Fatal(err)
+	}
+	values, _ := json.Marshal(map[string]string{"name": "Иван"})
+	body, ct := multipartReq(map[string]string{"values": string(values), "pin": "123456"}, nil)
+	expect(t, call(e.s, "POST", Prefix+"/signing/"+memberSlot+"/sign", "member", body, ct), 200, "sign")
+	// Pretend the remaining signer and the audit-trail job are done.
+	ctx := context.Background()
+	sub, _, _ := e.mem.GetSubmission(ctx, tenantA, id)
+	one := 1
+	sub.Status, sub.FinalVersion, sub.AuditTrailKey = store.SubmissionCompleted, &one, blob.AuditTrail(tenantA, id)
+	e.mem.PutSubmission(sub)
+	expect(t, call(e.s, "GET", Prefix+"/submissions/"+id+"/package", "member", nil, ""), 503, "audit trail object missing")
+	_, _ = e.blob.Put(ctx, sub.AuditTrailKey, bytes.NewReader([]byte("%PDF-trail")), 10, "application/pdf")
+	r := call(e.s, "GET", Prefix+"/submissions/"+id+"/package", "member", nil, "")
+	expect(t, r, 200, "package")
+	zr, err := zip.NewReader(bytes.NewReader(r.Body.Bytes()), int64(r.Body.Len()))
+	if err != nil || len(zr.File) != 2 || zr.File[0].Name != "Договор.pdf" || zr.File[1].Name != "Договор - audit trail.pdf" {
+		t.Fatalf("zip: %v %+v", err, zr)
+	}
+	if r.Header().Get("Content-Type") != "application/zip" {
+		t.Fatal("content type")
+	}
+	expect(t, call(e.s, "GET", Prefix+"/submissions/"+id+"/package", "outsider", nil, ""), 404, "other tenant")
+	if zipName("../a/b\\c") != "__a_b_c" {
+		t.Fatalf("zipName %q", zipName("../a/b\\c"))
 	}
 }
 

@@ -243,7 +243,8 @@ func (e *env) caPool(t *testing.T) *x509.CertPool {
 }
 
 func TestSequentialFlowCompletes(t *testing.T) {
-	e := newEnv(t)
+	kicks := 0
+	e := newEnv(t, func(d *Deps) { d.OnCompleted = func() { kicks++ } })
 	e.setup(t, "alice", "bob")
 	d := e.submission(t, store.ModeSequential)
 	id := d.Submission.ID
@@ -303,6 +304,9 @@ func TestSequentialFlowCompletes(t *testing.T) {
 	sub, _, _ := e.mem.GetSubmission(ctx, tenant, id)
 	if sub.FinalVersion == nil || *sub.FinalVersion != 2 || sub.CurrentVersion != 2 || sub.CompletedAt == nil {
 		t.Fatalf("completed: %+v", sub)
+	}
+	if kicks != 1 {
+		t.Fatalf("worker kicked %d times", kicks)
 	}
 	if jobs := e.mem.Jobs(); len(jobs) != 1 || jobs[0].SubmissionID != id || jobs[0].Kind != "audit_trail" {
 		t.Fatalf("jobs %+v", jobs)

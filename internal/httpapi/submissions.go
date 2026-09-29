@@ -1,9 +1,11 @@
 package httpapi
 
 import (
+	"archive/zip"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -238,6 +240,45 @@ func (s *Server) registerSubmissions(svc *submissions.Service) {
 		defer func() { _ = rc.Close() }()
 		_ = Download(w, "application/pdf", fileName(sub.Name, " - audit trail.pdf"), 0, rc)
 	})
+	s.withSubject("GET", Prefix+"/submissions/{id}/package", func(w http.ResponseWriter, r *http.Request, subj authz.Subjects) {
+		id := r.PathValue("id")
+		doc, v, sub, err := svc.Document(r.Context(), subj, id, -1)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		defer func() { _ = doc.Close() }()
+		if sub.FinalVersion == nil || v.Version != *sub.FinalVersion {
+			s.fail(w, r, apperr.NotFound) // only completed submissions have a package
+			return
+		}
+		trail, _, err := svc.AuditTrail(r.Context(), subj, id)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		defer func() { _ = trail.Close() }()
+		h := w.Header()
+		h.Set("Content-Type", "application/zip")
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Cache-Control", "no-store")
+		h.Set("Content-Disposition", disposition(fileName(sub.Name, ".zip")))
+		w.WriteHeader(http.StatusOK)
+		zw := zip.NewWriter(w)
+		for _, f := range []struct {
+			name string
+			body io.Reader
+		}{{fileName(sub.Name, ".pdf"), doc}, {fileName(sub.Name, " - audit trail.pdf"), trail}} {
+			fw, err := zw.CreateHeader(&zip.FileHeader{Name: zipName(f.name), Method: zip.Deflate, Modified: s.now()})
+			if err != nil {
+				return
+			}
+			if _, err := io.Copy(fw, f.body); err != nil {
+				return
+			}
+		}
+		_ = zw.Close()
+	})
 	s.withSubject("GET", Prefix+"/inbox", func(w http.ResponseWriter, r *http.Request, subj authz.Subjects) {
 		items, total, err := svc.Inbox(r.Context(), subj, r.URL.Query().Get("state") == "signed", queryInt(r, "page"), queryInt(r, "page_size"))
 		if err != nil {
@@ -265,6 +306,13 @@ func (s *Server) registerSubmissions(svc *submissions.Service) {
 		WriteJSON(w, http.StatusOK, map[string]any{"items": out})
 	})
 }
+
+// zipName keeps an entry name inside the archive (no paths).
+func zipName(n string) string {
+	return strings.NewReplacer("/", "_", "\\", "_", "..", "_").Replace(n)
+}
+
+func (s *Server) now() time.Time { return time.Now().UTC() }
 
 func (s *Server) reply(w http.ResponseWriter, r *http.Request, d submissions.Detail, err error) {
 	if err != nil {

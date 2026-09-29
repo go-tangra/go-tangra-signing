@@ -154,11 +154,11 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 ## Phase 10: User Story 8 — Audit trail (P2)
 
 ### Tests (write first, must fail)
-- [ ] T081 [P] [US8] `internal/pdf/audittrail/audittrail_test.go` — document contains title/id, original and final SHA-256, each signer (method, cert serial/issuer, IP, UA, time), events in order; Cyrillic names render.
-- [ ] T082 [P] [US8] `internal/jobs/jobs_test.go` — job queued on completion, worker builds + signs with the system certificate + stores + publishes completion + sends mails, retries with backoff, idempotent re-run; verify of the audit trail succeeds and detects tampering.
+- [x] T081 [P] [US8] `internal/pdf/audittrail/audittrail_test.go` — document contains title/id, original and final SHA-256, each signer (method, cert serial/issuer, IP, UA, time), events in order; Cyrillic names render.
+- [x] T082 [P] [US8] `internal/jobs/jobs_test.go` — job queued on completion, worker builds + signs with the system certificate + stores + publishes completion + sends mails, retries with backoff, idempotent re-run; verify of the audit trail succeeds and detects tampering.
 
 ### Implementation
-- [ ] T083 [US8] `internal/pdf/audittrail/audittrail.go` (gopdf, embedded DejaVu) and `internal/jobs/worker.go` (drain `signing_jobs`), completion mails/events moved behind the job (research D9).
+- [x] T083 [US8] `internal/pdf/audittrail/audittrail.go` (gopdf, embedded DejaVu) and `internal/jobs/worker.go` (drain `signing_jobs`), completion mails/events moved behind the job (research D9).
 - [ ] T084 [US8] Handlers `/submissions/{id}/audit-trail` and `/package` (zip), UI download buttons.
 
 ## Phase 11: User Story 6 — Conditions and formulas (P3)

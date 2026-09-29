@@ -140,6 +140,9 @@ func (m *Mem) Jobs() []store.Job {
 // PutCertificate stores c as is (tests).
 func (m *Mem) PutCertificate(c store.Certificate) { m.mu.Lock(); m.d.certs[c.ID] = c; m.mu.Unlock() }
 
+// PutJob stores a job as given (tests: re-queue or odd jobs).
+func (m *Mem) PutJob(j store.Job) { m.mu.Lock(); m.d.jobs[j.ID] = j; m.mu.Unlock() }
+
 // PutSubmission stores s as is (tests).
 func (m *Mem) PutSubmission(s store.Submission) {
 	m.mu.Lock()

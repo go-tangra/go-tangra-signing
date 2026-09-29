@@ -31,6 +31,7 @@ import (
 	"github.com/go-tangra/go-tangra-signing/v4/internal/contacts"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/events"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/httpapi"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/jobs"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/mail"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/metrics"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pincrypto"
@@ -90,6 +91,7 @@ type App struct {
 	Mail        mail.Mailer
 	Submissions *submissions.Service
 	Signing     *signing.Service
+	Jobs        *jobs.Worker
 
 	workers []func(context.Context)
 	closers []func()
@@ -156,7 +158,10 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 	a.Submissions = submissions.New(submissions.Deps{Store: a.Repo, Blob: a.Blob, Audit: a.Audit, Checker: a.Checker,
 		Contacts: a.Contacts, Mail: a.Mail, Events: a.Events, Now: a.Now,
 		Limits: submissions.Limits{MaxSigners: l.MaxSigners, MaxPDFBytes: l.MaxPDFBytes}})
-	a.Signing = signing.New(signing.Deps{Store: a.Repo, Blob: a.Blob, Audit: a.Audit, Subs: a.Submissions, Me: a.Me, PKI: a.PKI,
+	a.Jobs = jobs.New(jobs.Deps{Store: a.Repo, Blob: a.Blob, PKI: a.PKI, Subs: a.Submissions, Contacts: a.Contacts,
+		Events: a.Events, Log: a.Log, Now: a.Now, MaxBytes: l.MaxPDFBytes})
+	a.workers = append(a.workers, a.Jobs.Run)
+	a.Signing = signing.New(signing.Deps{OnCompleted: a.Jobs.Kick, Store: a.Repo, Blob: a.Blob, Audit: a.Audit, Subs: a.Submissions, Me: a.Me, PKI: a.PKI,
 		Events: a.Events, Metrics: a.Metrics, Now: a.Now,
 		Limits: signing.Limits{MaxPDFBytes: l.MaxPDFBytes, MaxImageBytes: int(l.MaxImageBytes), MaxFileBytes: l.MaxFieldUploadBytes},
 		Limited: func(ctx context.Context, tenantID, userID string) (bool, error) {

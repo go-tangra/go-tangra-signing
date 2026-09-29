@@ -87,6 +87,9 @@ type Deps struct {
 	// Limited reports whether the user exceeded the signing rate (nil = no
 	// limit); an error lets the request through.
 	Limited func(ctx context.Context, tenantID, userID string) (bool, error)
+	// OnCompleted is told after a signature completed a submission (the
+	// audit-trail worker's kick).
+	OnCompleted func()
 }
 
 // Service signs.
@@ -531,6 +534,9 @@ func (s *Service) sign(ctx context.Context, subj authz.Subjects, signerID string
 	s.d.Events.InboxChanged(ctx, sub.TenantID, sg.UserID, events.InboxPayload{SignerID: sg.ID, SubmissionID: sub.ID, State: "signed"})
 	if len(invited) > 0 {
 		s.d.Subs.Invite(ctx, sub, invited, mail.NextSigner)
+	}
+	if completed && s.d.OnCompleted != nil {
+		s.d.OnCompleted()
 	}
 	return Result{SignerStatus: sg.Status, SubmissionStatus: sub.Status}, nil
 }
