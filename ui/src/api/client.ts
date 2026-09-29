@@ -48,3 +48,16 @@ registerReasons({
 })
 
 export const api = createApi({ base: BASE })
+
+/** The field a refusal names (`field` in the body: a field name, "parties", "status"…), if any. */
+export function refusalField(err: unknown): string | undefined {
+  if (!(err instanceof ApiError)) return undefined
+  const f = err.detail?.field
+  return typeof f === 'string' && f ? f : undefined
+}
+
+/** describe() plus the field the server named ("A field is not valid. (Salary)"). */
+export function describeRefusal(err: unknown): string {
+  const f = refusalField(err)
+  return f ? `${describe(err)} (${f})` : describe(err)
+}

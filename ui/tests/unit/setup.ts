@@ -15,3 +15,5 @@ window.matchMedia = (query: string): MediaQueryList => {
   const matches = m ? (globalThis as unknown as { __vw: number }).__vw >= Number(m[1]) : false
   return { matches, media: query, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent: () => false } as MediaQueryList
 }
+// jsdom does not scroll.
+Element.prototype.scrollIntoView ??= function scrollIntoView(): void {}
