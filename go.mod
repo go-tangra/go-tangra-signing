@@ -10,11 +10,12 @@ require (
 	github.com/digitorus/pkcs7 v0.0.0-20230818184609-3a137a874352
 	github.com/digitorus/timestamp v0.0.0-20231217203849-220c5c2851b7
 	github.com/getkin/kin-openapi v0.149.0
-	github.com/go-tangra/go-tangra-auth/sdk/v4 v4.1.0
+	github.com/go-tangra/go-tangra-auth/sdk/v4 v4.2.0
 	github.com/go-tangra/go-tangra-lcm/sdk/v4 v4.1.0
 	github.com/go-tangra/go-tangra-notification/sdk/v4 v4.2.0
 	github.com/go-tangra/go-tangra-portal/sdk/v4 v4.0.0
 	github.com/go-tangra/go-tangra-scheduler/sdk/v4 v4.0.0
+	github.com/go-tangra/go-tangra-warden/sdk/v4 v4.0.0
 	github.com/go-tangra/go-tangra/v4 v4.2.3
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/menta2k/go-pdfplumber v0.0.0-20260322062525-72c744524563
@@ -59,7 +60,6 @@ require (
 	github.com/go-openapi/jsonpointer v0.22.5 // indirect
 	github.com/go-openapi/swag/jsonname v0.25.5 // indirect
 	github.com/go-playground/form/v4 v4.3.0 // indirect
-	github.com/go-tangra/go-tangra-warden/sdk/v4 v4.0.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
@@ -126,5 +126,3 @@ require (
 	gopkg.in/ini.v1 v1.67.3 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
-
-replace github.com/go-tangra/go-tangra-auth/sdk/v4 => ../go-tangra-auth/sdk
