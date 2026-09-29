@@ -370,7 +370,7 @@ func (s *Service) verify(ctx context.Context, subj authz.Subjects, src Source) (
 			return Result{}, err
 		}
 		for _, c := range certs {
-			issued[strings.ToLower(c.Serial)] = c
+			issued[serialKey(c.Serial)] = c
 		}
 	}
 	pools := map[string]*x509.CertPool{PoolTenant: tenantPool}
@@ -402,7 +402,7 @@ func (s *Service) verify(ctx context.Context, subj authz.Subjects, src Source) (
 		}
 		if v.Trust == PoolTenant {
 			sg.Revocation = "good"
-			if c, ok := issued[sg.Serial]; ok && c.Status == store.CertRevoked && c.RevokedAt != nil && !c.RevokedAt.After(v.SignedAt) {
+			if c, ok := issued[serialKey(sg.Serial)]; ok && c.Status == store.CertRevoked && c.RevokedAt != nil && !c.RevokedAt.After(v.SignedAt) {
 				sg.Revocation = "revoked"
 			}
 		}
@@ -413,3 +413,6 @@ func (s *Service) verify(ctx context.Context, subj authz.Subjects, src Source) (
 	}
 	return out, nil
 }
+
+// serialKey normalises a hex serial for comparison (case, leading zeros).
+func serialKey(hex string) string { return strings.TrimLeft(strings.ToLower(hex), "0") }

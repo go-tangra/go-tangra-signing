@@ -3,6 +3,7 @@ package certs
 import (
 	"crypto/x509"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -73,7 +74,7 @@ func TestAdminCertificates(t *testing.T) {
 		t.Fatal(err)
 	}
 	crl, err := x509.ParseRevocationList(der)
-	if err != nil || len(crl.RevokedCertificateEntries) != 1 || crl.RevokedCertificateEntries[0].SerialNumber.Text(16) != rc.Serial {
+	if err != nil || len(crl.RevokedCertificateEntries) != 1 || crl.RevokedCertificateEntries[0].SerialNumber.Text(16) != strings.TrimLeft(rc.Serial, "0") {
 		t.Fatalf("crl: %v %+v", err, crl)
 	}
 	caCert, _ := pki.Parse(ca)

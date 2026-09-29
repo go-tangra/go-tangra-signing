@@ -146,7 +146,7 @@ func TestSignAndVerifyUpload(t *testing.T) {
 	}
 	s := res.Signatures[0]
 	if s.Signer != "HR Department" || s.Reason != "Approved" || s.Location != "Sofia" || s.Integrity != "valid" || s.Trust != "trusted" ||
-		s.Method != PoolTenant || s.Revocation != "good" || s.Serial != c.Serial || s.Issuer == "" || s.Time == nil {
+		s.Method != PoolTenant || s.Revocation != "good" || serialKey(s.Serial) != serialKey(c.Serial) || s.Issuer == "" || s.Time == nil {
 		t.Fatalf("signature %+v", s)
 	}
 	if !bytes.Contains(signed, []byte("/DocMDP")) {
