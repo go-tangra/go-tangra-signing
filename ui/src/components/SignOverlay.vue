@@ -4,6 +4,8 @@
 // number, cells and dates are typed; select and radio pick an option;
 // checkboxes tick; image and file fields take an upload; signature, initials
 // and stamp fields show the signature image (a click goes to the pad).
+// Formula fields are read-only and show the value computed from the other
+// fields (the module recomputes it on submit).
 import { computed } from 'vue'
 import type { Field } from '@/api/types'
 import { TYPE_LABELS } from '@/utils/fields'
@@ -18,10 +20,12 @@ const props = withDefaults(defineProps<{
   files: Record<string, string>
   errors: Record<string, string>
   required: ReadonlySet<string>
+  /** Field id → the formula value (formula fields are read-only). */
+  calculated?: Record<string, string> | undefined
   /** Object URL of the signature image (shown in signature-like fields). */
   signatureUrl?: string | undefined
   disabled?: boolean | undefined
-}>(), { signatureUrl: '', disabled: false })
+}>(), { signatureUrl: '', disabled: false, calculated: () => ({}) })
 const emit = defineEmits<{
   (e: 'value', id: string, v: string): void
   (e: 'upload', id: string, f: File | null): void
@@ -30,7 +34,8 @@ const emit = defineEmits<{
 
 const onPage = computed(() => props.fields.filter((f) => f.page === props.page))
 const pct = (v: number) => `${(v * 100).toFixed(3)}%`
-const label = (f: Field) => `${f.name} (${TYPE_LABELS[f.type]}${props.required.has(f.id) ? ', required' : ''})`
+const isComputed = (f: Field) => Object.prototype.hasOwnProperty.call(props.calculated, f.id)
+const label = (f: Field) => `${f.name} (${TYPE_LABELS[f.type]}${isComputed(f) ? ', calculated' : props.required.has(f.id) ? ', required' : ''})`
 const inputOf = (e: Event) => (e.target as HTMLInputElement | HTMLSelectElement).value
 
 function pickFile(f: Field, e: Event): void {
@@ -115,6 +120,19 @@ function pickFile(f: Field, e: Event): void {
         <img v-if="signatureUrl && f.type !== 'stamp'" :src="signatureUrl" alt="" class="max-h-full max-w-full object-contain">
         <span v-else class="truncate text-black/70">{{ f.type === 'stamp' ? 'Stamp' : f.type === 'initials' ? 'Initials' : 'Sign here' }}</span>
       </button>
+
+      <input
+        v-else-if="isComputed(f)"
+        :id="'sign-field-' + f.id"
+        type="text"
+        readonly
+        class="h-full w-full cursor-default bg-base-200/60 px-0.5 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        :value="calculated[f.id]"
+        :aria-label="label(f)"
+        :aria-invalid="!!errors[f.id] || undefined"
+        :data-test="'sign-input-' + f.id"
+        data-computed="true"
+      >
 
       <input
         v-else

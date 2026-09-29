@@ -1,8 +1,10 @@
 // State of the signing page: the caller's session (own fields, the values
 // already known, the certificate state and whether they may sign now), the
 // values being filled in, the image / file uploads, the signature image, and
-// the sign / decline round-trips. Visibility and requiredness go through the
-// rules hook (src/rules/evaluate.ts) so conditional fields drop in later.
+// the sign / decline round-trips. Conditions and formulas (src/rules) are
+// evaluated live over the whole submission's values: hidden fields drop out,
+// conditionally required ones are checked, formula fields take the computed
+// value (the module recomputes everything on submit).
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { ApiError, api, describe, describeRefusal, postForm, refusalDetail, refusalField } from '@/api/client'
@@ -41,6 +43,10 @@ export const useSession = defineStore('signing-session', () => {
     (session.value?.fields ?? []).filter((f) => !evaluation.value.hidden.has(f.id)).sort((a, b) => a.page - b.page || a.y - b.y || a.x - b.x),
   )
   const isRequired = (f: Field) => evaluation.value.required.has(f.id)
+  /** The field is calculated by a formula (read-only). */
+  const isComputed = (f: Field) => Object.prototype.hasOwnProperty.call(evaluation.value.computed, f.id)
+  /** The value the field submits: the formula result, or what the signer entered. */
+  const valueOf = (f: Field) => (isComputed(f) ? evaluation.value.computed[f.id]! : values.value[f.id] ?? '')
   /** A signature image is needed when the signer has a signature or initials field. */
   const needsSignature = computed(() => fields.value.some((f) => f.type === 'signature' || f.type === 'initials'))
 
@@ -100,7 +106,7 @@ export const useSession = defineStore('signing-session', () => {
   function validate(): boolean {
     const out: Record<string, string> = {}
     for (const f of fields.value) {
-      const v = values.value[f.id] ?? ''
+      const v = valueOf(f)
       const bad = isTextValued(f.type) ? valueError(f, v) : ''
       if (bad) out[f.id] = bad
       else if (isRequired(f) && !isFilled(f, v, !!uploads.value[f.id])) out[f.id] = f.type === 'checkbox' ? 'Tick this box.' : isUpload(f.type) ? 'Add a file.' : 'Fill in this field.'
@@ -114,7 +120,7 @@ export const useSession = defineStore('signing-session', () => {
     const own: Record<string, string> = {}
     for (const f of fields.value) {
       if (!isTextValued(f.type)) continue
-      const v = evaluation.value.computed[f.id] ?? values.value[f.id] ?? ''
+      const v = valueOf(f)
       if (v !== '') own[f.id] = v
     }
     return own
@@ -182,6 +188,6 @@ export const useSession = defineStore('signing-session', () => {
 
   return {
     session, values, uploads, signature, errors, loading, signing, error, allValues, evaluation, fields, needsSignature,
-    isRequired, reset, load, markOpened, setValue, setUpload, validate, ownValues, formData, sign, decline, documentUrl,
+    isRequired, isComputed, valueOf, reset, load, markOpened, setValue, setUpload, validate, ownValues, formData, sign, decline, documentUrl,
   }
 })

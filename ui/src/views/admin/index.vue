@@ -3,7 +3,8 @@
 // tenant (CA, system, signer, administrator) filtered by kind, status and a
 // search; a row opens its details (PEM, revocation). Administrators create
 // administrator certificates, download the CA's CRL, and sign documents with
-// an administrator certificate (panel below the list).
+// an administrator certificate (panel below the list). With backup:manage the
+// tenant backup (export / import) is at the bottom of the page.
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useAbility } from '@casl/vue'
 import { UiAlert, UiButton, UiCard, UiDataTable, UiDialog, UiEmptyState, UiIcon, UiInput, UiPage, UiPagination, UiSelect, UiStatusChip, useToast, type Column, type SelectOption } from '@go-tangra/ui'
@@ -15,12 +16,14 @@ import { CERT_KIND_LABELS, CERT_STATUS_COLORS, CERT_STATUS_LABELS } from '@/util
 import { when } from '@/utils/format'
 import CertificateDrawer from './drawer.vue'
 import SignDocument from './SignDocument.vue'
+import BackupPanel from './BackupPanel.vue'
 
 const store = useCertificates()
 const ability = useAbility()
 const toast = useToast()
 
 const canManage = computed(() => ability.can('manage', 'SigningCertificate'))
+const canBackup = computed(() => ability.can('manage', 'SigningBackup'))
 
 const kindOptions: SelectOption[] = CERTIFICATE_KINDS.map((k) => ({ title: CERT_KIND_LABELS[k], value: k }))
 const statusOptions: SelectOption[] = CERTIFICATE_STATUSES.map((s) => ({ title: CERT_STATUS_LABELS[s], value: s }))
@@ -110,51 +113,55 @@ const rows = computed(() => store.items as Row[])
       <UiButton variant="text" icon="mdi-refresh" icon-only label="Refresh" @click="store.reload()" />
     </template>
 
-    <UiEmptyState v-if="!canManage" icon="mdi-shield-off-outline" title="Not available" text="Managing certificates needs the certificates:manage permission." data-test="cert-forbidden" />
+    <UiEmptyState v-if="!canManage && !canBackup" icon="mdi-shield-off-outline" title="Not available" text="Managing certificates needs the certificates:manage permission." data-test="cert-forbidden" />
 
     <div v-else class="flex min-w-0 flex-col gap-3">
-      <UiCard>
-        <div class="grid grid-cols-2 gap-2 md:grid-cols-12 md:items-end" data-test="cert-filters">
-          <div class="col-span-2 md:col-span-6"><UiInput id="cert-filter-q" v-model="f.q" label="Search subject, e-mail or serial" type="search" size="sm" data-test="cert-filter-q" @enter="apply()" /></div>
-          <div class="md:col-span-3"><UiSelect id="cert-filter-kind" :model-value="f.kind" label="Kind" :options="kindOptions" placeholder="Any" size="sm" data-test="cert-filter-kind" @update:model-value="setKind" /></div>
-          <div class="md:col-span-3"><UiSelect id="cert-filter-status" :model-value="f.status" label="Status" :options="statusOptions" placeholder="Any" size="sm" data-test="cert-filter-status" @update:model-value="setStatus" /></div>
+      <template v-if="canManage">
+        <UiCard>
+          <div class="grid grid-cols-2 gap-2 md:grid-cols-12 md:items-end" data-test="cert-filters">
+            <div class="col-span-2 md:col-span-6"><UiInput id="cert-filter-q" v-model="f.q" label="Search subject, e-mail or serial" type="search" size="sm" data-test="cert-filter-q" @enter="apply()" /></div>
+            <div class="md:col-span-3"><UiSelect id="cert-filter-kind" :model-value="f.kind" label="Kind" :options="kindOptions" placeholder="Any" size="sm" data-test="cert-filter-kind" @update:model-value="setKind" /></div>
+            <div class="md:col-span-3"><UiSelect id="cert-filter-status" :model-value="f.status" label="Status" :options="statusOptions" placeholder="Any" size="sm" data-test="cert-filter-status" @update:model-value="setStatus" /></div>
+          </div>
+        </UiCard>
+
+        <UiAlert v-if="store.error" kind="error" data-test="cert-error">{{ store.error }}</UiAlert>
+
+        <UiCard :padded="false">
+          <UiDataTable
+            :items="rows"
+            :columns="columns"
+            :loading="store.loading"
+            caption="Certificates — select one to see its details"
+            empty-title="No certificates"
+            empty-text="No certificate matches."
+            clickable
+            :row-attrs="(c) => ({ 'data-test': 'cert-row-' + c.id })"
+            data-test="certs-table"
+            @row-click="open($event)"
+          >
+            <template #cell-subject_cn="{ row }">
+              <span class="font-medium">{{ row.subject_cn }}</span>
+              <span v-if="row.email" class="block text-xs text-base-content/70">{{ row.email }}</span>
+            </template>
+            <template #cell-status="{ row }">
+              <UiStatusChip :status="row.status" :label="CERT_STATUS_LABELS[row.status]" :colors="CERT_STATUS_COLORS" :data-test="'cert-status-' + row.id" />
+            </template>
+            <template #actions="{ row }">
+              <div class="flex justify-end" @click.stop>
+                <UiButton size="xs" variant="text" icon="mdi-eye-outline" icon-only label="Details" :data-test="'cert-open-' + row.id" @click="open(row)" />
+              </div>
+            </template>
+          </UiDataTable>
+        </UiCard>
+        <div class="flex justify-end">
+          <UiPagination :has-prev="store.page > 1" :has-next="store.page < pages" :label="pageLabel" data-test="cert-pager" @prev="store.list(store.filter, store.page - 1)" @next="store.list(store.filter, store.page + 1)" />
         </div>
-      </UiCard>
 
-      <UiAlert v-if="store.error" kind="error" data-test="cert-error">{{ store.error }}</UiAlert>
+        <SignDocument ref="signPanel" />
+      </template>
 
-      <UiCard :padded="false">
-        <UiDataTable
-          :items="rows"
-          :columns="columns"
-          :loading="store.loading"
-          caption="Certificates — select one to see its details"
-          empty-title="No certificates"
-          empty-text="No certificate matches."
-          clickable
-          :row-attrs="(c) => ({ 'data-test': 'cert-row-' + c.id })"
-          data-test="certs-table"
-          @row-click="open($event)"
-        >
-          <template #cell-subject_cn="{ row }">
-            <span class="font-medium">{{ row.subject_cn }}</span>
-            <span v-if="row.email" class="block text-xs text-base-content/70">{{ row.email }}</span>
-          </template>
-          <template #cell-status="{ row }">
-            <UiStatusChip :status="row.status" :label="CERT_STATUS_LABELS[row.status]" :colors="CERT_STATUS_COLORS" :data-test="'cert-status-' + row.id" />
-          </template>
-          <template #actions="{ row }">
-            <div class="flex justify-end" @click.stop>
-              <UiButton size="xs" variant="text" icon="mdi-eye-outline" icon-only label="Details" :data-test="'cert-open-' + row.id" @click="open(row)" />
-            </div>
-          </template>
-        </UiDataTable>
-      </UiCard>
-      <div class="flex justify-end">
-        <UiPagination :has-prev="store.page > 1" :has-next="store.page < pages" :label="pageLabel" data-test="cert-pager" @prev="store.list(store.filter, store.page - 1)" @next="store.list(store.filter, store.page + 1)" />
-      </div>
-
-      <SignDocument ref="signPanel" />
+      <BackupPanel v-if="canBackup" />
     </div>
 
     <CertificateDrawer v-if="canManage" :open="drawerOpen" :certificate="selected" @close="drawerOpen = false" @revoked="onRevoked" />

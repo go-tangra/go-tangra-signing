@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { api, describe } from '@/api/client'
+import { api, describe, sendJSON } from '@/api/client'
 import type { DetectedFields, Field, Party, Template, TemplateFilter, TemplatePage, TemplatePatch, TemplateUpload } from '@/api/types'
 
 export const PAGE_SIZE = 25
@@ -65,7 +65,8 @@ export const useTemplates = defineStore('signing-templates', () => {
 
   /** Stores the builder's parties and fields; refused with 409 version_conflict when someone saved meanwhile. */
   async function saveFields(id: string, version: number, parties: Party[], fields: Field[]): Promise<Template> {
-    return replace(await api<Template>('PUT', `templates/${id}/fields`, { version, parties, fields }))
+    // sendJSON keeps the refused field next to invalid_rule's detail message.
+    return replace(await sendJSON<Template>('PUT', `templates/${id}/fields`, { version, parties, fields }))
   }
 
   /** Copies the template with its PDF and fields under a new name. */

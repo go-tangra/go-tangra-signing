@@ -129,3 +129,28 @@ export const REVOCATION_REASONS: readonly RevocationReason[] = ['unspecified', '
 // --- verification (US5) ---
 export type VerifySignature = S['VerifySignature']
 export type VerifyResult = S['VerifyResult']
+
+// --- backup (backup:manage) ---
+/**
+ * Per-kind counts of a backup import (internal/backup Counts). POST
+ * /backup/import answers a plain JSON object in the OpenAPI document, hence
+ * the declaration here.
+ */
+export interface BackupCounts {
+  folders: number
+  templates: number
+  submissions: number
+  certificates: number
+  objects: number
+}
+/** Summary of POST /backup/import. */
+export interface BackupResult {
+  created: BackupCounts
+  updated: BackupCounts
+  skipped: BackupCounts
+  /** Certificates restored as needs_reissue (their keys could not be restored under this module key). */
+  needs_reissue: number
+  errors?: string[] | undefined
+}
+export type BackupMode = 'skip' | 'overwrite'
+export const BACKUP_MODES: readonly BackupMode[] = ['skip', 'overwrite']

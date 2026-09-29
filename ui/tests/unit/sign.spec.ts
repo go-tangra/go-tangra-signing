@@ -246,7 +246,60 @@ describe('signing values and rules hook', () => {
     expect(valueError(f('cells'), 'x'.repeat(201))).not.toBe('')
   })
 
-  it('evaluate() (US6 hook) keeps every field visible and required as configured', () => {
+  it('applies conditions and formulas live: hidden fields drop out, formulas are read-only, conditional requiredness is checked', async () => {
+    const own = [
+      field({ id: 'f-cb', name: 'Has car', type: 'checkbox', party: 'p1', y: 0.1 }),
+      field({ id: 'f-plate', name: 'Plate', party: 'p1', y: 0.2, conditions: { mode: 'all', effect: 'visible', rules: [{ field: 'f-cb', op: 'checked' }] } }),
+      field({ id: 'f-amount', name: 'Amount', type: 'number', party: 'p1', y: 0.3 }),
+      field({ id: 'f-total', name: 'Total', type: 'number', party: 'p1', y: 0.4, formula: '{amount} * 2 + { Bonus }' }),
+      field({ id: 'f-note', name: 'Note', party: 'p1', y: 0.5, conditions: { mode: 'any', effect: 'required', rules: [{ field: 'f-other', op: 'eq', value: 'yes' }] } }),
+    ]
+    const others = [field({ id: 'f-other', name: 'Employer note', party: 'p2', y: 0.6 }), field({ id: 'f-bonus', name: 'Bonus', type: 'number', party: 'p2', y: 0.7 })]
+    const calls = fetchMock(api(() => session({ fields: own, all_fields: [...own, ...others], values: { 'f-other': ' yes ', 'f-bonus': '1,5' } }), (path, method) =>
+      path === 'signing/s1/sign' && method === 'POST' ? { body: { status: 'signed', submission_status: 'in_progress' } } : undefined))
+    await open()
+    // The plate is hidden until the box is ticked: not overlaid, not listed.
+    expect(q('[data-test="sign-input-f-plate"]')).toBeNull()
+    expect(q('[data-test="sign-item-f-plate"]')).toBeNull()
+    // The total is calculated from the signer's amount and the other party's bonus, read-only.
+    const total = q('[data-test="sign-input-f-total"]') as HTMLInputElement
+    expect([total.readOnly, total.value, total.getAttribute('aria-label')]).toEqual([true, '1.5', 'Total (Number, calculated)'])
+    await setField(q('[data-test="sign-input-f-amount"]'), '10,25')
+    expect((q('[data-test="sign-input-f-total"]') as HTMLInputElement).value).toBe('22')
+    expect(q('[data-test="sign-item-status-f-total"]')!.textContent).toBe('Calculated: 22')
+    // The note is required because the other party answered "yes".
+    expect(q('[data-test="sign-item-f-note"]')!.textContent).toContain('(required)')
+    await click('[data-test="sign-submit"]')
+    expect(q('[data-test="sign-item-status-f-note"]')!.textContent).toBe('Fill in this field.')
+    expect(q('[data-test="pin-dialog"]')).toBeNull()
+
+    const cb = q('[data-test="sign-input-f-cb"]') as HTMLInputElement
+    cb.checked = true
+    cb.dispatchEvent(new Event('change'))
+    await flushPromises()
+    expect(q('[data-test="sign-input-f-plate"]')).not.toBeNull()
+    await setField(q('[data-test="sign-input-f-plate"]'), 'CA 1234')
+    await setField(q('[data-test="sign-input-f-note"]'), 'ok')
+    await click('[data-test="sign-submit"]')
+    await enterPin('123456')
+    const form = calls.find((x) => x.url === '/api/signing/v1/signing/s1/sign')!.body as FormData
+    expect(JSON.parse(String(form.get('values')))).toEqual({ 'f-cb': 'true', 'f-plate': 'CA 1234', 'f-amount': '10,25', 'f-total': '22', 'f-note': 'ok' })
+  })
+
+  it('a hidden field is neither checked nor submitted', async () => {
+    const own = [
+      field({ id: 'f-cb', name: 'Has car', type: 'checkbox', party: 'p1', y: 0.1 }),
+      field({ id: 'f-plate', name: 'Plate', party: 'p1', y: 0.2, required: true, conditions: { mode: 'all', effect: 'visible', rules: [{ field: 'f-cb', op: 'checked' }] } }),
+    ]
+    fetchMock(api(() => session({ fields: own, all_fields: own, values: {} })))
+    await open()
+    const s = useSession()
+    s.setValue('f-plate', 'left over')
+    expect(s.validate()).toBe(true)
+    expect(s.ownValues()).toEqual({ 'f-cb': 'false' })
+  })
+
+  it('evaluate() without rules keeps every field visible and required as configured', () => {
     const ev = evaluate([field({ id: 'a', required: true }), field({ id: 'b' })], {})
     expect([...ev.hidden]).toEqual([])
     expect([...ev.required]).toEqual(['a'])

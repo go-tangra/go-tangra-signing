@@ -5,19 +5,19 @@ import { createMongoAbility } from '@casl/ability'
 import type { Certificate, Field, Folder, InboxItem, Session, SignerView, Submission, Template } from '@/api/types'
 
 export type Call = { url: string; method: string; body: unknown; headers: Record<string, string>; init: RequestInit }
-/** `raw` answers with bytes (binary routes such as the template PDF) instead of JSON. */
-export type Reply = { status?: number; body?: unknown; raw?: ArrayBuffer; type?: string }
+/** `raw` answers with bytes (binary routes such as the template PDF) instead of JSON; `headers` are extra response headers. */
+export type Reply = { status?: number; body?: unknown; raw?: ArrayBuffer; type?: string; headers?: Record<string, string> }
 
-/** Stubs fetch; the handler sees the path below /api/signing/v1/ (query included; other URLs whole). Multipart bodies arrive as the FormData itself. */
+/** Stubs fetch; the handler sees the path below /api/signing/v1/ (query included; other URLs whole). Multipart and binary bodies arrive as the FormData / Blob itself. */
 export function fetchMock(handler: (path: string, method: string, body: unknown, init: RequestInit) => Reply | Promise<Reply>) {
   const calls: Call[] = []
   vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit = {}) => {
     const method = init.method ?? 'GET'
-    const body = init.body instanceof FormData ? init.body : init.body ? JSON.parse(String(init.body)) : undefined
+    const body = init.body instanceof FormData || init.body instanceof Blob ? init.body : init.body ? JSON.parse(String(init.body)) : undefined
     calls.push({ url, method, body, headers: (init.headers ?? {}) as Record<string, string>, init })
     const res = await handler(url.replace(/^\/api\/signing\/v1\//, ''), method, body, init)
     const status = res.status ?? 200
-    if (res.raw) return new Response(res.raw, { status, headers: { 'Content-Type': res.type ?? 'application/octet-stream' } })
+    if (res.raw) return new Response(res.raw, { status, headers: { 'Content-Type': res.type ?? 'application/octet-stream', ...res.headers } })
     return new Response(status === 204 ? null : JSON.stringify(res.body ?? {}), { status, headers: { 'Content-Type': 'application/json' } })
   }))
   return calls

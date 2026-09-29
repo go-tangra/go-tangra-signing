@@ -1,14 +1,24 @@
 <script setup lang="ts">
 // Properties of the selected field: name, type, party, required, font size,
-// options (select / radio) and default value. Conditions and formulas are
-// edited in a later user story (US6); their section is a placeholder here.
+// options (select / radio), default value, and the conditions and formula
+// (FieldRules).
 import { computed } from 'vue'
 import { UiButton, UiCheckbox, UiInput, UiNumberInput, UiSelect, UiTextarea, type SelectOption } from '@go-tangra/ui'
 import type { Field, FieldType, Party } from '@/api/types'
 import { FIELD_TYPES } from '@/api/types'
 import { TYPE_LABELS, hasOptions, isGraphic } from '@/utils/fields'
+import FieldRules from './FieldRules.vue'
 
-const props = withDefaults(defineProps<{ field: Field; parties: Party[]; nameError?: string | undefined; readonly?: boolean | undefined }>(), { nameError: '', readonly: false })
+const props = withDefaults(defineProps<{
+  field: Field
+  parties: Party[]
+  /** Every field of the template as edited (conditions and formula reference them). */
+  fields?: Field[] | undefined
+  nameError?: string | undefined
+  /** Why this field's conditions or formula were refused. */
+  ruleError?: string | undefined
+  readonly?: boolean | undefined
+}>(), { fields: () => [], nameError: '', ruleError: '', readonly: false })
 const emit = defineEmits<{
   (e: 'update', patch: Partial<Field>, unset?: (keyof Field)[]): void
   (e: 'type', t: FieldType): void
@@ -54,11 +64,7 @@ function setDefault(v: unknown): void {
     <UiCheckbox v-else-if="field.type === 'checkbox'" :id="id('default')" :model-value="field.default === 'true'" label="Checked by default" :disabled="readonly" data-test="field-default" @update:model-value="setDefault" />
     <UiInput v-else-if="!noDefault" :id="id('default')" :model-value="field.default ?? ''" label="Default value" :disabled="readonly" data-test="field-default" @update:model-value="setDefault" />
 
-    <!-- US6 placeholder: conditions (visible / required when …) and number formulas get their editor with the conditional-fields story. -->
-    <section class="rounded-box border border-dashed border-base-300 p-3 text-xs text-base-content/70" data-test="field-rules-placeholder">
-      <p class="font-medium">Conditions and formula</p>
-      <p>Editing comes in a later update.<template v-if="field.conditions || field.formula"> This field has rules; they are kept when you save.</template></p>
-    </section>
+    <FieldRules :field="field" :fields="fields.length ? fields : [field]" :readonly="readonly" :server-error="ruleError" @update="(patch, unset) => emit('update', patch, unset)" />
 
     <UiButton v-if="!readonly" variant="soft" color="error" size="sm" icon="mdi-delete-outline" data-test="field-remove" @click="emit('remove')">Remove field</UiButton>
     <p class="text-xs text-base-content/70">Page {{ field.page }} · x {{ (field.x * 100).toFixed(1) }}% · y {{ (field.y * 100).toFixed(1) }}% · {{ (field.w * 100).toFixed(1) }} × {{ (field.h * 100).toFixed(1) }}%</p>

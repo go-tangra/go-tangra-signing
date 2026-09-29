@@ -166,6 +166,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
               :field="b.selected"
               :parties="b.parties"
               :name-error="b.fieldNameErrors[b.selected.id]"
+              :fields="b.fields"
+              :rule-error="b.ruleErrorFor(b.selected)"
               :readonly="readonly"
               @update="(patch, unset) => b.updateField(b.selectedId, patch, unset)"
               @type="b.changeType(b.selectedId, $event)"

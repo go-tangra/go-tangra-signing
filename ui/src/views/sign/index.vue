@@ -89,7 +89,8 @@ function status(f: Field): string {
   if (s.errors[f.id]) return s.errors[f.id]!
   if (isSignatureLike(f.type)) return f.type === 'stamp' ? 'Filled from your certificate' : s.signature ? 'Signature ready' : 'From your signature'
   if (isUpload(f.type)) return s.uploads[f.id] ? s.uploads[f.id]!.name : ''
-  const v = s.values[f.id] ?? ''
+  const v = s.valueOf(f)
+  if (s.isComputed(f)) return v ? `Calculated: ${v}` : 'Calculated'
   return f.type === 'checkbox' ? (v === 'true' ? 'Checked' : '') : v
 }
 function onUpload(id: string, file: File | null): void {
@@ -265,6 +266,7 @@ async function retry(): Promise<void> {
                 :files="fileNames"
                 :errors="s.errors"
                 :required="requiredSet"
+                :calculated="s.evaluation.computed"
                 :signature-url="signatureUrl"
                 :disabled="s.signing"
                 @value="s.setValue"

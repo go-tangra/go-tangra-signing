@@ -5,10 +5,11 @@
 // never leaves its page.
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { ApiError, describe, describeRefusal, refusalField } from '@/api/client'
+import { ApiError, describe, describeRefusal, refusalDetail, refusalField } from '@/api/client'
 import type { Field, FieldType, Party, Template, TemplateStatus } from '@/api/types'
 import { clampBox, moveBox, resizeBox, type Box } from '@/utils/geometry'
 import { createField, hasOptions, isGraphic, mergeDetected, nameErrors, nextPartyKey, nextPartyName, partyErrors } from '@/utils/fields'
+import { validateRules } from '@/rules/rules'
 import { useTemplates } from './templates'
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T
@@ -33,6 +34,8 @@ export const useBuilder = defineStore('signing-builder', () => {
   const error = ref('')
   /** The field (name) or "parties" the last refusal named. */
   const errorField = ref('')
+  /** The conditions / formula refusal of the last save (client check or the module's invalid_rule): field name and message. */
+  const ruleError = ref<{ field: string; message: string } | null>(null)
   /** The last save lost against a newer version: the user must reload. */
   const conflict = ref(false)
 
@@ -53,6 +56,7 @@ export const useBuilder = defineStore('signing-builder', () => {
     conflict.value = false
     error.value = ''
     errorField.value = ''
+    ruleError.value = null
   }
 
   /** Loads (or reloads, discarding local changes) the template. */
@@ -88,6 +92,8 @@ export const useBuilder = defineStore('signing-builder', () => {
 
   /** Merges a property change and drops the `unset` properties; geometry is kept inside the page. */
   function updateField(id: string, patch: Partial<Field>, unset: (keyof Field)[] = []): void {
+    // A refusal of the rules is stale once they change (the editor re-checks live).
+    if ('formula' in patch || 'conditions' in patch || unset.includes('formula') || unset.includes('conditions')) ruleError.value = null
     fields.value = fields.value.map((f) => {
       if (f.id !== id) return f
       const next: Field = { ...f, ...patch }
@@ -146,6 +152,10 @@ export const useBuilder = defineStore('signing-builder', () => {
     parties.value = parties.value.map((p) => (p.key === key ? { ...p, name } : p))
   }
 
+  const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+  /** The rules refusal of this field ('' when none). */
+  const ruleErrorFor = (f: Field) => (ruleError.value && sameName(ruleError.value.field, f.name) ? ruleError.value.message : '')
+
   const fieldCount = (key: string) => fields.value.filter((f) => f.party === key).length
 
   /** Removes a party; its fields move to `reassignTo`, or are deleted when it is null. The last party stays. */
@@ -167,6 +177,14 @@ export const useBuilder = defineStore('signing-builder', () => {
       selectedId.value = fe[0]
       return `Field name: ${fe[1]}`
     }
+    // Conditions and formulas, with the module's own evaluator (it checks again).
+    const re = validateRules(fields.value)
+    if (re) {
+      ruleError.value = { field: re.field, message: re.msg }
+      const hit = fields.value.find((f) => sameName(f.name, re.field))
+      if (hit) selectedId.value = hit.id
+      return `Conditions or formula of “${re.field}”: ${re.msg}`
+    }
     return ''
   }
 
@@ -176,6 +194,7 @@ export const useBuilder = defineStore('signing-builder', () => {
     if (!t) return false
     error.value = ''
     errorField.value = ''
+    ruleError.value = null
     const invalid = validate()
     if (invalid) {
       error.value = invalid
@@ -196,7 +215,11 @@ export const useBuilder = defineStore('signing-builder', () => {
       else {
         error.value = describeRefusal(e)
         errorField.value = refusalField(e) ?? ''
-        const hit = fields.value.find((f) => f.name.trim().toLowerCase() === errorField.value.toLowerCase())
+        if (e instanceof ApiError && e.reason === 'invalid_rule' && errorField.value) {
+          const msg = refusalDetail(e, 'message')
+          ruleError.value = { field: errorField.value, message: typeof msg === 'string' && msg ? msg : describe(e) }
+        }
+        const hit = fields.value.find((f) => sameName(f.name, errorField.value))
         if (hit) selectedId.value = hit.id
       }
       return false
@@ -244,8 +267,8 @@ export const useBuilder = defineStore('signing-builder', () => {
   }
 
   return {
-    template, parties, fields, version, selectedId, selected, party, proposed, loading, saving, detecting, error, errorField, conflict, dirty,
+    template, parties, fields, version, selectedId, selected, party, proposed, loading, saving, detecting, error, errorField, ruleError, conflict, dirty,
     fieldNameErrors, partyNameErrors, load, reset, select, addField, updateField, changeType, setBox, nudge, resize, removeField, addParty, renameParty,
-    fieldCount, removeParty, validate, save, detect, setStatus,
+    fieldCount, removeParty, validate, save, detect, setStatus, ruleErrorFor,
   }
 })

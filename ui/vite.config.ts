@@ -16,8 +16,15 @@ export default defineConfig({
   plugins: [vue(), tailwindcss(), breakpointSpecificity(), federation(remoteConfig)],
   server: {
     proxy: { '/api': { target: 'https://localhost:8443', secure: false, changeOrigin: false } },
-    // The icon test reads the Go manifest's nav entries (only that directory).
-    fs: { allow: [searchForWorkspaceRoot(process.cwd()), fileURLToPath(new URL('../pkg/signingmanifest', import.meta.url))] },
+    // The icon test reads the Go manifest's nav entries and the rules test the
+    // shared evaluator vectors (only those directories).
+    fs: {
+      allow: [
+        searchForWorkspaceRoot(process.cwd()),
+        fileURLToPath(new URL('../pkg/signingmanifest', import.meta.url)),
+        fileURLToPath(new URL('../internal/rules/testdata', import.meta.url)),
+      ],
+    },
   },
   build: { outDir: 'dist', emptyOutDir: true, sourcemap: false, target: 'esnext' },
   test: {

@@ -183,7 +183,7 @@ describe('builder view', () => {
     opts.dispatchEvent(new Event('input'))
     await flushPromises()
     expect(b.fields[0]!.options).toEqual(['Monthly', 'Yearly'])
-    expect(q('[data-test="field-rules-placeholder"]')).not.toBeNull()
+    expect(q('[data-test="field-rules"]')).not.toBeNull()
     w.unmount()
   })
 
