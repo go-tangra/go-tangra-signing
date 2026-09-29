@@ -148,7 +148,11 @@ func (m *Mem) PutSubmission(s store.Submission) {
 }
 
 // PutSigner stores s as is (tests).
-func (m *Mem) PutSigner(s store.Signer) { m.mu.Lock(); m.d.signers[s.ID] = cloneSigner(s); m.mu.Unlock() }
+func (m *Mem) PutSigner(s store.Signer) {
+	m.mu.Lock()
+	m.d.signers[s.ID] = cloneSigner(s)
+	m.mu.Unlock()
+}
 
 // Tx runs fn; every change fn makes is undone when it returns an error, except
 // PIN-failure counters (their own transaction in repodb).
