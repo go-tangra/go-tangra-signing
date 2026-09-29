@@ -115,7 +115,7 @@ func newEnv(t *testing.T) *env {
 	sum, _ := e.blob.Put(ctx, key, bytes.NewReader(pdf), int64(len(pdf)), "application/pdf")
 	e.tpl = store.Template{ID: id, TenantID: tenant, Name: "Contract", Status: store.TemplateActive, PDFKey: key, PDFSHA256: sum,
 		PDFPages: 1, Parties: []store.Party{{Key: "a", Name: "A"}, {Key: "b", Name: "B"}},
-		Fields: []store.Field{{ID: "s", Name: "S", Type: "signature", Party: "a", Page: 1, X: 0.1, Y: 0.8, W: 0.3, H: 0.08}},
+		Fields:  []store.Field{{ID: "s", Name: "S", Type: "signature", Party: "a", Page: 1, X: 0.1, Y: 0.8, W: 0.3, H: 0.08}},
 		Version: 1, CreatedAt: e.now, UpdatedAt: e.now}
 	if err := e.mem.CreateTemplate(ctx, e.tpl); err != nil {
 		t.Fatal(err)
