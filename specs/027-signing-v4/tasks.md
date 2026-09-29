@@ -110,8 +110,8 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 ### Implementation
 - [x] T057 [US2] `internal/pdf/sign/` — port v3 `pkg/pdf/sign` + `revocation` with the fixes of research D2.
 - [x] T058 [P] [US2] `internal/pdf/overlay/overlay.go` — port v3 overlay/stamp code (`pdf_generator.go`, `local_signing.go` stamp rendering, embedded fonts).
-- [ ] T059 [US2] `internal/submissions/submissions.go` + `internal/httpapi/submissions.go` — create/get/list/send, inbox, users picker (`/users`), document/version downloads with participant/sender/read checks.
-- [ ] T060 [US2] `internal/signing/signing.go` + `internal/httpapi/signing.go` — session view (own fields only), open, sign pipeline (research D3), completion.
+- [x] T059 [US2] `internal/submissions/submissions.go` + `internal/httpapi/submissions.go` — create/get/list/send, inbox, users picker (`/users`), document/version downloads with participant/sender/read checks.
+- [x] T060 [US2] `internal/signing/signing.go` + `internal/httpapi/signing.go` — session view (own fields only), open, sign pipeline (research D3), completion.
 - [x] T061 [P] [US2] `internal/mail/mail.go` — notification client (`SendKey`), link builder, failure recording.
 - [ ] T062 [P] [US2] UI tests `ui/tests/unit/{sign.spec.ts,submissions.spec.ts,signaturepad.spec.ts}` — signing page shows own fields only, required validation, PIN errors (attempts left, locked), not-your-turn state, submission create drawer (signers per party, order, prefill), progress view.
 - [ ] T063 [US2] UI `ui/src/views/submissions/` (list, create drawer with user picker per party, detail with signer states), `ui/src/views/inbox/` (To sign / Signed by me, live via `signing.inbox`), `ui/src/views/sign/` (PDF with own field inputs, `SignaturePad.vue` draw/type, PIN dialog, certificate setup redirect), downloads.
@@ -147,7 +147,7 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 - [x] T077 [P] [US5] `internal/submissions/control_test.go` — cancel, resend (new invitation, history), replace signer (only unsigned; new Contacts lookup), delete removes objects.
 
 ### Implementation
-- [ ] T078 [US5] `internal/signing/decline.go`, `internal/submissions/control.go` + handlers.
+- [x] T078 [US5] `internal/signing/decline.go`, `internal/submissions/control.go` + handlers.
 - [ ] T079 [US5] `internal/tasks/{expire.go,reminders.go,descriptors.go}` + `internal/app/scheduler.go` (executor server + Registrar, config `task_scheduler`), policy rule `scheduler-execute`.
 - [ ] T080 [US5] UI: decline dialog on the signing page; cancel/resend/replace/delete actions and event history timeline on the submission detail; expiry/reminder fields in the create drawer and template defaults.
 

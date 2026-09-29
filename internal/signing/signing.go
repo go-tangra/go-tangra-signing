@@ -66,6 +66,7 @@ func plain(fields []store.Field, _ map[string]string) (Evaluation, error) {
 type Limits struct {
 	MaxPDFBytes   int64 // default 50 MiB
 	MaxImageBytes int   // default 1 MiB per image
+	MaxFileBytes  int64 // file-field uploads, default MaxPDFBytes
 }
 
 // Deps wire the service.
@@ -83,6 +84,9 @@ type Deps struct {
 	Limits  Limits
 	// Location is the /Location of signatures (optional).
 	Location string
+	// Limited reports whether the user exceeded the signing rate (nil = no
+	// limit); an error lets the request through.
+	Limited func(ctx context.Context, tenantID, userID string) (bool, error)
 }
 
 // Service signs.
@@ -101,6 +105,9 @@ func New(d Deps) *Service {
 	}
 	if d.Limits.MaxImageBytes <= 0 {
 		d.Limits.MaxImageBytes = 1 << 20
+	}
+	if d.Limits.MaxFileBytes <= 0 {
+		d.Limits.MaxFileBytes = d.Limits.MaxPDFBytes
 	}
 	return &Service{d: d}
 }
@@ -334,7 +341,7 @@ func (s *Service) check(sub store.Submission, all []store.Signer, sg store.Signe
 			if len(b) > s.d.Limits.MaxImageBytes || !isImage(b) {
 				return prepared{}, apperr.InvalidValue.WithField(id)
 			}
-		} else if int64(len(b)) > s.d.Limits.MaxPDFBytes {
+		} else if int64(len(b)) > s.d.Limits.MaxFileBytes {
 			return prepared{}, apperr.PayloadTooLarge.WithField(id)
 		}
 	}
@@ -398,6 +405,11 @@ func (s *Service) Sign(ctx context.Context, subj authz.Subjects, signerID string
 
 func (s *Service) sign(ctx context.Context, subj authz.Subjects, signerID string, in Input) (Result, error) {
 	now := s.d.Now()
+	if s.d.Limited != nil {
+		if limited, err := s.d.Limited(ctx, subj.TenantID, subj.UserID); err == nil && limited {
+			return Result{}, apperr.RateLimited
+		}
+	}
 	// Fast checks without the lock, so a doomed request never costs a PIN try.
 	sub, all, sg, err := s.own(ctx, s.d.Store, subj, signerID, false)
 	if err != nil {

@@ -474,6 +474,38 @@ func TestParallelSignersSerialise(t *testing.T) {
 	}
 }
 
+func TestRateLimit(t *testing.T) {
+	calls := 0
+	e := newEnv(t, func(d *Deps) {
+		d.Limited = func(_ context.Context, tn, u string) (bool, error) {
+			calls++
+			if tn != tenant || u != "alice" {
+				t.Errorf("limit key %s/%s", tn, u)
+			}
+			if calls == 2 {
+				return false, errors.New("valkey down") // fail open
+			}
+			return calls > 2, nil
+		}
+		d.Limits.MaxFileBytes = 3
+	})
+	e.setup(t, "alice")
+	d := e.submission(t, store.ModeParallel)
+	a := slot(d, "alice")
+	if _, err := e.svc.Sign(ctx, user("alice"), a, aliceInput()); !errors.Is(err, apperr.PayloadTooLarge) {
+		t.Fatalf("file bound: %v", err)
+	}
+	in := aliceInput()
+	delete(in.Uploads, "cv")
+	in.PIN = "000000"
+	if _, err := e.svc.Sign(ctx, user("alice"), a, in); !errors.Is(err, apperr.PINInvalid) {
+		t.Fatalf("limiter error lets the request through: %v", err)
+	}
+	if _, err := e.svc.Sign(ctx, user("alice"), a, in); !errors.Is(err, apperr.RateLimited) {
+		t.Fatalf("rate limited: %v", err)
+	}
+}
+
 func TestDecline(t *testing.T) {
 	e := newEnv(t)
 	d := e.submission(t, store.ModeParallel)

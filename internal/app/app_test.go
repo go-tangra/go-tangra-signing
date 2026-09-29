@@ -61,7 +61,7 @@ func TestBuildWiresTheService(t *testing.T) {
 	defer a.Close()
 	if a.Freya == nil || a.Repo == nil || a.HTTP == nil || a.Hub == nil || a.Audit == nil || a.Metrics == nil || a.Blob == nil ||
 		a.Sealer == nil || a.Limiter == nil || a.Events.Pub == nil || a.Templates == nil ||
-		a.PKI == nil || a.Me == nil || a.Contacts == nil {
+		a.PKI == nil || a.Me == nil || a.Contacts == nil || a.Submissions == nil || a.Signing == nil || a.Mail.Sender == nil {
 		t.Fatalf("app not fully wired: %+v", a)
 	}
 	do := func(path, tok string) *httptest.ResponseRecorder {
@@ -84,6 +84,16 @@ func TestBuildWiresTheService(t *testing.T) {
 	}
 	if w := do("/api/signing/v1/certificates", "user"); w.Code != 403 {
 		t.Fatalf("missing permission: %d", w.Code)
+	}
+	if w := do("/api/signing/v1/inbox", "user"); w.Code != 200 || !strings.Contains(w.Body.String(), `"total":0`) {
+		t.Fatalf("inbox: %d %s", w.Code, w.Body)
+	}
+	// Without a reachable notification module mail is a retryable failure.
+	if res, err := a.Mail.Sender.SendKey(context.Background(), "t", "signing.invitation", "a@b", nil, ""); err != nil || !res.Retryable {
+		t.Fatalf("unreachable notification: %+v %v", res, err)
+	}
+	if limited, err := a.Limiter.Limited(context.Background(), "sign", "t:u", 0, time.Now()); err != nil || limited {
+		t.Fatal("no limit configured")
 	}
 	a.Metrics.PINFailure()
 	rec := httptest.NewRecorder()

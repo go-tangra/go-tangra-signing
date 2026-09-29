@@ -31,15 +31,18 @@ import (
 	"github.com/go-tangra/go-tangra-signing/v4/internal/contacts"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/events"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/httpapi"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/mail"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/metrics"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pincrypto"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pki"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/repo"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/repo/repodb"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/sealed"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/signing"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/store"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/stream"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/stream/valkeykv"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/submissions"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/templates"
 	"github.com/go-tangra/go-tangra-signing/v4/pkg/signingmanifest"
 )
@@ -50,6 +53,7 @@ type Options struct {
 	Verifier httpapi.Verifier
 	Checker  authz.Checker      // API-permission checker override (default: auth Authorization/Check)
 	Contacts contacts.Directory // user directory override (tests: contacts.Fake)
+	Notify   mail.Sender        // notification client override (tests)
 	Repo     repo.Store         // store override (tests: memstore); skips the DB
 	Stream   stream.Client      // event-bus client override (tests: stream.NewMemory())
 	Blob     blob.Store         // object store override (tests: blob.NewFake())
@@ -79,10 +83,13 @@ type App struct {
 	HTTP     *httpapi.Server
 	Now      func() time.Time
 
-	Templates *templates.Service
-	PKI       *pki.PKI
-	Contacts  contacts.Directory
-	Me        *certs.Me
+	Templates   *templates.Service
+	PKI         *pki.PKI
+	Contacts    contacts.Directory
+	Me          *certs.Me
+	Mail        mail.Mailer
+	Submissions *submissions.Service
+	Signing     *signing.Service
 
 	workers []func(context.Context)
 	closers []func()
@@ -141,6 +148,20 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 	a.Templates = templates.New(templates.Deps{Store: a.Repo, Blob: a.Blob, Audit: a.Audit, Now: a.Now,
 		Limits: templates.Limits{MaxPDFBytes: l.MaxPDFBytes, MaxPages: l.MaxPDFPages, MaxFields: l.MaxFields, MaxParties: l.MaxSigners,
 			ParseTimeout: cfg.ParseTimeout(), MaxPageSize: l.MaxPageSize}})
+	notify := o.Notify
+	if notify == nil {
+		notify = &lazyNotify{app: a, service: cfg.Notification.Service}
+	}
+	a.Mail = mail.Mailer{Sender: notify, PortalBaseURL: cfg.Links.PortalBaseURL, Log: a.Log}
+	a.Submissions = submissions.New(submissions.Deps{Store: a.Repo, Blob: a.Blob, Audit: a.Audit, Checker: a.Checker,
+		Contacts: a.Contacts, Mail: a.Mail, Events: a.Events, Now: a.Now,
+		Limits: submissions.Limits{MaxSigners: l.MaxSigners, MaxPDFBytes: l.MaxPDFBytes}})
+	a.Signing = signing.New(signing.Deps{Store: a.Repo, Blob: a.Blob, Audit: a.Audit, Subs: a.Submissions, Me: a.Me, PKI: a.PKI,
+		Events: a.Events, Metrics: a.Metrics, Now: a.Now,
+		Limits: signing.Limits{MaxPDFBytes: l.MaxPDFBytes, MaxImageBytes: int(l.MaxImageBytes), MaxFileBytes: l.MaxFieldUploadBytes},
+		Limited: func(ctx context.Context, tenantID, userID string) (bool, error) {
+			return a.Limiter.Limited(ctx, "sign", tenantID+":"+userID, l.SigningsPerMinute, a.Now())
+		}})
 
 	// Mesh HTTP surface (reached only through the gateway).
 	hopts := []httpapi.Option{httpapi.WithVerifier(a.Verifier), httpapi.WithChecker(a.Checker), httpapi.WithLogger(a.Log)}
@@ -150,7 +171,8 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 	if a.HTTP, err = httpapi.NewHandler(a.Freya, hopts...); err != nil {
 		return nil, err
 	}
-	a.HTTP.Register(httpapi.Deps{Hub: a.Hub, Health: a.health, Templates: a.Templates, MaxPDFBytes: l.MaxPDFBytes, Me: a.Me})
+	a.HTTP.Register(httpapi.Deps{Hub: a.Hub, Health: a.health, Templates: a.Templates, MaxPDFBytes: l.MaxPDFBytes, Me: a.Me,
+		Submissions: a.Submissions, Signing: a.Signing, MaxImage: l.MaxImageBytes, MaxUpload: l.MaxFieldUploadBytes})
 	a.Freya.HTTP().HandlePrefix("/", a.HTTP.Handler())
 	return a, nil
 }
