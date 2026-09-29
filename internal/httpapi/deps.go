@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-tangra/go-tangra-signing/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/certs"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/documents"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/signing"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/stream"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/submissions"
@@ -27,6 +28,8 @@ type Deps struct {
 	Signing     *signing.Service         // signing sessions
 	MaxImage    int64                    // signature/image upload bound (limits_signing.max_image_bytes)
 	MaxUpload   int64                    // field upload bound (limits_signing.max_field_upload_bytes)
+	Admin       *certs.Admin             // certificate administration, CRL
+	Documents   *documents.Service       // administrator document signing, verification
 }
 
 // Register mounts the handlers of every wired dependency.
@@ -52,6 +55,12 @@ func (s *Server) Register(d Deps) {
 	}
 	if d.Me != nil {
 		s.registerMe(d.Me)
+	}
+	if d.Admin != nil {
+		s.registerAdmin(d.Admin)
+	}
+	if d.Documents != nil {
+		s.registerDocuments(d.Documents, d.MaxPDFBytes)
 	}
 	if d.Submissions != nil {
 		s.registerSubmissions(d.Submissions)

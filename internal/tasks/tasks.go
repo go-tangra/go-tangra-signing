@@ -46,6 +46,8 @@ const (
 	MaxBatch     = 1000
 	maxRounds    = 20 // batches per run (bounded work per execution)
 	sweepKeys    = 1000
+	// UploadRetention matches documents.Retention (signed documents).
+	UploadRetention = time.Hour
 )
 
 const (
@@ -227,7 +229,7 @@ func (r *Runner) sweep(ctx context.Context) (crl, swept int, err error) {
 		}
 		swept++
 	}
-	n, oerr := r.orphans(ctx)
+	n, oerr := r.orphans(ctx, now)
 	swept += n
 	if oerr != nil {
 		errs = append(errs, oerr)
@@ -246,10 +248,11 @@ func (r *Runner) sweep(ctx context.Context) (crl, swept int, err error) {
 	return crl, swept, errors.Join(errs...)
 }
 
-// orphans deletes objects under submissions that no longer exist (a delete
-// whose object cleanup was interrupted). Objects of live submissions are
+// orphans deletes expired administrator-signed documents and objects under
+// submissions that no longer exist (a delete whose object cleanup was
+// interrupted). Objects of live submissions are
 // never touched: an in-flight signature may be writing one right now.
-func (r *Runner) orphans(ctx context.Context) (int, error) {
+func (r *Runner) orphans(ctx context.Context, now time.Time) (int, error) {
 	tenants, err := r.Store.TenantsSystem(ctx)
 	if err != nil {
 		return 0, err
@@ -257,6 +260,23 @@ func (r *Runner) orphans(ctx context.Context) (int, error) {
 	n := 0
 	var errs []error
 	for _, t := range tenants {
+		// Signed documents of administrator signing are kept one hour.
+		uploads := blob.TenantPrefix(t) + "uploads/"
+		if keys, err := r.Blob.List(ctx, uploads, sweepKeys); err != nil {
+			errs = append(errs, err)
+		} else {
+			for _, k := range keys {
+				id := strings.TrimSuffix(strings.TrimPrefix(k, uploads), ".pdf")
+				if created, ok := store.IDTime(id); ok && now.Sub(created) <= UploadRetention {
+					continue
+				}
+				if err := r.Blob.Delete(ctx, k); err != nil {
+					errs = append(errs, err)
+					continue
+				}
+				n++
+			}
+		}
 		prefix := blob.TenantPrefix(t) + "submissions/"
 		keys, err := r.Blob.List(ctx, prefix, sweepKeys)
 		if err != nil {

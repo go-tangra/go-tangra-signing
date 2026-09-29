@@ -3,6 +3,7 @@ package store
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"strings"
 	"sync"
 	"time"
 )
@@ -42,4 +43,21 @@ func NewID() string {
 	b[8] = (b[8] & 0x3f) | 0x80
 	h := hex.EncodeToString(b[:])
 	return h[0:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:32]
+}
+
+// IDTime returns the creation time encoded in a UUIDv7 id.
+func IDTime(id string) (time.Time, bool) {
+	h := strings.ReplaceAll(id, "-", "")
+	if len(h) != 32 || h[12] != '7' {
+		return time.Time{}, false
+	}
+	b, err := hex.DecodeString(h[:12])
+	if err != nil {
+		return time.Time{}, false
+	}
+	var ms int64
+	for _, c := range b {
+		ms = ms<<8 | int64(c)
+	}
+	return time.UnixMilli(ms).UTC(), true
 }

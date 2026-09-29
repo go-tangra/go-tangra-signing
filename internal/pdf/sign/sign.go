@@ -24,6 +24,7 @@ import (
 	"io"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/digitorus/pdf"
@@ -38,6 +39,7 @@ var (
 	ErrSignature = errors.New("sign: the signature does not match the prepared digest")
 	ErrTooLarge  = errors.New("sign: the signature does not fit the reserved space")
 	ErrPDF       = errors.New("sign: the PDF cannot be read")
+	ErrTSA       = errors.New("sign: the time-stamp authority failed")
 )
 
 // Identity is the signing key with its certificate chain (leaf first).
@@ -137,6 +139,9 @@ func run(doc []byte, d pdfsign.SignData) (out []byte, err error) {
 	var buf bytes.Buffer
 	buf.Grow(len(doc) + 32<<10)
 	if err := pdfsign.Sign(rs, &buf, rdr, int64(len(doc)), d); err != nil {
+		if d.TSA.URL != "" && strings.Contains(err.Error(), "timestamp") {
+			return nil, fmt.Errorf("%w: %v", ErrTSA, err)
+		}
 		return nil, err
 	}
 	return buf.Bytes(), nil

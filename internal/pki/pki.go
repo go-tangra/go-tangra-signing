@@ -101,12 +101,41 @@ func Transliterate(name string) string {
 	for _, r := range name {
 		if r > 127 && unicode.IsLetter(r) {
 			if out := strings.TrimSpace(transliteration.ToLatin(name, "bg", false)); out != "" {
-				return out
+				return fixDigraphCase(out)
 			}
 			return name
 		}
 	}
 	return name
+}
+
+// fixDigraphCase turns the upper-case digraphs of a capitalised word into
+// title case ("CHoveshki" → "Choveshki", "SHTerev" → "Shterev"); words in
+// capitals stay as they are ("OOD").
+func fixDigraphCase(s string) string {
+	words := strings.Split(s, " ")
+	for i, w := range words {
+		r := []rune(w)
+		hasLower := false
+		for _, c := range r {
+			if unicode.IsLower(c) {
+				hasLower = true
+				break
+			}
+		}
+		if !hasLower || len(r) < 3 {
+			continue
+		}
+		k := 0
+		for k < len(r) && unicode.IsUpper(r[k]) {
+			k++
+		}
+		for j := 1; j < k; j++ {
+			r[j] = unicode.ToLower(r[j])
+		}
+		words[i] = string(r)
+	}
+	return strings.Join(words, " ")
 }
 
 func shortTenant(t string) string {

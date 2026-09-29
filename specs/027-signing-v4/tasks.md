@@ -120,12 +120,12 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 
 ### Tests (write first, must fail)
 - [x] T064 [P] [US7] `internal/pdf/verify/verify_test.go` — port v3 tests; trust pool = tenant CAs (current + previous) + roots; revoked via tenant records; modified-after-signature detection; foreign QES chain reported with `unknown` revocation when no embedded data.
-- [ ] T065 [P] [US7] `internal/certs/admin_test.go` — list/filter, revoke (CRL regenerated, later signing refused), admin certificate creation (sealed), admin document signing (certification, reason/location/contact, TSA via fake Warden on behalf of the caller, TSA failure → `tsa_failed`), permission `certificates:manage`, tenant scoping.
-- [ ] T066 [P] [US7] `internal/warden/warden_test.go` — on-behalf secret read client (pattern of ipam 024), errors mapped, secret never logged.
+- [x] T065 [P] [US7] `internal/certs/admin_test.go` — list/filter, revoke (CRL regenerated, later signing refused), admin certificate creation (sealed), admin document signing (certification, reason/location/contact, TSA via fake Warden on behalf of the caller, TSA failure → `tsa_failed`), permission `certificates:manage`, tenant scoping.
+- [x] T066 [P] [US7] `internal/warden/warden_test.go` — on-behalf secret read client (pattern of ipam 024), errors mapped, secret never logged.
 
 ### Implementation
-- [ ] T067 [US7] `internal/pdf/verify/` — port v3 verifier with research D11.
-- [ ] T068 [US7] `internal/certs/admin.go`, `internal/warden/warden.go`, `internal/httpapi/{certificates.go,documents.go,verify.go}` — `/certificates*`, `/ca/crl`, `/documents/sign`, `/documents/{id}`, `/verify`.
+- [x] T067 [US7] `internal/pdf/verify/` — port v3 verifier with research D11.
+- [x] T068 [US7] `internal/certs/admin.go`, `internal/warden/warden.go`, `internal/httpapi/{certificates.go,documents.go,verify.go}` — `/certificates*`, `/ca/crl`, `/documents/sign`, `/documents/{id}`, `/verify`.
 - [ ] T069 [US7] UI `ui/src/views/admin/` (Certificates list/detail/revoke/create, Sign document with Warden secret picker) and `ui/src/views/verify/` (upload or pick a submission, results table).
 
 ## Phase 8: User Story 4 — QES with B-Trust BISS (P2)
@@ -159,7 +159,7 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 
 ### Implementation
 - [x] T083 [US8] `internal/pdf/audittrail/audittrail.go` (gopdf, embedded DejaVu) and `internal/jobs/worker.go` (drain `signing_jobs`), completion mails/events moved behind the job (research D9).
-- [ ] T084 [US8] Handlers `/submissions/{id}/audit-trail` and `/package` (zip), UI download buttons.
+- [x] T084 [US8] Handlers `/submissions/{id}/audit-trail` and `/package` (zip), UI download buttons.
 
 ## Phase 11: User Story 6 — Conditions and formulas (P3)
 

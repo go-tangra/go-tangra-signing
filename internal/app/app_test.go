@@ -3,8 +3,13 @@ package app
 import (
 	"bytes"
 	"context"
+	"encoding/pem"
 	"errors"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/pdf/pdftest"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/warden"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -61,7 +66,8 @@ func TestBuildWiresTheService(t *testing.T) {
 	defer a.Close()
 	if a.Freya == nil || a.Repo == nil || a.HTTP == nil || a.Hub == nil || a.Audit == nil || a.Metrics == nil || a.Blob == nil ||
 		a.Sealer == nil || a.Limiter == nil || a.Events.Pub == nil || a.Templates == nil ||
-		a.PKI == nil || a.Me == nil || a.Contacts == nil || a.Submissions == nil || a.Signing == nil || a.Mail.Sender == nil {
+		a.PKI == nil || a.Me == nil || a.Contacts == nil || a.Submissions == nil || a.Signing == nil || a.Mail.Sender == nil ||
+		a.Admin == nil || a.Documents == nil {
 		t.Fatalf("app not fully wired: %+v", a)
 	}
 	do := func(path, tok string) *httptest.ResponseRecorder {
@@ -94,6 +100,17 @@ func TestBuildWiresTheService(t *testing.T) {
 	}
 	if limited, err := a.Limiter.Limited(context.Background(), "sign", "t:u", 0, time.Now()); err != nil || limited {
 		t.Fatal("no limit configured")
+	}
+	// Without a reachable warden a TSA secret reads as unavailable.
+	lw := &lazyWarden{app: a, service: "warden"}
+	wctx, cancel := context.WithTimeout(warden.WithUserToken(context.Background(), "tok"), 2*time.Second)
+	defer cancel()
+	ref := "01928f7e-3c1a-7b44-9d2e-5a6b7c8d9e0f"
+	if _, err := lw.Credentials(wctx, ref); !errors.Is(err, warden.ErrUnavailable) {
+		t.Fatalf("warden down: %v", err)
+	}
+	if _, err := lw.Meta(wctx, ref); !errors.Is(err, warden.ErrUnavailable) {
+		t.Fatalf("warden down: %v", err)
 	}
 	a.Metrics.PINFailure()
 	rec := httptest.NewRecorder()
@@ -161,6 +178,35 @@ func TestBuildFailures(t *testing.T) {
 	cfg.DB.DSN = "postgres://127.0.0.1:1/none?connect_timeout=1"
 	if _, err := Build(context.Background(), cfg, o); err == nil {
 		t.Fatal("unreachable database accepted")
+	}
+}
+
+func TestTrustRoots(t *testing.T) {
+	if p, err := trustRoots(config.Verify{}); p != nil || err != nil {
+		t.Fatal("no roots configured")
+	}
+	dir := t.TempDir()
+	good := filepath.Join(dir, "roots.pem")
+	ca := pdftest.CA("Qualified Root")
+	_ = os.WriteFile(good, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: ca.Cert.Raw}), 0o600)
+	if p, err := trustRoots(config.Verify{ExtraRootsFile: good}); p == nil || err != nil {
+		t.Fatalf("extra roots: %v", err)
+	}
+	if p, err := trustRoots(config.Verify{UseSystemRoots: true, ExtraRootsFile: good}); p == nil || err != nil {
+		t.Fatalf("system + extra: %v", err)
+	}
+	bad := filepath.Join(dir, "bad.pem")
+	_ = os.WriteFile(bad, []byte("nothing"), 0o600)
+	if _, err := trustRoots(config.Verify{ExtraRootsFile: bad}); err == nil {
+		t.Fatal("empty bundle accepted")
+	}
+	if _, err := trustRoots(config.Verify{ExtraRootsFile: filepath.Join(dir, "missing")}); err == nil {
+		t.Fatal("missing file accepted")
+	}
+	cfg := testConfig()
+	cfg.Verify.ExtraRootsFile = bad
+	if _, err := Build(context.Background(), cfg, options()); err == nil {
+		t.Fatal("build with a bad roots file")
 	}
 }
 

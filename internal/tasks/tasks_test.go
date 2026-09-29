@@ -256,8 +256,13 @@ func TestSweeps(t *testing.T) {
 	_, _ = e.blob.Put(ctx, ghost, bytes.NewReader([]byte("x")), 1, "application/pdf")
 	stray := blob.TenantPrefix(tenant) + "submissions/orphan-without-slash"
 	_, _ = e.blob.Put(ctx, stray, bytes.NewReader([]byte("x")), 1, "application/pdf")
+	// Signed-document downloads: an old one goes, a fresh one stays.
+	oldDoc := blob.Upload(tenant, "0190f7c2-6a3e-7c1a-9b2e-2f6f9d1b4c55")
+	freshDoc := blob.Upload(tenant, store.NewID())
+	_, _ = e.blob.Put(ctx, oldDoc, bytes.NewReader([]byte("x")), 1, "application/pdf")
+	_, _ = e.blob.Put(ctx, freshDoc, bytes.NewReader([]byte("x")), 1, "application/pdf")
 	res := e.r.Reminders(ctx, req(TypeReminders, "", "{}"))
-	if !res.Success || res.Message != "reminded 0, crl 1, swept 2" {
+	if !res.Success || res.Message != "reminded 0, crl 1, swept 3" || e.blob.Has(oldDoc) || !e.blob.Has(freshDoc) {
 		t.Fatalf("sweep: %+v", res)
 	}
 	if e.blob.Has(pkey) || e.blob.Has(ghost) || !e.blob.Has(d.Submission.PDFKey) || !e.blob.Has(stray) {

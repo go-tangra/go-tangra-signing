@@ -29,11 +29,13 @@ import (
 	"github.com/go-tangra/go-tangra-signing/v4/internal/certs"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/config"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/contacts"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/documents"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/events"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/httpapi"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/jobs"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/mail"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/metrics"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/pdf/limits"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pincrypto"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pki"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/repo"
@@ -46,6 +48,7 @@ import (
 	"github.com/go-tangra/go-tangra-signing/v4/internal/submissions"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/tasks"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/templates"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/warden"
 	"github.com/go-tangra/go-tangra-signing/v4/pkg/signingmanifest"
 )
 
@@ -56,6 +59,7 @@ type Options struct {
 	Checker  authz.Checker      // API-permission checker override (default: auth Authorization/Check)
 	Contacts contacts.Directory // user directory override (tests: contacts.Fake)
 	Notify   mail.Sender        // notification client override (tests)
+	Warden   warden.Client      // warden client override (tests)
 	Repo     repo.Store         // store override (tests: memstore); skips the DB
 	Stream   stream.Client      // event-bus client override (tests: stream.NewMemory())
 	Blob     blob.Store         // object store override (tests: blob.NewFake())
@@ -94,6 +98,8 @@ type App struct {
 	Signing     *signing.Service
 	Jobs        *jobs.Worker
 	Tasks       *tasks.Runner
+	Admin       *certs.Admin
+	Documents   *documents.Service
 
 	workers []func(context.Context)
 	closers []func()
@@ -170,6 +176,17 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 			return a.Limiter.Limited(ctx, "sign", tenantID+":"+userID, l.SigningsPerMinute, a.Now())
 		}})
 
+	a.Admin = certs.NewAdmin(certs.Deps{Store: a.Repo, PKI: a.PKI, Contacts: a.Contacts, Audit: a.Audit, Now: a.Now})
+	roots, err := trustRoots(cfg.Verify)
+	if err != nil {
+		return nil, err
+	}
+	wc := o.Warden
+	if wc == nil {
+		wc = &lazyWarden{app: a, service: cfg.Warden.Service}
+	}
+	a.Documents = documents.New(documents.Deps{Store: a.Repo, Blob: a.Blob, Audit: a.Audit, PKI: a.PKI, Warden: wc, Subs: a.Submissions,
+		Roots: roots, Now: a.Now, Limits: limits.Limits{MaxBytes: l.MaxPDFBytes, MaxPages: l.MaxPDFPages, Timeout: cfg.ParseTimeout()}})
 	a.wireScheduler()
 
 	// Mesh HTTP surface (reached only through the gateway).
@@ -181,7 +198,8 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 		return nil, err
 	}
 	a.HTTP.Register(httpapi.Deps{Hub: a.Hub, Health: a.health, Templates: a.Templates, MaxPDFBytes: l.MaxPDFBytes, Me: a.Me,
-		Submissions: a.Submissions, Signing: a.Signing, MaxImage: l.MaxImageBytes, MaxUpload: l.MaxFieldUploadBytes})
+		Submissions: a.Submissions, Signing: a.Signing, MaxImage: l.MaxImageBytes, MaxUpload: l.MaxFieldUploadBytes,
+		Admin: a.Admin, Documents: a.Documents})
 	a.Freya.HTTP().HandlePrefix("/", a.HTTP.Handler())
 	return a, nil
 }

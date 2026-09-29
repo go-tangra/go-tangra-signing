@@ -152,6 +152,12 @@ func TestIssueSignerProfileAndPIN(t *testing.T) {
 		t.Fatalf("change with wrong pin: %v", err)
 	}
 	// Name without letters to transliterate / empty name falls back to the e-mail.
+	for in, want := range map[string]string{"Чавдар Шишков": "Chavdar Shishkov", "Щерев": "Shterev", "Жана Юлиева": "Zhana Yulieva",
+		"ТАНГРА ООД": "TANGRA OOD", "Ян": "Yan"} {
+		if got := Transliterate(in); got != want {
+			t.Errorf("Transliterate(%q) = %q, want %q", in, got, want)
+		}
+	}
 	if Transliterate(" Ivan Petrov ") != "Ivan Petrov" || Transliterate("") != "" {
 		t.Fatal("transliterate latin")
 	}

@@ -144,7 +144,7 @@ func TestCertificationAndRefusals(t *testing.T) {
 	}
 	if _, err := Sign(pdftest.Contract(1), Identity{Signer: admin.Key, Chain: admin.Chain}, Options{
 		TSA: &TSA{URL: "http://127.0.0.1:1/tsa"},
-	}); err == nil {
+	}); !errors.Is(err, ErrTSA) {
 		t.Fatal("unreachable TSA must fail the signature")
 	}
 }
