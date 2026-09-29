@@ -8,7 +8,7 @@ import SignaturePad from '@/components/SignaturePad.vue'
 import { useSession } from '@/stores/session'
 import { evaluate } from '@/rules/evaluate'
 import { valueError } from '@/utils/values'
-import type { Session } from '@/api/types'
+import type { Field, FieldType, Session } from '@/api/types'
 import { SIGNER, fetchMock, field, session, setField, withAbility, type Reply } from './helpers'
 
 // pdf.js is never run in jsdom: a two-page document stands in.
@@ -234,7 +234,7 @@ describe('signing page', () => {
 
 describe('signing values and rules hook', () => {
   it('mirrors the server value rules', () => {
-    const f = (type: Parameters<typeof field>[0]['type'], over = {}) => field({ type, ...over })
+    const f = (type: FieldType, over: Partial<Field> = {}) => field({ type, ...over })
     expect(valueError(f('number'), '1,5')).toBe('')
     expect(valueError(f('number'), 'x')).not.toBe('')
     expect(valueError(f('date'), '2026-02-30')).not.toBe('')

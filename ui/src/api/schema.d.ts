@@ -926,6 +926,10 @@ export interface components {
             fields: components["schemas"]["Field"][];
             /** @description every field (for conditions/formulas over other parties' values) */
             all_fields?: components["schemas"]["Field"][];
+            /** @description prefills and the values of signers who already signed (never object keys) */
+            values?: {
+                [key: string]: string;
+            };
             document_version: number;
             certificate: components["schemas"]["CertificateState"];
             can_sign: boolean;

@@ -341,6 +341,7 @@ components:
         status: { type: string }
         fields: { type: array, items: { $ref: '#/components/schemas/Field' } }
         all_fields: { type: array, items: { $ref: '#/components/schemas/Field' }, description: 'every field (for conditions/formulas over other parties'' values)' }
+        values: { type: object, additionalProperties: { type: string }, description: 'prefills and the values of signers who already signed (never object keys)' }
         document_version: { type: integer }
         certificate: { $ref: '#/components/schemas/CertificateState' }
         can_sign: { type: boolean }
