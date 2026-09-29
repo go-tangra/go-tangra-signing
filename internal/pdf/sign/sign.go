@@ -149,8 +149,9 @@ func run(doc []byte, d pdfsign.SignData) (out []byte, err error) {
 
 // Prepared is the first half of an external signature.
 type Prepared struct {
-	PDF    []byte // the document with the reserved (placeholder) signature
-	Digest []byte // SHA-256 of the CMS signed attributes: what the card signs
+	PDF         []byte // the document with the reserved (placeholder) signature
+	Digest      []byte // SHA-256 of the CMS signed attributes: what the card signs
+	SignedAttrs []byte // the DER signed attributes (BISS signs SHA-256 of them)
 }
 
 // capture stands in for the card: it records the digest and returns a
@@ -201,7 +202,35 @@ func Prepare(doc []byte, chain []*x509.Certificate, o Options) (*Prepared, error
 	if err != nil {
 		return nil, err
 	}
-	return &Prepared{PDF: out, Digest: c.digest}, nil
+	attrs, err := preparedAttrs(out)
+	if err != nil {
+		return nil, err
+	}
+	if sum := sha256.Sum256(attrs); !bytes.Equal(sum[:], c.digest) {
+		return nil, ErrPrepared // the engine signed something else than its attributes
+	}
+	return &Prepared{PDF: out, Digest: c.digest, SignedAttrs: attrs}, nil
+}
+
+// preparedAttrs reads the signed attributes of the last signature's CMS.
+func preparedAttrs(doc []byte) ([]byte, error) {
+	start, end, err := contents(doc)
+	if err != nil {
+		return nil, err
+	}
+	raw := make([]byte, hex.DecodedLen(end-start))
+	if _, err := hex.Decode(raw, doc[start:end]); err != nil {
+		return nil, ErrPrepared
+	}
+	root, _, err := parseTLV(raw, 0)
+	if err != nil {
+		return nil, ErrPrepared
+	}
+	attrs, _, err := inspect(root.encode())
+	if err != nil {
+		return nil, ErrPrepared
+	}
+	return attrs, nil
 }
 
 var byteRangeRE = regexp.MustCompile(`/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]`)

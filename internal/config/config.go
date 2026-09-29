@@ -48,6 +48,7 @@ type Config struct {
 	Limits           Limits        `yaml:"limits_signing"`
 	Signing          Signing       `yaml:"signing"`
 	Verify           Verify        `yaml:"verify"`
+	QES              QES           `yaml:"qes"`
 }
 
 // DB configures the PostgreSQL/TimescaleDB store.
@@ -159,6 +160,15 @@ type Signing struct {
 type Verify struct {
 	ExtraRootsFile string `yaml:"extra_roots_file"` // PEM bundle, e.g. qualified trust service roots
 	UseSystemRoots bool   `yaml:"use_system_roots"`
+}
+
+// QES configures qualified signatures through B-Trust BISS (research D6):
+// the origin certificate and key (PEM files) sign BISS's "signedContents" so
+// the local application can check which site asks for a signature. Both or
+// neither; without them the proof is not sent.
+type QES struct {
+	OriginCertFile string `yaml:"origin_cert_file"`
+	OriginKeyFile  string `yaml:"origin_key_file"`
 }
 
 // Default returns secure defaults on top of the Freya defaults.
@@ -353,6 +363,8 @@ func (c Config) validateSigning() error {
 		return errors.New("config: signing.audit_job_max_attempts must be within [1, 100]")
 	case !within(s.AuditJobIntervalMillis, 100, 60000):
 		return errors.New("config: signing.audit_job_interval_ms must be within [100, 60000]")
+	case (c.QES.OriginCertFile == "") != (c.QES.OriginKeyFile == ""):
+		return errors.New("config: qes.origin_cert_file and qes.origin_key_file are set together")
 	}
 	return nil
 }

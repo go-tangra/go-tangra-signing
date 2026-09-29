@@ -369,6 +369,8 @@ components:
         signed_attrs_b64: { type: string }
         hash_algorithm: { type: string }
         expires_at: { type: string, format: date-time }
+        signed_contents_b64: { type: string, description: 'BISS signedContents: the origin certificate''s signature of the content (absent when no origin certificate is configured)' }
+        signed_contents_cert_b64: { type: string, description: 'BISS signedContentsCert: the origin certificate (DER, base64)' }
     QESComplete:
       type: object
       additionalProperties: false

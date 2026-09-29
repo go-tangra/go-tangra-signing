@@ -92,7 +92,7 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 - [x] T047 [US3] `internal/pki/{ca.go,issue.go,crl.go,translit.go}` — port v3 `pkg/security/cert` onto sealed keys and the profiles of research D4.
 - [x] T048 [P] [US3] `internal/contacts/contacts.go` — auth Profiles client (dial `auth`).
 - [x] T049 [US3] `internal/certs/me.go` + `internal/httpapi/me.go` — `/me/certificate*` routes.
-- [ ] T050 [US3] UI `ui/src/views/certificate/` — My signing certificate (setup with PIN twice, details, change PIN, renew, revoke), shared `PinDialog.vue`.
+- [x] T050 [US3] UI `ui/src/views/certificate/` — My signing certificate (setup with PIN twice, details, change PIN, renew, revoke), shared `PinDialog.vue`.
 
 ## Phase 6: User Story 2 — Submissions and local signing (P1) 🎯 MVP part 2
 
@@ -113,8 +113,8 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 - [x] T059 [US2] `internal/submissions/submissions.go` + `internal/httpapi/submissions.go` — create/get/list/send, inbox, users picker (`/users`), document/version downloads with participant/sender/read checks.
 - [x] T060 [US2] `internal/signing/signing.go` + `internal/httpapi/signing.go` — session view (own fields only), open, sign pipeline (research D3), completion.
 - [x] T061 [P] [US2] `internal/mail/mail.go` — notification client (`SendKey`), link builder, failure recording.
-- [ ] T062 [P] [US2] UI tests `ui/tests/unit/{sign.spec.ts,submissions.spec.ts,signaturepad.spec.ts}` — signing page shows own fields only, required validation, PIN errors (attempts left, locked), not-your-turn state, submission create drawer (signers per party, order, prefill), progress view.
-- [ ] T063 [US2] UI `ui/src/views/submissions/` (list, create drawer with user picker per party, detail with signer states), `ui/src/views/inbox/` (To sign / Signed by me, live via `signing.inbox`), `ui/src/views/sign/` (PDF with own field inputs, `SignaturePad.vue` draw/type, PIN dialog, certificate setup redirect), downloads.
+- [x] T062 [P] [US2] UI tests `ui/tests/unit/{sign.spec.ts,submissions.spec.ts,signaturepad.spec.ts}` — signing page shows own fields only, required validation, PIN errors (attempts left, locked), not-your-turn state, submission create drawer (signers per party, order, prefill), progress view.
+- [x] T063 [US2] UI `ui/src/views/submissions/` (list, create drawer with user picker per party, detail with signer states), `ui/src/views/inbox/` (To sign / Signed by me, live via `signing.inbox`), `ui/src/views/sign/` (PDF with own field inputs, `SignaturePad.vue` draw/type, PIN dialog, certificate setup redirect), downloads.
 
 ## Phase 7: User Story 7 — Admin certificates, document signing, verification (P2)
 
@@ -131,12 +131,12 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 ## Phase 8: User Story 4 — QES with B-Trust BISS (P2)
 
 ### Tests (write first, must fail)
-- [ ] T070 [P] [US4] `internal/qes/qes_test.go` + fuzz — prepare builds signedAttrs/digest over the prepared PDF; complete accepts a valid simulated card signature (raw ECDSA/RSA and CMS forms), refuses: wrong key, other chain than prepared, tampered digest, expired/used preparation, `document_changed` (version moved), leaf not valid now, missing KU; garbage input never panics. 100 %.
-- [ ] T071 [P] [US4] `internal/signing/qes_flow_test.go` — end-to-end prepare → simulated sign → complete produces a PDF verified by `pdf/verify`; earlier signatures remain valid; signer recorded with card subject/serial/issuer; preparation survives a new service instance (shared storage).
+- [x] T070 [P] [US4] `internal/qes/qes_test.go` + fuzz — prepare builds signedAttrs/digest over the prepared PDF; complete accepts a valid simulated card signature (raw ECDSA/RSA and CMS forms), refuses: wrong key, other chain than prepared, tampered digest, expired/used preparation, `document_changed` (version moved), leaf not valid now, missing KU; garbage input never panics. 100 %.
+- [x] T071 [P] [US4] `internal/signing/qes_flow_test.go` — end-to-end prepare → simulated sign → complete produces a PDF verified by `pdf/verify`; earlier signatures remain valid; signer recorded with card subject/serial/issuer; preparation survives a new service instance (shared storage).
 - [ ] T072 [P] [US4] UI `ui/tests/unit/biss.spec.ts` — port detection over 53952–53955, getsigner/sign flow with mocked fetch, clear states (not installed, refused, timeout).
 
 ### Implementation
-- [ ] T073 [US4] `internal/qes/qes.go` (pure verification core) + `internal/signing/qes.go` + `internal/httpapi/qes.go` — prepare/complete (research D6), preparation rows and objects.
+- [x] T073 [US4] `internal/qes/qes.go` (pure verification core) + `internal/signing/qes.go` + `internal/httpapi/qes.go` — prepare/complete (research D6), preparation rows and objects.
 - [ ] T074 [US4] UI `ui/src/components/BissButton.vue` + `ui/src/composables/useBiss.ts` (port v3 `useBiss.ts`, no credentials sent anywhere but localhost BISS).
 
 ## Phase 9: User Story 5 — Decline, cancel, resend, expiry, reminders (P2)

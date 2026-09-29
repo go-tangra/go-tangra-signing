@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"archive/zip"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -307,6 +308,23 @@ func (s *Server) registerSubmissions(svc *submissions.Service) {
 	})
 }
 
+// dataURL decodes a "data:image/png;base64,…" (or JPEG) signature image;
+// "" is no image.
+func dataURL(v string) ([]byte, error) {
+	if v == "" {
+		return nil, nil
+	}
+	head, data, ok := strings.Cut(v, ",")
+	if !ok || (head != "data:image/png;base64" && head != "data:image/jpeg;base64") {
+		return nil, apperr.Validation.WithField("signature_image")
+	}
+	b, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return nil, apperr.Validation.WithField("signature_image")
+	}
+	return b, nil
+}
+
 // zipName keeps an entry name inside the archive (no paths).
 func zipName(n string) string {
 	return strings.NewReplacer("/", "_", "\\", "_", "..", "_").Replace(n)
@@ -421,6 +439,56 @@ func (s *Server) registerSigning(svc *signing.Service, maxUpload int64, maxImage
 			in.Uploads[strings.TrimPrefix(name, "upload.")] = p.Data
 		}
 		res, err := svc.Sign(r.Context(), subj, r.PathValue("signer_id"), in)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		WriteJSON(w, http.StatusOK, map[string]string{"status": res.SignerStatus, "submission_status": res.SubmissionStatus})
+	})
+	s.withSubject("POST", Prefix+"/signing/{signer_id}/qes/prepare", func(w http.ResponseWriter, r *http.Request, subj authz.Subjects) {
+		var b struct {
+			Values         map[string]string `json:"values"`
+			Chain          []string          `json:"chain"`
+			SignatureImage string            `json:"signature_image"`
+		}
+		if err := DecodeJSON(r, &b, 2<<20); err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		img, err := dataURL(b.SignatureImage)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		p, err := svc.PrepareQES(r.Context(), subj, r.PathValue("signer_id"), signing.QESInput{Values: b.Values, Chain: b.Chain, Signature: img})
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		out := map[string]any{"preparation_id": p.ID, "digest_b64": base64.StdEncoding.EncodeToString(p.Digest),
+			"signed_attrs_b64": base64.StdEncoding.EncodeToString(p.SignedAttrs), "hash_algorithm": "SHA256",
+			"expires_at": p.ExpiresAt.UTC().Format(time.RFC3339)}
+		if p.OriginProof != nil {
+			out["signed_contents_b64"] = base64.StdEncoding.EncodeToString(p.OriginProof)
+			out["signed_contents_cert_b64"] = base64.StdEncoding.EncodeToString(p.OriginCertificate)
+		}
+		WriteJSON(w, http.StatusOK, out)
+	})
+	s.withSubject("POST", Prefix+"/signing/{signer_id}/qes/complete", func(w http.ResponseWriter, r *http.Request, subj authz.Subjects) {
+		var b struct {
+			PreparationID string `json:"preparation_id"`
+			SignatureB64  string `json:"signature_b64"`
+		}
+		if err := DecodeJSON(r, &b, 0); err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		sig, err := base64.StdEncoding.DecodeString(b.SignatureB64)
+		if err != nil {
+			s.fail(w, r, apperr.Validation.WithField("signature_b64"))
+			return
+		}
+		res, err := svc.CompleteQES(r.Context(), subj, r.PathValue("signer_id"), b.PreparationID, sig, ClientAddr(r), UserAgent(r))
 		if err != nil {
 			s.fail(w, r, err)
 			return

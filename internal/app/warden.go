@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"crypto"
+	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -9,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/go-tangra/go-tangra-signing/v4/internal/config"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/signing"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/warden"
 )
 
@@ -50,6 +53,27 @@ func (l *lazyWarden) Credentials(ctx context.Context, ref string) (warden.Creden
 		return warden.Credentials{}, warden.ErrUnavailable
 	}
 	return c.Credentials(ctx, ref)
+}
+
+// qesOrigin loads the BISS origin certificate and key (research D6); nil
+// when not configured.
+func qesOrigin(q config.QES) (*signing.Origin, error) {
+	if q.OriginCertFile == "" {
+		return nil, nil
+	}
+	pair, err := tls.LoadX509KeyPair(q.OriginCertFile, q.OriginKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("qes origin certificate: %w", err)
+	}
+	cert, err := x509.ParseCertificate(pair.Certificate[0])
+	if err != nil {
+		return nil, fmt.Errorf("qes origin certificate: %w", err)
+	}
+	signer, ok := pair.PrivateKey.(crypto.Signer)
+	if !ok {
+		return nil, errors.New("qes origin key cannot sign")
+	}
+	return &signing.Origin{Cert: cert, Signer: signer}, nil
 }
 
 // trustRoots builds the qualified/platform root pool of verification

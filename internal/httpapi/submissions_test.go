@@ -4,6 +4,10 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
+	"encoding/base64"
 	"encoding/json"
 	"image"
 	"image/png"
@@ -270,5 +274,44 @@ func TestPackage(t *testing.T) {
 func TestFileName(t *testing.T) {
 	if fileName("  ", ".pdf") != "document.pdf" || fileName("Договор", " (v2).pdf") != "Договор (v2).pdf" {
 		t.Fatal("fileName")
+	}
+}
+
+func TestQESRoutes(t *testing.T) {
+	e := subsAPI(t)
+	id, memberSlot, _ := e.create(t)
+	expect(t, call(e.s, "POST", Prefix+"/submissions/"+id+"/send", "admin", nil, ""), 200, "send")
+	card := pdftest.Card("Ivan Card")
+	chain := []string{base64.StdEncoding.EncodeToString(card.Chain[0].Raw), base64.StdEncoding.EncodeToString(card.Chain[1].Raw)}
+	img := "data:image/png;base64," + base64.StdEncoding.EncodeToString(pngData())
+	if r := callJSON(e.s, "POST", Prefix+"/signing/"+memberSlot+"/qes/prepare", "member", map[string]any{
+		"values": map[string]string{"name": "Иван"}, "chain": chain, "signature_image": "data:text/html;base64,PGI+"}); r.Code != 422 {
+		t.Fatalf("bad image: %d %s", r.Code, r.Body)
+	}
+	r := callJSON(e.s, "POST", Prefix+"/signing/"+memberSlot+"/qes/prepare", "member", map[string]any{
+		"values": map[string]string{"name": "Иван"}, "chain": chain, "signature_image": img})
+	expect(t, r, 200, "prepare")
+	p := r.json(t)
+	if p["hash_algorithm"] != "SHA256" || p["signed_attrs_b64"] == "" || p["expires_at"] == "" {
+		t.Fatalf("prepared %s", r.Body)
+	}
+	if _, ok := p["signed_contents_b64"]; ok {
+		t.Fatal("no origin configured")
+	}
+	digest, _ := base64.StdEncoding.DecodeString(p["digest_b64"].(string))
+	sig, _ := rsa.SignPKCS1v15(rand.Reader, card.Key, crypto.SHA256, digest)
+	expect(t, callJSON(e.s, "POST", Prefix+"/signing/"+memberSlot+"/qes/complete", "member", map[string]any{
+		"preparation_id": p["preparation_id"], "signature_b64": "!!"}), 422, "bad base64")
+	r = callJSON(e.s, "POST", Prefix+"/signing/"+memberSlot+"/qes/complete", "member", map[string]any{
+		"preparation_id": p["preparation_id"], "signature_b64": base64.StdEncoding.EncodeToString(sig)})
+	expect(t, r, 200, "complete")
+	if r.json(t)["status"] != "signed" {
+		t.Fatalf("complete %s", r.Body)
+	}
+	if b, err := dataURL(""); b != nil || err != nil {
+		t.Fatal("empty data url")
+	}
+	if _, err := dataURL("data:image/png;base64,***"); err == nil {
+		t.Fatal("bad base64 data url")
 	}
 }

@@ -90,6 +90,10 @@ type Deps struct {
 	// OnCompleted is told after a signature completed a submission (the
 	// audit-trail worker's kick).
 	OnCompleted func()
+	// QESTTL bounds a prepared qualified signature (default 10 min); Origin
+	// signs BISS's signedContents when configured.
+	QESTTL time.Duration
+	Origin *Origin
 }
 
 // Service signs.
@@ -442,11 +446,9 @@ func (s *Service) sign(ctx context.Context, subj authz.Subjects, signerID string
 		return Result{}, err
 	}
 
-	var objects []string
-	var invited []store.Signer
-	var completed bool
+	var c committed
 	err = s.d.Store.Tx(ctx, subj.TenantID, func(tx repo.Store) error {
-		sub, all, sg, err = s.own(ctx, tx, subj, signerID, true)
+		sub, all, sg, err := s.own(ctx, tx, subj, signerID, true)
 		if err != nil {
 			return err
 		}
@@ -461,84 +463,131 @@ func (s *Service) sign(ctx context.Context, subj authz.Subjects, signerID string
 		if err != nil {
 			return err
 		}
-		signed, err := s.apply(doc, p, in.Signature, sg, chain, key, now)
+		pdf, err := s.apply(doc, p, in.Signature, sg, chain, key, now)
 		if err != nil {
-			return err
-		}
-		v := sub.CurrentVersion + 1
-		vkey := blob.DocumentVersion(sub.TenantID, sub.ID, v)
-		sum, err := s.d.Blob.Put(ctx, vkey, bytes.NewReader(signed), int64(len(signed)), "application/pdf")
-		if err != nil {
-			return err
-		}
-		objects = append(objects, vkey)
-		values := p.values
-		for id, b := range p.uploads {
-			k := blob.SignerUpload(sub.TenantID, sub.ID, sg.ID, id, ext(b))
-			if _, err := s.d.Blob.Put(ctx, k, bytes.NewReader(b), int64(len(b)), "application/octet-stream"); err != nil {
-				return err
-			}
-			objects = append(objects, k)
-			values[id] = k
-		}
-		if len(in.Signature) > 0 {
-			k := blob.SignerUpload(sub.TenantID, sub.ID, sg.ID, "signature", ext(in.Signature))
-			if _, err := s.d.Blob.Put(ctx, k, bytes.NewReader(in.Signature), int64(len(in.Signature)), "application/octet-stream"); err != nil {
-				return err
-			}
-			objects = append(objects, k)
-		}
-		sid := sg.ID
-		if err := tx.AddVersion(ctx, store.DocumentVersion{SubmissionID: sub.ID, Version: v, TenantID: sub.TenantID,
-			ObjectKey: vkey, SHA256: sum, Size: int64(len(signed)), SignerID: &sid, CreatedAt: now}); err != nil {
 			return err
 		}
 		certID := cert.ID
-		sg.Status, sg.Values, sg.Method, sg.CertificateID = store.SignerSigned, values, store.MethodLocal, &certID
-		sg.CertSubject, sg.CertSerial, sg.CertIssuer = chain[0].Subject.CommonName, cert.Serial, chain[0].Issuer.CommonName
-		sg.IP, sg.UserAgent, sg.SignedAt, sg.NextReminderAt = in.IP, clip(in.UserAgent, 300), &now, nil
-		if err := tx.UpdateSigner(ctx, sg); err != nil {
-			return err
-		}
-		if err := submissions.Event(ctx, tx, sub.TenantID, sub.ID, &sid, subj.UserID, "signer.signed",
-			map[string]any{"method": store.MethodLocal, "version": v}, now); err != nil {
-			return err
-		}
-		for i := range all {
-			if all[i].ID == sg.ID {
-				all[i] = sg
-			}
-		}
-		sub.CurrentVersion, sub.UpdatedAt = v, now
-		if completed = submissions.Complete(all); completed {
-			sub.Status, sub.CompletedAt, sub.FinalVersion = store.SubmissionCompleted, &now, &v
-			if err := tx.EnqueueJob(ctx, store.Job{ID: store.NewID(), TenantID: sub.TenantID, Kind: "audit_trail",
-				SubmissionID: sub.ID, NextAttemptAt: now, CreatedAt: now}); err != nil {
-				return err
-			}
-			if err := submissions.Event(ctx, tx, sub.TenantID, sub.ID, nil, "", "submission.completed", map[string]any{"final_version": v}, now); err != nil {
-				return err
-			}
-		} else if invited, err = submissions.MarkInvited(ctx, tx, sub, submissions.Due(sub, all), now); err != nil {
-			return err
-		}
-		return tx.UpdateSubmission(ctx, sub)
+		c, err = s.commit(ctx, tx, subj, sub, all, sg, finished{pdf: pdf, values: p.values, uploads: p.uploads, signature: in.Signature,
+			method: store.MethodLocal, certID: &certID, subject: chain[0].Subject.CommonName, serial: cert.Serial,
+			issuer: chain[0].Issuer.CommonName, ip: in.IP, ua: in.UserAgent}, now)
+		return err
 	})
 	if err != nil {
-		for _, k := range objects {
-			_ = s.d.Blob.Delete(context.WithoutCancel(ctx), k)
-		}
+		s.cleanup(ctx, c.objects)
 		return Result{}, err
 	}
-	s.record(ctx, subj, audit.SignerSign, signerID, audit.OutcomeOK, "", map[string]any{"method": store.MethodLocal, "version": sub.CurrentVersion})
-	s.d.Events.InboxChanged(ctx, sub.TenantID, sg.UserID, events.InboxPayload{SignerID: sg.ID, SubmissionID: sub.ID, State: "signed"})
-	if len(invited) > 0 {
-		s.d.Subs.Invite(ctx, sub, invited, mail.NextSigner)
+	return s.after(ctx, subj, c, store.MethodLocal), nil
+}
+
+// finished is a signature ready to be recorded.
+type finished struct {
+	pdf                     []byte
+	values                  map[string]string
+	uploads                 map[string][]byte
+	signature               []byte // the drawn/typed signature image
+	method                  string
+	certID                  *string
+	subject, serial, issuer string
+	ip, ua                  string
+}
+
+// committed is what a recorded signature changed.
+type committed struct {
+	sub       store.Submission
+	signer    store.Signer
+	invited   []store.Signer
+	completed bool
+	objects   []string // stored objects (removed again when the transaction fails)
+}
+
+// commit stores version n+1 and the uploads, marks the signer signed and
+// invites the next signers or completes the submission (research D3 steps
+// 3–4, D9). It runs inside the transaction holding the submission lock.
+func (s *Service) commit(ctx context.Context, tx repo.Store, subj authz.Subjects, sub store.Submission, all []store.Signer,
+	sg store.Signer, f finished, now time.Time) (committed, error) {
+	c := committed{}
+	v := sub.CurrentVersion + 1
+	vkey := blob.DocumentVersion(sub.TenantID, sub.ID, v)
+	sum, err := s.d.Blob.Put(ctx, vkey, bytes.NewReader(f.pdf), int64(len(f.pdf)), "application/pdf")
+	if err != nil {
+		return c, err
 	}
-	if completed && s.d.OnCompleted != nil {
+	c.objects = append(c.objects, vkey)
+	values := map[string]string{}
+	for k, x := range f.values {
+		values[k] = x
+	}
+	for id, b := range f.uploads {
+		k := blob.SignerUpload(sub.TenantID, sub.ID, sg.ID, id, ext(b))
+		if _, err := s.d.Blob.Put(ctx, k, bytes.NewReader(b), int64(len(b)), "application/octet-stream"); err != nil {
+			return c, err
+		}
+		c.objects = append(c.objects, k)
+		values[id] = k
+	}
+	if len(f.signature) > 0 {
+		k := blob.SignerUpload(sub.TenantID, sub.ID, sg.ID, "signature", ext(f.signature))
+		if _, err := s.d.Blob.Put(ctx, k, bytes.NewReader(f.signature), int64(len(f.signature)), "application/octet-stream"); err != nil {
+			return c, err
+		}
+		c.objects = append(c.objects, k)
+	}
+	sid := sg.ID
+	if err := tx.AddVersion(ctx, store.DocumentVersion{SubmissionID: sub.ID, Version: v, TenantID: sub.TenantID,
+		ObjectKey: vkey, SHA256: sum, Size: int64(len(f.pdf)), SignerID: &sid, CreatedAt: now}); err != nil {
+		return c, err
+	}
+	sg.Status, sg.Values, sg.Method, sg.CertificateID = store.SignerSigned, values, f.method, f.certID
+	sg.CertSubject, sg.CertSerial, sg.CertIssuer = f.subject, f.serial, f.issuer
+	sg.IP, sg.UserAgent, sg.SignedAt, sg.NextReminderAt = f.ip, clip(f.ua, 300), &now, nil
+	if err := tx.UpdateSigner(ctx, sg); err != nil {
+		return c, err
+	}
+	if err := submissions.Event(ctx, tx, sub.TenantID, sub.ID, &sid, subj.UserID, "signer.signed",
+		map[string]any{"method": f.method, "version": v}, now); err != nil {
+		return c, err
+	}
+	for i := range all {
+		if all[i].ID == sg.ID {
+			all[i] = sg
+		}
+	}
+	sub.CurrentVersion, sub.UpdatedAt = v, now
+	if c.completed = submissions.Complete(all); c.completed {
+		sub.Status, sub.CompletedAt, sub.FinalVersion = store.SubmissionCompleted, &now, &v
+		if err := tx.EnqueueJob(ctx, store.Job{ID: store.NewID(), TenantID: sub.TenantID, Kind: "audit_trail",
+			SubmissionID: sub.ID, NextAttemptAt: now, CreatedAt: now}); err != nil {
+			return c, err
+		}
+		if err := submissions.Event(ctx, tx, sub.TenantID, sub.ID, nil, "", "submission.completed", map[string]any{"final_version": v}, now); err != nil {
+			return c, err
+		}
+	} else if c.invited, err = submissions.MarkInvited(ctx, tx, sub, submissions.Due(sub, all), now); err != nil {
+		return c, err
+	}
+	c.sub, c.signer = sub, sg
+	return c, tx.UpdateSubmission(ctx, sub)
+}
+
+// cleanup removes the objects of a rolled-back signature.
+func (s *Service) cleanup(ctx context.Context, objects []string) {
+	for _, k := range objects {
+		_ = s.d.Blob.Delete(context.WithoutCancel(ctx), k)
+	}
+}
+
+// after announces a recorded signature (after commit).
+func (s *Service) after(ctx context.Context, subj authz.Subjects, c committed, method string) Result {
+	s.record(ctx, subj, audit.SignerSign, c.signer.ID, audit.OutcomeOK, "", map[string]any{"method": method, "version": c.sub.CurrentVersion})
+	s.d.Events.InboxChanged(ctx, c.sub.TenantID, c.signer.UserID, events.InboxPayload{SignerID: c.signer.ID, SubmissionID: c.sub.ID, State: "signed"})
+	if len(c.invited) > 0 {
+		s.d.Subs.Invite(ctx, c.sub, c.invited, mail.NextSigner)
+	}
+	if c.completed && s.d.OnCompleted != nil {
 		s.d.OnCompleted()
 	}
-	return Result{SignerStatus: sg.Status, SubmissionStatus: sub.Status}, nil
+	return Result{SignerStatus: c.signer.Status, SubmissionStatus: c.sub.Status}
 }
 
 func clip(s string, n int) string {

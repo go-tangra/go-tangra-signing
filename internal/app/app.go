@@ -167,9 +167,13 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 		Contacts: a.Contacts, Mail: a.Mail, Events: a.Events, Now: a.Now,
 		Limits: submissions.Limits{MaxSigners: l.MaxSigners, MaxPDFBytes: l.MaxPDFBytes}})
 	a.Jobs = jobs.New(jobs.Deps{Store: a.Repo, Blob: a.Blob, PKI: a.PKI, Subs: a.Submissions, Contacts: a.Contacts,
-		Events: a.Events, Log: a.Log, Now: a.Now, MaxBytes: l.MaxPDFBytes})
+		Events: a.Events, Log: a.Log, Now: a.Now, MaxBytes: l.MaxPDFBytes, Interval: cfg.AuditJobInterval()})
 	a.workers = append(a.workers, a.Jobs.Run)
-	a.Signing = signing.New(signing.Deps{OnCompleted: a.Jobs.Kick, Store: a.Repo, Blob: a.Blob, Audit: a.Audit, Subs: a.Submissions, Me: a.Me, PKI: a.PKI,
+	origin, err := qesOrigin(cfg.QES)
+	if err != nil {
+		return nil, err
+	}
+	a.Signing = signing.New(signing.Deps{OnCompleted: a.Jobs.Kick, QESTTL: cfg.QESPreparationTTL(), Origin: origin, Store: a.Repo, Blob: a.Blob, Audit: a.Audit, Subs: a.Submissions, Me: a.Me, PKI: a.PKI,
 		Events: a.Events, Metrics: a.Metrics, Now: a.Now,
 		Limits: signing.Limits{MaxPDFBytes: l.MaxPDFBytes, MaxImageBytes: int(l.MaxImageBytes), MaxFileBytes: l.MaxFieldUploadBytes},
 		Limited: func(ctx context.Context, tenantID, userID string) (bool, error) {

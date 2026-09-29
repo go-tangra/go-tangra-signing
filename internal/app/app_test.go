@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"encoding/pem"
 	"errors"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pdf/pdftest"
@@ -207,6 +208,29 @@ func TestTrustRoots(t *testing.T) {
 	cfg.Verify.ExtraRootsFile = bad
 	if _, err := Build(context.Background(), cfg, options()); err == nil {
 		t.Fatal("build with a bad roots file")
+	}
+}
+
+func TestQESOrigin(t *testing.T) {
+	if o, err := qesOrigin(config.QES{}); o != nil || err != nil {
+		t.Fatal("not configured")
+	}
+	dir := t.TempDir()
+	card := pdftest.Card("portal.example.org")
+	certFile, keyFile := filepath.Join(dir, "c.pem"), filepath.Join(dir, "k.pem")
+	_ = os.WriteFile(certFile, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: card.Cert.Raw}), 0o600)
+	_ = os.WriteFile(keyFile, pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(card.Key)}), 0o600)
+	o, err := qesOrigin(config.QES{OriginCertFile: certFile, OriginKeyFile: keyFile})
+	if err != nil || o.Cert.Subject.CommonName != "portal.example.org" || o.Signer == nil {
+		t.Fatalf("origin: %v", err)
+	}
+	if _, err := qesOrigin(config.QES{OriginCertFile: certFile, OriginKeyFile: certFile}); err == nil {
+		t.Fatal("certificate as key accepted")
+	}
+	cfg := testConfig()
+	cfg.QES = config.QES{OriginCertFile: keyFile, OriginKeyFile: keyFile}
+	if _, err := Build(context.Background(), cfg, options()); err == nil {
+		t.Fatal("build with a bad origin")
 	}
 }
 

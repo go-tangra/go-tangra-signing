@@ -81,9 +81,10 @@ func TestValidateRefusals(t *testing.T) {
 			*c = prod()
 			c.Valkey.AllowPlaintext = true
 		},
-		"no gateway":  func(c *Config) { c.Gateway.Service = "" },
-		"http issuer": func(c *Config) { c.Gateway.Issuer = "http://gw" },
-		"bad issuer":  func(c *Config) { c.Gateway.Issuer = "://" },
+		"qes cert only": func(c *Config) { c.QES.OriginCertFile = "/etc/signing/origin.pem" },
+		"no gateway":    func(c *Config) { c.Gateway.Service = "" },
+		"http issuer":   func(c *Config) { c.Gateway.Issuer = "http://gw" },
+		"bad issuer":    func(c *Config) { c.Gateway.Issuer = "://" },
 		"prod insecure mesh": func(c *Config) {
 			*c = prod()
 			c.MeshEnroll = MeshEnroll{Enabled: true, Insecure: true}

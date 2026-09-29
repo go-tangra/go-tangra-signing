@@ -7,7 +7,9 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"errors"
 	"image"
 	"image/color"
@@ -158,7 +160,7 @@ func TestExternalSignature(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(prep.Digest) != 32 || !bytes.HasPrefix(prep.PDF, base) {
+	if sum := sha256.Sum256(prep.SignedAttrs); len(prep.Digest) != 32 || !bytes.Equal(sum[:], prep.Digest) || !bytes.HasPrefix(prep.PDF, base) {
 		t.Fatalf("prepared: digest %d", len(prep.Digest))
 	}
 	sig, err := rsa.SignPKCS1v15(rand.Reader, card.Key, crypto.SHA256, prep.Digest)
@@ -253,6 +255,37 @@ func TestExternalRefusals(t *testing.T) {
 	huge := append(sig, bytes.Repeat([]byte{0}, end-start)...)
 	if _, err := completeUnchecked(prep.PDF, huge); !errors.Is(err, ErrTooLarge) {
 		t.Fatalf("too large: %v", err)
+	}
+}
+
+func TestPreparedAttrsRefusals(t *testing.T) {
+	if _, err := preparedAttrs(pdftest.Contract(1)); !errors.Is(err, ErrPrepared) {
+		t.Fatalf("unsigned: %v", err)
+	}
+	card := pdftest.Card("X")
+	prep, err := Prepare(pdftest.Contract(1), card.Chain, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	start, end, _ := contents(prep.PDF)
+	bad := append([]byte(nil), prep.PDF...)
+	bad[start] = 'z'
+	if _, err := preparedAttrs(bad); !errors.Is(err, ErrPrepared) {
+		t.Fatalf("non-hex: %v", err)
+	}
+	for i := start; i < end; i++ {
+		bad[i] = '0'
+	}
+	if _, err := preparedAttrs(bad); !errors.Is(err, ErrPrepared) {
+		t.Fatalf("zeros: %v", err)
+	}
+	// A CMS without signed attributes (index 3 is not [0]).
+	noAttrs := []byte{0x30, 0x0f, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x07, 0x02, 0xa0, 0x02, 0x30, 0x00}
+	enc := make([]byte, hex.EncodedLen(len(noAttrs)))
+	hex.Encode(enc, noAttrs)
+	copy(bad[start:], enc)
+	if _, err := preparedAttrs(bad); !errors.Is(err, ErrPrepared) {
+		t.Fatalf("no attrs: %v", err)
 	}
 }
 
