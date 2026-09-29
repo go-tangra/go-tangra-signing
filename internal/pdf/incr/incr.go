@@ -141,6 +141,11 @@ func AddStamps(pdf []byte, stamps []Stamp) ([]byte, error) {
 	if ctx.HeaderVersion != nil && *ctx.HeaderVersion < model.V14 {
 		return nil, ErrVersion
 	}
+	// Keep the file's own cross-reference format: readers (digitorus/pdf,
+	// used by the signer) cannot follow an xref stream whose /Prev is a
+	// classic table.
+	ctx.Configuration.WriteObjectStream = false
+	ctx.Configuration.WriteXRefStream = ctx.Read.UsingXRefStreams
 	ctx.Write.Increment = true
 	ctx.Write.Offset = ctx.Read.FileSize
 	before := *ctx.XRefTable.Size

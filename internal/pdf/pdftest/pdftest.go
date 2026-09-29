@@ -5,16 +5,22 @@
 package pdftest
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"fmt"
+	"io"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"time"
 
+	"github.com/digitorus/timestamp"
 	"github.com/signintech/gopdf"
 
 	"github.com/go-tangra/go-tangra-signing/v4/internal/pdf/fonts"
@@ -138,4 +144,43 @@ func Card(cn string) RSACard {
 func serial() *big.Int {
 	n, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 127))
 	return n
+}
+
+// TSA serves RFC 3161 time-stamps from a throwaway authority issued by ca;
+// every token carries the time at. Close the server when done.
+func TSA(ca Identity, at time.Time) *httptest.Server {
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	tpl := &x509.Certificate{
+		SerialNumber: serial(),
+		Subject:      pkix.Name{CommonName: "Test TSA"},
+		NotBefore:    time.Now().AddDate(-1, 0, 0),
+		NotAfter:     time.Now().AddDate(1, 0, 0),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tpl, ca.Cert, &key.PublicKey, ca.Key)
+	if err != nil {
+		panic(err)
+	}
+	cert, _ := x509.ParseCertificate(der)
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(io.LimitReader(r.Body, 1<<16))
+		req, err := timestamp.ParseRequest(body)
+		if err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		ts := timestamp.Timestamp{
+			HashAlgorithm: req.HashAlgorithm, HashedMessage: req.HashedMessage,
+			Time: at, Policy: asn1.ObjectIdentifier{1, 2, 3, 4}, Nonce: req.Nonce,
+			AddTSACertificate: true,
+		}
+		resp, err := ts.CreateResponseWithOpts(cert, key, crypto.SHA256)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/timestamp-reply")
+		_, _ = w.Write(resp)
+	}))
 }
