@@ -16,43 +16,43 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 
 ## Phase 1: Setup
 
-- [ ] T001 Orphan branch `v4` of go-tangra-signing as worktree `go-tangra-signing-v4`; copy `specs/027-signing-v4/`; `go.mod` (module …/v4, go 1.26.3, toolchain 1.26.8), `.gitignore`, `.dockerignore`, `deploy/kek.dev` (dev KEK, 32 bytes base64).
-- [ ] T002 [P] `Makefile` (lint, vuln, test, test-integration, cover, fuzz, ui-build, build, build-ui, image), `scripts/coverage-gate.sh` (≥ 80 %, 100 % authz/pincrypto/rules/qes/pdf/limits), `scripts/vulncheck.sh`, `Dockerfile` (ui → build -tags ui → alpine, `signingsvc`, fonts embedded), `.github/workflows/ci.yaml` (go vet/test, UI lint/unit, image `ghcr.io/go-tangra/go-tangra-signing`, semver tags, no latest).
-- [ ] T003 [P] UI scaffold `ui/` from go-tangra-scheduler-v4/ui (package `go-tangra-signing-ui`, `@go-tangra/ui` ^4.2.3, `pdfjs-dist` ^4, vite base `/m/signing/`, remote `signing`, `layer(utilities)`, `breakpointSpecificity`, icon safelist test from scheduler), `ui/embed.go`, `ui/embed_stub.go`.
-- [ ] T004 [P] Test fixtures `tests/testdata/`: `contract.pdf` (dotted placeholders, 3 pages, Cyrillic text), `signed-external.pdf` (already signed), `encrypted.pdf`, `huge-pages.pdf` generator, `not-a-pdf.pdf`, test CA + "card" chain for QES (`tests/qes/`).
+- [x] T001 Orphan branch `v4` of go-tangra-signing as worktree `go-tangra-signing-v4`; copy `specs/027-signing-v4/`; `go.mod` (module …/v4, go 1.26.3, toolchain 1.26.8), `.gitignore`, `.dockerignore`, `deploy/kek.dev` (dev KEK, 32 bytes base64).
+- [x] T002 [P] `Makefile` (lint, vuln, test, test-integration, cover, fuzz, ui-build, build, build-ui, image), `scripts/coverage-gate.sh` (≥ 80 %, 100 % authz/pincrypto/rules/qes/pdf/limits), `scripts/vulncheck.sh`, `Dockerfile` (ui → build -tags ui → alpine, `signingsvc`, fonts embedded), `.github/workflows/ci.yaml` (go vet/test, UI lint/unit, image `ghcr.io/go-tangra/go-tangra-signing`, semver tags, no latest).
+- [x] T003 [P] UI scaffold `ui/` from go-tangra-scheduler-v4/ui (package `go-tangra-signing-ui`, `@go-tangra/ui` ^4.2.3, `pdfjs-dist` ^4, vite base `/m/signing/`, remote `signing`, `layer(utilities)`, `breakpointSpecificity`, icon safelist test from scheduler), `ui/embed.go`, `ui/embed_stub.go`.
+- [x] T004 [P] Test fixtures `tests/testdata/`: `contract.pdf` (dotted placeholders, 3 pages, Cyrillic text), `signed-external.pdf` (already signed), `encrypted.pdf`, `huge-pages.pdf` generator, `not-a-pdf.pdf`, test CA + "card" chain for QES (`tests/qes/`).
 
 ## Phase 2: Foundational
 
 ### Tests (write first, must fail)
-- [ ] T005 [P] `internal/config/config_test.go` — defaults, unknown keys refused, required db/valkey/object_store/kek/gateway, production guards (sslmode, plaintext valkey, object store use_ssl, insecure enroll), limits bounds, `links.portal_base_url`, warnings.
-- [ ] T006 [P] `internal/authz/authz_test.go` — permissions (`signing:read`, `templates:manage`, `submissions:create`, `submissions:manage`, `certificates:manage`, `backup:manage`), Require for user/system/service actors, platform admin, participant and sender relations, not-found masking. 100 %.
-- [ ] T007 [P] `internal/audit/audit_test.go` — vocabulary (contracts/audit-events.md), refusal of unknown actions, redaction of values/pin/key/signature/reason keys, writer flush/close/drop.
-- [ ] T008 [P] `internal/sealed/sealed_test.go` + `internal/blob/blob_test.go` (copied from paperless with their tests; fake store).
-- [ ] T009 [P] `internal/pdf/limits/limits_test.go` + `limits_fuzz_test.go` — MIME sniff, size, page count, encrypted refused, signed detection, parse timeout, panic recovery → `invalid_pdf`. 100 %.
-- [ ] T010 [P] `pkg/signingmanifest/manifest_test.go` — routes from OpenAPI (every route has a known permission or `member`), permissions, roles (administrator/operator/sender/viewer), grants (owner/admin → administrator, auditor → viewer, member → none), abilities, nav.
+- [x] T005 [P] `internal/config/config_test.go` — defaults, unknown keys refused, required db/valkey/object_store/kek/gateway, production guards (sslmode, plaintext valkey, object store use_ssl, insecure enroll), limits bounds, `links.portal_base_url`, warnings.
+- [x] T006 [P] `internal/authz/authz_test.go` — permissions (`signing:read`, `templates:manage`, `submissions:create`, `submissions:manage`, `certificates:manage`, `backup:manage`), Require for user/system/service actors, platform admin, participant and sender relations, not-found masking. 100 %.
+- [x] T007 [P] `internal/audit/audit_test.go` — vocabulary (contracts/audit-events.md), refusal of unknown actions, redaction of values/pin/key/signature/reason keys, writer flush/close/drop.
+- [x] T008 [P] `internal/sealed/sealed_test.go` + `internal/blob/blob_test.go` (copied from paperless with their tests; fake store).
+- [x] T009 [P] `internal/pdf/limits/limits_test.go` + `limits_fuzz_test.go` — MIME sniff, size, page count, encrypted refused, signed detection, parse timeout, panic recovery → `invalid_pdf`. 100 %.
+- [x] T010 [P] `pkg/signingmanifest/manifest_test.go` — routes from OpenAPI (every route has a known permission or `member`), permissions, roles (administrator/operator/sender/viewer), grants (owner/admin → administrator, auditor → viewer, member → none), abilities, nav.
 - [ ] T011 [P] `tests/contract/openapi_test.go` — document valid; every declared route mounted; no undeclared route; binary routes carry `x-freya-max-body-bytes`; error envelope.
 
 ### Implementation
-- [ ] T012 `internal/config/config.go` — framework config inline + db, valkey, object_store, kek, gateway, mesh_enroll, discovery, task_scheduler, notification, warden, links (`portal_base_url`), limits (pdf bytes/pages/fields/signers, image bytes, backup bytes, rate), signing (ca/cert validity, pin min/max, lock attempts/duration), verify (`extra_roots_file`), events.
-- [ ] T013 [P] `internal/authz/authz.go` — permissions, Checker (auth `Authorization/Check`), Require, RequireParticipant/Sender helpers, platform admin.
-- [ ] T014 [P] `internal/audit/audit.go` — closed vocabulary, redaction, async writer.
-- [ ] T015 [P] Copy `internal/sealed/` and `internal/blob/` from go-tangra-paperless-v4 (bucket/key helpers `tenants/<t>/…`).
-- [ ] T016 [P] `internal/pdf/limits/limits.go` — `Open(ctx, r, Limits) (*Doc, error)` with sniff, size, pdfcpu relaxed validation under context timeout, page/field counts, encryption and signature detection, recover guard.
-- [ ] T017 `internal/store/` — migrations `0001_schema.sql` (all tables of data-model.md with checks and indexes), `0002_audit.sql` (hypertable), `0003_rls.sql` (FORCE RLS + system scope + grants); `store.go` (pool, Migrate under advisory lock, Tx with Scope/SystemScope), `ids.go` (UUIDv7).
-- [ ] T018 `internal/repo/repo.go` — storage contract (folders, templates, submissions, signers, versions, certificates, qes, events, jobs, task queries, backup, audit) + sentinel errors; `internal/memstore/` fake (+ tests).
-- [ ] T019 `internal/repo/repodb/` — pgx implementation + `repodb_integration_test.go` (`//go:build integration`): migrations, RLS isolation between two tenants, system scope, unique active signer certificate, `FOR UPDATE` serialisation of two concurrent signers.
-- [ ] T020 [P] `internal/metrics/metrics.go` — signings{method,outcome}, pin_failures, qes{phase,outcome}, mail_failures, jobs_backlog; nil-safe.
-- [ ] T021 [P] `internal/stream/` (copy scheduler hub) + `internal/events/events.go` (types of contracts/cross-module.md; ids only) + tests.
-- [ ] T022 `api/openapi/signing.yaml` (contracts/signing-api.md) + `embed.go`.
-- [ ] T023 `internal/httpapi/` — server (OpenAPI validation, authenticate, authorize, binary routes, streamed downloads with `Content-Disposition` and `nosniff`, multipart helper with per-part limits, 501 until wired), errors, JSON helpers.
-- [ ] T024 `pkg/signingmanifest/manifest.go` — module `signing`, prefix `/api/signing`, permissions, roles, grants, abilities (`SigningTemplate`, `SigningSubmission`, `SigningCertificate`, `SigningDocument`, `SigningBackup`), nav (Templates, Submissions, To sign, Certificates, Verify).
-- [ ] T025 `internal/app/` — Build (runtime + mesh enrol, store, blob EnsureBucket, sealed KEK, auth peers, stream, metrics, services, HTTP, gRPC), Run (verifier, gateway lease, auth permission/role registration loop, workers); `cmd/signingsvc/{main.go,version.go}` (+ `bootstrap` migrate subcommand); `deploy/{policy.yaml,container.yaml,README.md}` (contracts/mesh-policies.md).
+- [x] T012 `internal/config/config.go` — framework config inline + db, valkey, object_store, kek, gateway, mesh_enroll, discovery, task_scheduler, notification, warden, links (`portal_base_url`), limits (pdf bytes/pages/fields/signers, image bytes, backup bytes, rate), signing (ca/cert validity, pin min/max, lock attempts/duration), verify (`extra_roots_file`), events.
+- [x] T013 [P] `internal/authz/authz.go` — permissions, Checker (auth `Authorization/Check`), Require, RequireParticipant/Sender helpers, platform admin.
+- [x] T014 [P] `internal/audit/audit.go` — closed vocabulary, redaction, async writer.
+- [x] T015 [P] Copy `internal/sealed/` and `internal/blob/` from go-tangra-paperless-v4 (bucket/key helpers `tenants/<t>/…`).
+- [x] T016 [P] `internal/pdf/limits/limits.go` — `Open(ctx, r, Limits) (*Doc, error)` with sniff, size, pdfcpu relaxed validation under context timeout, page/field counts, encryption and signature detection, recover guard.
+- [x] T017 `internal/store/` — migrations `0001_schema.sql` (all tables of data-model.md with checks and indexes), `0002_audit.sql` (hypertable), `0003_rls.sql` (FORCE RLS + system scope + grants); `store.go` (pool, Migrate under advisory lock, Tx with Scope/SystemScope), `ids.go` (UUIDv7).
+- [x] T018 `internal/repo/repo.go` — storage contract (folders, templates, submissions, signers, versions, certificates, qes, events, jobs, task queries, backup, audit) + sentinel errors; `internal/memstore/` fake (+ tests).
+- [x] T019 `internal/repo/repodb/` — pgx implementation + `repodb_integration_test.go` (`//go:build integration`): migrations, RLS isolation between two tenants, system scope, unique active signer certificate, `FOR UPDATE` serialisation of two concurrent signers.
+- [x] T020 [P] `internal/metrics/metrics.go` — signings{method,outcome}, pin_failures, qes{phase,outcome}, mail_failures, jobs_backlog; nil-safe.
+- [x] T021 [P] `internal/stream/` (copy scheduler hub) + `internal/events/events.go` (types of contracts/cross-module.md; ids only) + tests.
+- [x] T022 `api/openapi/signing.yaml` (contracts/signing-api.md) + `embed.go`.
+- [x] T023 `internal/httpapi/` — server (OpenAPI validation, authenticate, authorize, binary routes, streamed downloads with `Content-Disposition` and `nosniff`, multipart helper with per-part limits, 501 until wired), errors, JSON helpers.
+- [x] T024 `pkg/signingmanifest/manifest.go` — module `signing`, prefix `/api/signing`, permissions, roles, grants, abilities (`SigningTemplate`, `SigningSubmission`, `SigningCertificate`, `SigningDocument`, `SigningBackup`), nav (Templates, Submissions, To sign, Certificates, Verify).
+- [x] T025 `internal/app/` — Build (runtime + mesh enrol, store, blob EnsureBucket, sealed KEK, auth peers, stream, metrics, services, HTTP, gRPC), Run (verifier, gateway lease, auth permission/role registration loop, workers); `cmd/signingsvc/{main.go,version.go}` (+ `bootstrap` migrate subcommand); `deploy/{policy.yaml,container.yaml,README.md}` (contracts/mesh-policies.md).
 
 ## Phase 3: Cross-module prerequisites (parallel with Phases 4–6)
 
 - [ ] T026 [P] go-tangra (framework, branch `027-connect-sources`): tests first in `transport/edge/headers_test.go` + `server_test.go` (empty = unchanged header byte-for-byte; valid origins spliced into `connect-src`; invalid origin/path/http refused by `NewServer`), then `edge.Config.ConnectSources` + `connectSources()`; CHANGELOG 4.2.4.
 - [ ] T027 [P] go-tangra-portal-v4 (branch `027-connect-sources`): config `edge.connect_sources` (+ validation test), passed through `edgeConfig`; TEMP replace on the framework.
-- [ ] T028 [P] go-tangra-auth (branch `027-profiles-contacts`): proto `Profiles.Contacts` (contracts/cross-module.md) + generated; tests first (tenant grant mismatch refused, inactive/foreign/unknown omitted, ≤ 100 ids, phone never returned, audit count only, policy denies other services); server implementation; `deploy/policy.yaml` rule `signing-profiles` + svc/signing in Authorization/Check and module-role registration rules.
+- [x] T028 [P] go-tangra-auth (branch `027-profiles-contacts`): proto `Profiles.Contacts` (contracts/cross-module.md) + generated; tests first (tenant grant mismatch refused, inactive/foreign/unknown omitted, ≤ 100 ids, phone never returned, audit count only, policy denies other services); server implementation; `deploy/policy.yaml` rule `signing-profiles` + svc/signing in Authorization/Check and module-role registration rules.
 - [ ] T029 [P] go-tangra-notification-v4 (branch `027-signing-mail`): tests first (templates render with required variables, missing variable refused, key prefix enforcement for svc/signing); nine `signing.*` system templates; policy `modules-send` gains svc/signing.
 - [ ] T030 [P] go-tangra-scheduler-v4 (branch `027-signing`): policy `modules-register` + `discovery.static.signing`; go-tangra-warden-v4 (branch `027-signing`): policy on-behalf read for svc/signing (+ policy tests where present).
 - [ ] T031 [P] go-tangra/deploy/stack (branch `027-signing`): compose `signing-token`, `signing` (depends lcm, gateway, timescaledb, valkey, rustfs), `configs/signing.yaml`, init-db (database, role, extensions), Valkey ACL user, RustFS bucket, gateway `-allow svc/signing=/api/signing;signing`, portal `edge.connect_sources` (BISS origins), consumer policies.
@@ -63,18 +63,18 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 **Independent test**: all field types for two parties survive save/reopen; auto-detect proposes fields on `contract.pdf`.
 
 ### Tests (write first, must fail)
-- [ ] T032 [P] [US1] `internal/templates/fields_test.go` + fuzz — field validation (types, unique names, party exists, page ≤ pages, geometry in [0,1], options for select/radio, font size bounds, ≤ 500 fields), parties 1..50; conditions/formula stored structurally valid (full rule validation arrives in US6).
-- [ ] T033 [P] [US1] `internal/templates/templates_test.go` — create (limits → `invalid_pdf`, `payload_too_large`), get/list with folder/tag/status/q filters, update, version conflict, clone copies object and fields, archive/activate, delete refused while in use, tenant scoping, audit rows.
-- [ ] T034 [P] [US1] `internal/templates/folders_test.go` — create/rename/move (cycle refused, depth ≤ 8), path maintenance, unique names, delete non-empty refused.
-- [ ] T035 [P] [US1] `internal/pdf/detect/detect_test.go` — placeholders found on `contract.pdf` with font/size; bounded time; empty result on image-only PDF.
-- [ ] T036 [P] [US1] `internal/httpapi/templates_test.go` — upload multipart (MIME, size), PDF streaming download with tenant check (foreign id → 404), detect-fields requires `templates:manage`.
+- [x] T032 [P] [US1] `internal/templates/fields_test.go` + fuzz — field validation (types, unique names, party exists, page ≤ pages, geometry in [0,1], options for select/radio, font size bounds, ≤ 500 fields), parties 1..50; conditions/formula stored structurally valid (full rule validation arrives in US6).
+- [x] T033 [P] [US1] `internal/templates/templates_test.go` — create (limits → `invalid_pdf`, `payload_too_large`), get/list with folder/tag/status/q filters, update, version conflict, clone copies object and fields, archive/activate, delete refused while in use, tenant scoping, audit rows.
+- [x] T034 [P] [US1] `internal/templates/folders_test.go` — create/rename/move (cycle refused, depth ≤ 8), path maintenance, unique names, delete non-empty refused.
+- [x] T035 [P] [US1] `internal/pdf/detect/detect_test.go` — placeholders found on `contract.pdf` with font/size; bounded time; empty result on image-only PDF.
+- [x] T036 [P] [US1] `internal/httpapi/templates_test.go` — upload multipart (MIME, size), PDF streaming download with tenant check (foreign id → 404), detect-fields requires `templates:manage`.
 
 ### Implementation
-- [ ] T037 [US1] `internal/templates/{fields.go,templates.go,folders.go}` — services per data-model.md (object key `tenants/<t>/templates/<id>/<uuid>.pdf`, sha256, pages, pdf_signed).
-- [ ] T038 [P] [US1] `internal/pdf/detect/detect.go` — port v3 `internal/service/detect.go` on go-pdfplumber, returning proposed fields.
-- [ ] T039 [US1] `internal/httpapi/templates.go` — folder, template, fields, clone, pdf, detect-fields handlers.
-- [ ] T040 [P] [US1] UI tests `ui/tests/unit/{builder.spec.ts,templates.spec.ts}` — palette drag creates fields in page fractions, move/resize, party assignment, properties, save/reload round-trip, folder tree and filters.
-- [ ] T041 [US1] UI `ui/src/components/{PdfPages.vue (pdfjs, lazy pages, isEvalSupported false, local worker),FieldOverlay.vue,FieldPalette.vue,FieldProps.vue}`, `ui/src/views/templates/` (folders tree, list, upload drawer), `ui/src/views/builder/` (builder, auto-detect, parties editor, activate).
+- [x] T037 [US1] `internal/templates/{fields.go,templates.go,folders.go}` — services per data-model.md (object key `tenants/<t>/templates/<id>/<uuid>.pdf`, sha256, pages, pdf_signed).
+- [x] T038 [P] [US1] `internal/pdf/detect/detect.go` — port v3 `internal/service/detect.go` on go-pdfplumber, returning proposed fields.
+- [x] T039 [US1] `internal/httpapi/templates.go` — folder, template, fields, clone, pdf, detect-fields handlers.
+- [x] T040 [P] [US1] UI tests `ui/tests/unit/{builder.spec.ts,templates.spec.ts}` — palette drag creates fields in page fractions, move/resize, party assignment, properties, save/reload round-trip, folder tree and filters.
+- [x] T041 [US1] UI `ui/src/components/{PdfPages.vue (pdfjs, lazy pages, isEvalSupported false, local worker),FieldOverlay.vue,FieldPalette.vue,FieldProps.vue}`, `ui/src/views/templates/` (folders tree, list, upload drawer), `ui/src/views/builder/` (builder, auto-detect, parties editor, activate).
 
 ## Phase 5: User Story 3 — Personal certificate with a PIN (P1)
 
@@ -82,16 +82,16 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 **Independent test**: setup creates a certificate chained to the tenant CA with the transliterated name and e-mail; the key is unusable without the PIN.
 
 ### Tests (write first, must fail)
-- [ ] T042 [P] [US3] `internal/pincrypto/pincrypto_test.go` + fuzz — envelope v1 round-trip, wrong PIN → `ErrPIN`, AD binding (moved blob refused), PIN length rules, tampered envelope, lockout policy (5 failures → lock 15 min, reset on success, lock expiry). 100 %.
-- [ ] T043 [P] [US3] `internal/pki/pki_test.go` — lazy tenant CA (single under concurrency), sealed CA key, signer cert profile (KU, EKU incl. documentSigning, subject transliteration bg→Latin, e-mail, 2 y), system cert, admin cert, CRL generation, CA renewal when < 2 y left (old CA kept, new issuer).
-- [ ] T044 [P] [US3] `internal/contacts/contacts_test.go` — Contacts/Lookup/ListMembers client over bufconn (TEMP replace on the auth SDK), missing e-mail handling.
-- [ ] T045 [P] [US3] `internal/certs/me_test.go` — setup (needs e-mail from Contacts, `certificate_exists`), view, PIN change (old PIN required), renew (old superseded), self-revoke, never returns key material, audit rows.
+- [x] T042 [P] [US3] `internal/pincrypto/pincrypto_test.go` + fuzz — envelope v1 round-trip, wrong PIN → `ErrPIN`, AD binding (moved blob refused), PIN length rules, tampered envelope, lockout policy (5 failures → lock 15 min, reset on success, lock expiry). 100 %.
+- [x] T043 [P] [US3] `internal/pki/pki_test.go` — lazy tenant CA (single under concurrency), sealed CA key, signer cert profile (KU, EKU incl. documentSigning, subject transliteration bg→Latin, e-mail, 2 y), system cert, admin cert, CRL generation, CA renewal when < 2 y left (old CA kept, new issuer).
+- [x] T044 [P] [US3] `internal/contacts/contacts_test.go` — Contacts/Lookup/ListMembers client over bufconn (TEMP replace on the auth SDK), missing e-mail handling.
+- [x] T045 [P] [US3] `internal/certs/me_test.go` — setup (needs e-mail from Contacts, `certificate_exists`), view, PIN change (old PIN required), renew (old superseded), self-revoke, never returns key material, audit rows.
 
 ### Implementation
-- [ ] T046 [P] [US3] `internal/pincrypto/pincrypto.go` — PBKDF2-SHA256 600k (stdlib), AES-256-GCM envelope, lockout policy.
-- [ ] T047 [US3] `internal/pki/{ca.go,issue.go,crl.go,translit.go}` — port v3 `pkg/security/cert` onto sealed keys and the profiles of research D4.
-- [ ] T048 [P] [US3] `internal/contacts/contacts.go` — auth Profiles client (dial `auth`).
-- [ ] T049 [US3] `internal/certs/me.go` + `internal/httpapi/me.go` — `/me/certificate*` routes.
+- [x] T046 [P] [US3] `internal/pincrypto/pincrypto.go` — PBKDF2-SHA256 600k (stdlib), AES-256-GCM envelope, lockout policy.
+- [x] T047 [US3] `internal/pki/{ca.go,issue.go,crl.go,translit.go}` — port v3 `pkg/security/cert` onto sealed keys and the profiles of research D4.
+- [x] T048 [P] [US3] `internal/contacts/contacts.go` — auth Profiles client (dial `auth`).
+- [x] T049 [US3] `internal/certs/me.go` + `internal/httpapi/me.go` — `/me/certificate*` routes.
 - [ ] T050 [US3] UI `ui/src/views/certificate/` — My signing certificate (setup with PIN twice, details, change PIN, renew, revoke), shared `PinDialog.vue`.
 
 ## Phase 6: User Story 2 — Submissions and local signing (P1) 🎯 MVP part 2
@@ -100,16 +100,16 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 **Independent test**: two-signer sequential flow produces one PDF with both values and two valid PAdES signatures; wrong PIN, wrong user, wrong turn and closed submissions are refused.
 
 ### Tests (write first, must fail)
-- [ ] T051 [P] [US2] `internal/pdf/sign/sign_test.go` — port v3 signer tests; PAdES B-B attributes (signing-certificate-v2), SHA-256, incremental update keeps earlier signatures valid (sign twice, verify both), certification (DocMDP) only first, visible appearance on the first signature field, external-signing split round-trip.
-- [ ] T052 [P] [US2] `internal/pdf/overlay/overlay_test.go` — text/number/date/checkbox/select/radio/cells/image/stamp values placed at fractions on the right page; Cyrillic text; signature image placement; stamps for extra signature fields; already-signed input keeps signatures (incremental).
+- [x] T051 [P] [US2] `internal/pdf/sign/sign_test.go` — port v3 signer tests; PAdES B-B attributes (signing-certificate-v2), SHA-256, incremental update keeps earlier signatures valid (sign twice, verify both), certification (DocMDP) only first, visible appearance on the first signature field, external-signing split round-trip.
+- [x] T052 [P] [US2] `internal/pdf/overlay/overlay_test.go` — text/number/date/checkbox/select/radio/cells/image/stamp values placed at fractions on the right page; Cyrillic text; signature image placement; stamps for extra signature fields; already-signed input keeps signatures (incremental).
 - [ ] T053 [P] [US2] `internal/submissions/submissions_test.go` — create (template active + same tenant, signers are active members via Contacts, parties covered, positions, prefill validated, expiry/reminder defaults from template), frozen fields, send (sequential invites first, parallel all), inbox queries, sender vs `submissions:manage`, tenant scoping.
 - [ ] T054 [P] [US2] `internal/signing/signing_test.go` — every FR-011 refusal (not the signer, draft/cancelled/expired/completed, not your turn, already signed/declined, missing required), wrong PIN → nothing signed + counter incremented in its own tx + `attempts_left`, locked → 423, expired/revoked certificate refused, success creates version n+1 and marks signed, next signer invited, last signer completes (final_version, job queued, event published), object cleanup on failure, rate limit.
 - [ ] T055 [P] [US2] `internal/mail/mail_test.go` — template keys and variables per event, portal links, failures recorded as `mail_error` + history event, no field values in variables.
 - [ ] T056 [P] [US2] `tests/integration/signing_integration_test.go` (`//go:build integration`) — two parallel signers signing concurrently: both signatures present and valid, versions 1 and 2, no lost update.
 
 ### Implementation
-- [ ] T057 [US2] `internal/pdf/sign/` — port v3 `pkg/pdf/sign` + `revocation` with the fixes of research D2.
-- [ ] T058 [P] [US2] `internal/pdf/overlay/overlay.go` — port v3 overlay/stamp code (`pdf_generator.go`, `local_signing.go` stamp rendering, embedded fonts).
+- [x] T057 [US2] `internal/pdf/sign/` — port v3 `pkg/pdf/sign` + `revocation` with the fixes of research D2.
+- [x] T058 [P] [US2] `internal/pdf/overlay/overlay.go` — port v3 overlay/stamp code (`pdf_generator.go`, `local_signing.go` stamp rendering, embedded fonts).
 - [ ] T059 [US2] `internal/submissions/submissions.go` + `internal/httpapi/submissions.go` — create/get/list/send, inbox, users picker (`/users`), document/version downloads with participant/sender/read checks.
 - [ ] T060 [US2] `internal/signing/signing.go` + `internal/httpapi/signing.go` — session view (own fields only), open, sign pipeline (research D3), completion.
 - [ ] T061 [P] [US2] `internal/mail/mail.go` — notification client (`SendKey`), link builder, failure recording.
@@ -119,7 +119,7 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 ## Phase 7: User Story 7 — Admin certificates, document signing, verification (P2)
 
 ### Tests (write first, must fail)
-- [ ] T064 [P] [US7] `internal/pdf/verify/verify_test.go` — port v3 tests; trust pool = tenant CAs (current + previous) + roots; revoked via tenant records; modified-after-signature detection; foreign QES chain reported with `unknown` revocation when no embedded data.
+- [x] T064 [P] [US7] `internal/pdf/verify/verify_test.go` — port v3 tests; trust pool = tenant CAs (current + previous) + roots; revoked via tenant records; modified-after-signature detection; foreign QES chain reported with `unknown` revocation when no embedded data.
 - [ ] T065 [P] [US7] `internal/certs/admin_test.go` — list/filter, revoke (CRL regenerated, later signing refused), admin certificate creation (sealed), admin document signing (certification, reason/location/contact, TSA via fake Warden on behalf of the caller, TSA failure → `tsa_failed`), permission `certificates:manage`, tenant scoping.
 - [ ] T066 [P] [US7] `internal/warden/warden_test.go` — on-behalf secret read client (pattern of ipam 024), errors mapped, secret never logged.
 
