@@ -105,7 +105,7 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 - [x] T053 [P] [US2] `internal/submissions/submissions_test.go` — create (template active + same tenant, signers are active members via Contacts, parties covered, positions, prefill validated, expiry/reminder defaults from template), frozen fields, send (sequential invites first, parallel all), inbox queries, sender vs `submissions:manage`, tenant scoping.
 - [x] T054 [P] [US2] `internal/signing/signing_test.go` — every FR-011 refusal (not the signer, draft/cancelled/expired/completed, not your turn, already signed/declined, missing required), wrong PIN → nothing signed + counter incremented in its own tx + `attempts_left`, locked → 423, expired/revoked certificate refused, success creates version n+1 and marks signed, next signer invited, last signer completes (final_version, job queued, event published), object cleanup on failure, rate limit.
 - [x] T055 [P] [US2] `internal/mail/mail_test.go` — template keys and variables per event, portal links, failures recorded as `mail_error` + history event, no field values in variables.
-- [ ] T056 [P] [US2] `tests/integration/signing_integration_test.go` (`//go:build integration`) — two parallel signers signing concurrently: both signatures present and valid, versions 1 and 2, no lost update.
+- [x] T056 [P] [US2] `tests/integration/signing_integration_test.go` (`//go:build integration`) — two parallel signers signing concurrently: both signatures present and valid, versions 1 and 2, no lost update.
 
 ### Implementation
 - [x] T057 [US2] `internal/pdf/sign/` — port v3 `pkg/pdf/sign` + `revocation` with the fixes of research D2.
@@ -179,8 +179,8 @@ Story order: US1 → US3 → US2 (US2 needs a certificate) → US7 → US4 → U
 
 ## Phase 13: Polish & cross-cutting
 
-- [ ] T092 [P] Leak test `tests/integration/leak_test.go` — run a full flow with known PIN, values and key material; assert none appear in logs, audit, events (stream), e-mail variables, backups or DB columns in clear (SC-005).
-- [ ] T093 [P] Isolation suite `tests/integration/isolation_test.go` — tenant B against every tenant-A route (templates, pdf, submissions, documents, signing, certificates, verify by submission) → 404 (SC-004).
+- [x] T092 [P] Leak test `tests/integration/leak_test.go` — run a full flow with known PIN, values and key material; assert none appear in logs, audit, events (stream), e-mail variables, backups or DB columns in clear (SC-005).
+- [x] T093 [P] Isolation suite `tests/integration/isolation_test.go` — tenant B against every tenant-A route (templates, pdf, submissions, documents, signing, certificates, verify by submission) → 404 (SC-004).
 - [ ] T094 [P] Performance check — 50-page 20 MB PDF local signing < 5 s on CI hardware (SC-003), list endpoints at 10k rows < 1 s.
 - [ ] T095 [P] UI polish — icons in the kit safelist (unit test), dark theme check, a11y e2e (`ui/tests/e2e/a11y.spec.ts`) for all routes, empty/error states.
 - [ ] T096 [P] `README.md`, `SECURITY.md` (threat model of spec SR, key handling, BISS CSP note), `deploy/README.md`.

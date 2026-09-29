@@ -130,7 +130,10 @@ func TestQESRefusals(t *testing.T) {
 	if _, err := e.svc.CompleteQES(ctx, user("alice"), a, prep.ID, []byte{1}, "", ""); !errors.Is(err, apperr.QESSignatureInvalid) {
 		t.Fatalf("short: %v", err)
 	}
-	if _, err := e.svc.CompleteQES(ctx, user("alice"), b, prep.ID, cardSign(t, card, prep.Digest), "", ""); !errors.Is(err, apperr.PreparationExpired) {
+	if _, err := e.svc.CompleteQES(ctx, user("alice"), b, prep.ID, cardSign(t, card, prep.Digest), "", ""); !errors.Is(err, apperr.NotFound) {
+		t.Fatalf("someone else's slot: %v", err)
+	}
+	if _, err := e.svc.CompleteQES(ctx, user("bob"), b, prep.ID, cardSign(t, card, prep.Digest), "", ""); !errors.Is(err, apperr.PreparationExpired) {
 		t.Fatalf("another slot's preparation: %v", err)
 	}
 	if _, err := e.svc.CompleteQES(ctx, user("alice"), a, "missing", nil, "", ""); !errors.Is(err, apperr.PreparationExpired) {

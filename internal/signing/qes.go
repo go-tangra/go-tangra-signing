@@ -147,6 +147,9 @@ func (s *Service) CompleteQES(ctx context.Context, subj authz.Subjects, signerID
 
 func (s *Service) completeQES(ctx context.Context, subj authz.Subjects, signerID, preparationID string, signature []byte, ip, ua string) (Result, error) {
 	now := s.d.Now()
+	if _, _, _, err := s.own(ctx, s.d.Store, subj, signerID, false); err != nil {
+		return Result{}, err // someone else's (or a foreign) slot is "not found"
+	}
 	q, err := s.d.Store.GetQES(ctx, subj.TenantID, preparationID)
 	if errors.Is(err, repo.ErrNotFound) {
 		return Result{}, apperr.PreparationExpired
