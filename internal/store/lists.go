@@ -4,23 +4,25 @@ import "github.com/go-tangra/go-tangra/v4/listquery"
 
 // List definitions of the signing data tables (specs/032-server-side-tables
 // in go-tangra, contracts/sortable-fields.md "signing"). Sort fields map to
-// constant expressions only; the tie-breaker is the row's unique id.
+// constant expressions only; the tie-breaker is the row's unique id. NotNull
+// marks NOT NULL columns (the inbox JOIN is inner): their ORDER BY carries no
+// NULLS LAST, so btree indexes serve both directions.
 var (
 	// TemplateList pages signing_templates.
 	TemplateList = listquery.Spec{
 		Fields: map[string]listquery.Field{
-			"name":       {Expr: "name", Text: true},
-			"status":     {Expr: "status", Text: true},
-			"updated_at": {Expr: "updated_at", DefaultDir: listquery.Desc},
+			"name":       {Expr: "name", Text: true, NotNull: true},
+			"status":     {Expr: "status", Text: true, NotNull: true},
+			"updated_at": {Expr: "updated_at", DefaultDir: listquery.Desc, NotNull: true},
 		},
 		Default: "updated_at", TieBreak: "id",
 	}
 	// SubmissionList pages signing_submissions ("title" is the submission name).
 	SubmissionList = listquery.Spec{
 		Fields: map[string]listquery.Field{
-			"title":        {Expr: "name", Text: true},
-			"status":       {Expr: "status", Text: true},
-			"created_at":   {Expr: "created_at", DefaultDir: listquery.Desc},
+			"title":        {Expr: "name", Text: true, NotNull: true},
+			"status":       {Expr: "status", Text: true, NotNull: true},
+			"created_at":   {Expr: "created_at", DefaultDir: listquery.Desc, NotNull: true},
 			"completed_at": {Expr: "completed_at", DefaultDir: listquery.Desc},
 		},
 		Default: "created_at", TieBreak: "id",
@@ -28,11 +30,11 @@ var (
 	// CertificateList pages signing_certificates ("subject" is the subject CN).
 	CertificateList = listquery.Spec{
 		Fields: map[string]listquery.Field{
-			"subject":    {Expr: "subject_cn", Text: true},
-			"kind":       {Expr: "kind", Text: true},
-			"status":     {Expr: "status", Text: true},
-			"not_after":  {Expr: "not_after", DefaultDir: listquery.Desc},
-			"created_at": {Expr: "created_at", DefaultDir: listquery.Desc},
+			"subject":    {Expr: "subject_cn", Text: true, NotNull: true},
+			"kind":       {Expr: "kind", Text: true, NotNull: true},
+			"status":     {Expr: "status", Text: true, NotNull: true},
+			"not_after":  {Expr: "not_after", DefaultDir: listquery.Desc, NotNull: true},
+			"created_at": {Expr: "created_at", DefaultDir: listquery.Desc, NotNull: true},
 		},
 		Default: "created_at", TieBreak: "id",
 	}
@@ -41,9 +43,9 @@ var (
 	// slot's status.
 	InboxList = listquery.Spec{
 		Fields: map[string]listquery.Field{
-			"created_at": {Expr: "s.created_at", DefaultDir: listquery.Desc},
-			"title":      {Expr: "s.name", Text: true},
-			"status":     {Expr: "sg.status", Text: true},
+			"created_at": {Expr: "s.created_at", DefaultDir: listquery.Desc, NotNull: true},
+			"title":      {Expr: "s.name", Text: true, NotNull: true},
+			"status":     {Expr: "sg.status", Text: true, NotNull: true},
 		},
 		Default: "created_at", TieBreak: "sg.id",
 	}
