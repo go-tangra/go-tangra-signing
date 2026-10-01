@@ -420,6 +420,9 @@ func TestViewsAndDocuments(t *testing.T) {
 	if _, total, _ := e.svc.List(ctx, user("admin"), repo.SubmissionFilter{}, true); total != 0 {
 		t.Fatalf("mine: %d", total)
 	}
+	if _, _, err := e.svc.List(ctx, authz.User(tenant, "", nil), repo.SubmissionFilter{}, true); !errors.Is(err, apperr.Forbidden) {
+		t.Fatalf("own-sends list without a user id: %v", err)
+	}
 	if items, total, err := e.svc.Inbox(ctx, user("alice"), repo.InboxFilter{Page: 1, PageSize: 20}); err != nil || total != 1 || items[0].Submission.ID != id {
 		t.Fatalf("inbox %d %v", total, err)
 	}

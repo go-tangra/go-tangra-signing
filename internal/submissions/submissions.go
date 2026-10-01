@@ -570,6 +570,11 @@ func (s *Service) Get(ctx context.Context, subj authz.Subjects, id string) (Deta
 // everybody else the ones they sent (mine forces that for everyone).
 func (s *Service) List(ctx context.Context, subj authz.Subjects, f repo.SubmissionFilter, mine bool) ([]Detail, int, error) {
 	if mine || !(authz.Allowed(ctx, s.d.Checker, subj, authz.SigningRead) || authz.Allowed(ctx, s.d.Checker, subj, authz.SubmissionsManage)) {
+		// An empty CreatedBy means "every sender" to the store: a restricted
+		// list without a user id is refused, never widened.
+		if subj.UserID == "" {
+			return nil, 0, apperr.Forbidden
+		}
 		f.CreatedBy = subj.UserID
 	}
 	subs, total, err := s.d.Store.ListSubmissions(ctx, subj.TenantID, f)
