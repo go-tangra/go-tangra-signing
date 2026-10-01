@@ -13,7 +13,7 @@ require (
 	github.com/go-tangra/go-tangra-auth/sdk/v4 v4.2.0
 	github.com/go-tangra/go-tangra-lcm/sdk/v4 v4.1.0
 	github.com/go-tangra/go-tangra-notification/sdk/v4 v4.2.0
-	github.com/go-tangra/go-tangra-portal/sdk/v4 v4.0.0
+	github.com/go-tangra/go-tangra-portal/sdk/v4 v4.1.0
 	github.com/go-tangra/go-tangra-scheduler/sdk/v4 v4.0.0
 	github.com/go-tangra/go-tangra-signing/sdk/v4 v4.0.0
 	github.com/go-tangra/go-tangra-warden/sdk/v4 v4.0.0
