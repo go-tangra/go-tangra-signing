@@ -60,7 +60,7 @@ func New(d Deps) *Service {
 		d.Now = func() time.Time { return time.Now().UTC() }
 	}
 	if d.Limits.MaxPageSize <= 0 {
-		d.Limits.MaxPageSize = 100
+		d.Limits.MaxPageSize = 200
 	}
 	if d.Rules == nil {
 		d.Rules = ValidateRules
@@ -368,7 +368,9 @@ func (s *Service) Get(ctx context.Context, subj authz.Subjects, id string) (stor
 
 // List pages the caller's templates.
 func (s *Service) List(ctx context.Context, subj authz.Subjects, f repo.TemplateFilter) ([]store.Template, int, error) {
-	_, f.PageSize = store.Page(f.Page, f.PageSize, s.d.Limits.MaxPageSize)
+	if f.PageSize > s.d.Limits.MaxPageSize {
+		return nil, 0, apperr.Validation.WithDetail(map[string]any{"param": "page_size"})
+	}
 	return s.d.Store.ListTemplates(ctx, subj.TenantID, f)
 }
 

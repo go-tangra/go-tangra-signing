@@ -2,11 +2,13 @@
 // The caller's signing inbox: "To sign" (their slots waiting for them) and
 // "Signed by me". A signing.inbox event on the module stream refreshes the
 // open tab, so a new invitation or a finished signature shows up at once.
+// Both tabs are server-paged and server-sorted (page, size and sort in the URL).
 import { computed, inject, onBeforeUnmount, onMounted } from 'vue'
 import { routerKey } from 'vue-router'
 import { UiAlert, UiButton, UiCard, UiDataTable, UiLiveIndicator, UiPage, UiStatusChip, UiTabs, type Column, type TabItem } from '@go-tangra/ui'
 import type { InboxItem, InboxState } from '@/api/types'
-import { useInbox } from '@/stores/inbox'
+import { INBOX_PAGE_SIZE, useInbox } from '@/stores/inbox'
+import { useServerTable } from '@/composables/useServerTable'
 import { coalesce, useLive } from '@/stores/live'
 import { when } from '@/utils/format'
 import { SIGNER_STATUS_COLORS, SIGNER_STATUS_LABELS, SUBMISSION_STATUS_COLORS, SUBMISSION_STATUS_LABELS } from '@/utils/submission'
@@ -19,15 +21,21 @@ const tabs = computed<TabItem[]>(() => [
   { key: 'to_sign', label: 'To sign', icon: 'mdi-inbox-outline', ...(store.state === 'to_sign' ? { count: store.total } : {}) },
   { key: 'signed', label: 'Signed by me', icon: 'mdi-check-circle-outline' },
 ])
+const table = useServerTable('inbox', { sortable: ['created_at', 'title', 'status'], defaultSort: { key: 'created_at', dir: 'desc' }, defaultSize: INBOX_PAGE_SIZE },
+  (q) => store.list(store.state, q))
+const lq = table.lq
+/** Another tab: its first page. */
 function setTab(k: string): void {
-  if (k === 'to_sign' || k === 'signed') void store.list(k as InboxState)
+  if (k !== 'to_sign' && k !== 'signed') return
+  store.state = k as InboxState
+  table.search()
 }
 
 const refresh = coalesce(() => void store.reload(), 300)
 let release: (() => void) | null = null
 let unsubscribe: (() => void) | null = null
 onMounted(() => {
-  void store.list(store.state)
+  void table.reload()
   release = live.connect()
   unsubscribe = live.on((e) => { if (e.type === 'signing.inbox') refresh.trigger() })
 })
@@ -46,8 +54,10 @@ const submissionLabel = (s: string | undefined) => (s ? SUBMISSION_STATUS_LABELS
 
 type Row = InboxItem & Record<string, unknown>
 const columns = computed<Column<Row>[]>(() => [
-  { key: 'submission_name', label: 'Document' },
-  { key: 'status', label: store.state === 'to_sign' ? 'Your status' : 'Document status', width: 'sm' },
+  { key: 'title', label: 'Document', sortable: true },
+  // "signed" lists only signed slots and shows the document's status: nothing to sort by.
+  { key: 'status', label: store.state === 'to_sign' ? 'Your status' : 'Document status', width: 'sm', sortable: store.state === 'to_sign' },
+  { key: 'created_at', label: 'Sent', sortable: true, defaultDir: 'desc', hideOnStack: true, format: (i) => when(i.created_at) },
   { key: 'sender', label: 'From', hideOnStack: true, format: (i) => i.sender ?? '' },
   store.state === 'to_sign'
     ? { key: 'expires_at', label: 'Expires', hideOnStack: true, format: (i) => when(i.expires_at) }
@@ -73,6 +83,10 @@ const rows = computed(() => store.items as Row[])
           :items="rows"
           :columns="columns"
           row-key="signer_id"
+          :total="store.total"
+          :page="lq.page.value"
+          :page-size="lq.pageSize.value"
+          :sort="lq.sort.value"
           :loading="store.loading"
           :caption="store.state === 'to_sign' ? 'Documents waiting for your signature' : 'Documents you signed'"
           :empty-title="store.state === 'to_sign' ? 'Nothing to sign' : 'Nothing signed yet'"
@@ -80,9 +94,12 @@ const rows = computed(() => store.items as Row[])
           clickable
           :row-attrs="(i) => ({ 'data-test': 'inbox-row-' + i.signer_id })"
           data-test="inbox-table"
+          @update:page="lq.setPage"
+          @update:page-size="lq.setPageSize"
+          @update:sort="lq.setSort"
           @row-click="open($event)"
         >
-          <template #cell-submission_name="{ row }">
+          <template #cell-title="{ row }">
             <span class="font-medium">{{ row.submission_name }}</span>
             <span v-if="row.party" class="block text-xs text-base-content/70">as {{ row.party }}<template v-if="row.created_at"> · {{ when(row.created_at) }}</template></span>
           </template>

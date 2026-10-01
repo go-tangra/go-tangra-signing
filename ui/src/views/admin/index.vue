@@ -7,11 +7,12 @@
 // tenant backup (export / import) is at the bottom of the page.
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useAbility } from '@casl/vue'
-import { UiAlert, UiButton, UiCard, UiDataTable, UiDialog, UiEmptyState, UiIcon, UiInput, UiPage, UiPagination, UiSelect, UiStatusChip, useToast, type Column, type SelectOption } from '@go-tangra/ui'
+import { UiAlert, UiButton, UiCard, UiDataTable, UiDialog, UiEmptyState, UiIcon, UiInput, UiPage, UiSelect, UiStatusChip, useToast, type Column, type SelectOption } from '@go-tangra/ui'
 import { describe, refusalField } from '@/api/client'
 import type { Certificate, CertificateKind, CertificateStatus } from '@/api/types'
 import { CERTIFICATE_KINDS, CERTIFICATE_STATUSES } from '@/api/types'
-import { useCertificates } from '@/stores/admin'
+import { PAGE_SIZE, useCertificates } from '@/stores/admin'
+import { useServerTable } from '@/composables/useServerTable'
 import { CERT_KIND_LABELS, CERT_STATUS_COLORS, CERT_STATUS_LABELS } from '@/utils/certificates'
 import { when } from '@/utils/format'
 import CertificateDrawer from './drawer.vue'
@@ -29,8 +30,14 @@ const kindOptions: SelectOption[] = CERTIFICATE_KINDS.map((k) => ({ title: CERT_
 const statusOptions: SelectOption[] = CERTIFICATE_STATUSES.map((s) => ({ title: CERT_STATUS_LABELS[s], value: s }))
 
 const f = reactive({ q: '', kind: '' as CertificateKind | '', status: '' as CertificateStatus | '' })
-function apply(p = 1): void {
-  void store.list({ q: f.q.trim() || undefined, kind: f.kind || undefined, status: f.status || undefined }, p)
+const filters = () => ({ q: f.q.trim() || undefined, kind: f.kind || undefined, status: f.status || undefined })
+// Server-paged and server-sorted; page, size and sort are kept in the URL.
+const table = useServerTable('certificates', { sortable: ['subject', 'kind', 'status', 'not_after', 'created_at'], defaultSort: { key: 'created_at', dir: 'desc' }, defaultSize: PAGE_SIZE },
+  (q) => (canManage.value ? store.list(filters(), q) : Promise.resolve(null)))
+const lq = table.lq
+/** A filter changed: back to the first page. */
+function apply(): void {
+  table.search()
 }
 function setKind(v: unknown): void {
   f.kind = CERTIFICATE_KINDS.includes(v as CertificateKind) ? (v as CertificateKind) : ''
@@ -41,10 +48,7 @@ function setStatus(v: unknown): void {
   apply()
 }
 
-onMounted(() => { if (canManage.value) apply() })
-
-const pages = computed(() => Math.max(1, Math.ceil(store.total / store.pageSize)))
-const pageLabel = computed(() => `Page ${store.page} of ${pages.value} · ${store.total} certificate${store.total === 1 ? '' : 's'}`)
+onMounted(() => { if (canManage.value) void table.reload() })
 const crlUrl = computed(() => store.crlUrl())
 
 // --- details ---
@@ -96,11 +100,12 @@ async function doCreate(): Promise<void> {
 // --- table ---
 type Row = Certificate & Record<string, unknown>
 const columns: Column<Row>[] = [
-  { key: 'subject_cn', label: 'Subject' },
-  { key: 'kind', label: 'Kind', width: 'sm', format: (c) => CERT_KIND_LABELS[c.kind] },
-  { key: 'status', label: 'Status', width: 'sm' },
+  { key: 'subject', label: 'Subject', sortable: true },
+  { key: 'kind', label: 'Kind', width: 'sm', sortable: true, format: (c) => CERT_KIND_LABELS[c.kind] },
+  { key: 'status', label: 'Status', width: 'sm', sortable: true },
   { key: 'serial', label: 'Serial', hideOnStack: true },
-  { key: 'not_after', label: 'Valid until', hideOnStack: true, format: (c) => when(c.not_after) },
+  { key: 'not_after', label: 'Valid until', hideOnStack: true, sortable: true, defaultDir: 'desc', format: (c) => when(c.not_after) },
+  { key: 'created_at', label: 'Issued', hideOnStack: true, sortable: true, defaultDir: 'desc', format: (c) => when(c.created_at) },
 ]
 const rows = computed(() => store.items as Row[])
 </script>
@@ -131,6 +136,10 @@ const rows = computed(() => store.items as Row[])
           <UiDataTable
             :items="rows"
             :columns="columns"
+            :total="store.total"
+            :page="lq.page.value"
+            :page-size="lq.pageSize.value"
+            :sort="lq.sort.value"
             :loading="store.loading"
             caption="Certificates — select one to see its details"
             empty-title="No certificates"
@@ -138,9 +147,12 @@ const rows = computed(() => store.items as Row[])
             clickable
             :row-attrs="(c) => ({ 'data-test': 'cert-row-' + c.id })"
             data-test="certs-table"
+            @update:page="lq.setPage"
+            @update:page-size="lq.setPageSize"
+            @update:sort="lq.setSort"
             @row-click="open($event)"
           >
-            <template #cell-subject_cn="{ row }">
+            <template #cell-subject="{ row }">
               <span class="font-medium">{{ row.subject_cn }}</span>
               <span v-if="row.email" class="block text-xs text-base-content/70">{{ row.email }}</span>
             </template>
@@ -154,9 +166,6 @@ const rows = computed(() => store.items as Row[])
             </template>
           </UiDataTable>
         </UiCard>
-        <div class="flex justify-end">
-          <UiPagination :has-prev="store.page > 1" :has-next="store.page < pages" :label="pageLabel" data-test="cert-pager" @prev="store.list(store.filter, store.page - 1)" @next="store.list(store.filter, store.page + 1)" />
-        </div>
 
         <SignDocument ref="signPanel" />
       </template>

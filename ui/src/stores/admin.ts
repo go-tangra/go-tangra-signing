@@ -3,8 +3,9 @@
 // administrator certificates, the CRL, and signing a PDF with an administrator
 // certificate (the signed copy is downloadable for an hour).
 import { defineStore } from 'pinia'
+import type { ListParams } from '@go-tangra/ui'
 import { ref } from 'vue'
-import { api, describe, postForm } from '@/api/client'
+import { api, describe, pageQuery, postForm } from '@/api/client'
 import type { AdminCertificateCreate, Certificate, CertificateFilter, CertificatePage, DocumentSignOptions, DocumentSource, RevocationReason, SignedDocument } from '@/api/types'
 import { appendFields, appendSource } from '@/utils/documents'
 
@@ -16,27 +17,40 @@ export const useCertificates = defineStore('signing-certificates', () => {
   const page = ref(1)
   const pageSize = ref(PAGE_SIZE)
   const filter = ref<CertificateFilter>({})
+  const params = ref<Partial<ListParams>>({})
   const loading = ref(false)
   const error = ref('')
+  let seq = 0
 
-  /** Loads one page with the filter (blank filter values are not sent). */
-  async function list(f: CertificateFilter = filter.value, p = 1): Promise<void> {
+  /**
+   * Loads one page with the filter (blank filter values are not sent) and the
+   * list parameters (page, page_size, sort, order; omitted ones take the
+   * server defaults). Resolves with the page the server returned, or null when
+   * the request failed or a newer one superseded it.
+   */
+  async function list(f: CertificateFilter = filter.value, q: Partial<ListParams> = { page: 1 }): Promise<number | null> {
+    const mine = ++seq
     loading.value = true
     error.value = ''
     filter.value = { ...f }
+    params.value = { ...q }
     try {
-      const res = await api<CertificatePage>('GET', 'certificates', undefined, { query: { q: f.q?.trim() || undefined, kind: f.kind, status: f.status, page: p, page_size: pageSize.value } })
+      const res = await api<CertificatePage>('GET', 'certificates', undefined, { query: { q: f.q?.trim() || undefined, kind: f.kind, status: f.status, ...pageQuery(q, pageSize.value) } })
+      if (mine !== seq) return null
       items.value = res.items ?? []
       total.value = res.total ?? 0
-      page.value = p
+      page.value = res.page ?? q.page ?? 1
+      pageSize.value = res.page_size ?? pageSize.value
+      return page.value
     } catch (e) {
-      error.value = describe(e)
+      if (mine === seq) error.value = describe(e)
+      return null
     } finally {
-      loading.value = false
+      if (mine === seq) loading.value = false
     }
   }
 
-  const reload = () => list(filter.value, page.value)
+  const reload = () => list(filter.value, { ...params.value, page: page.value })
 
   function replace(c: Certificate): Certificate {
     items.value = items.value.map((x) => (x.id === c.id ? c : x))

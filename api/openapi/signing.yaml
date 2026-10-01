@@ -41,12 +41,18 @@ components:
       name: page
       in: query
       required: false
-      schema: { type: integer, minimum: 1, maximum: 100000 }
+      schema: { type: integer, minimum: 1, maximum: 2147483647 }
     pageSize:
       name: page_size
       in: query
       required: false
-      schema: { type: integer, minimum: 1, maximum: 100 }
+      schema: { type: integer, minimum: 1, maximum: 200 }
+    order:
+      name: order
+      in: query
+      required: false
+      description: sort direction; defaults to the direction of the chosen sort field
+      schema: { type: string, enum: [asc, desc] }
     q:
       name: q
       in: query
@@ -171,10 +177,14 @@ components:
         updated_at: { type: string, format: date-time }
     TemplatePage:
       type: object
-      required: [items, total]
+      required: [items, total, page, page_size, sort, order]
       properties:
         items: { type: array, items: { $ref: '#/components/schemas/Template' } }
-        total: { type: integer }
+        total: { type: integer, description: records matching the filters and the caller's permissions }
+        page: { type: integer, description: the page returned (clamped to the last page) }
+        page_size: { type: integer }
+        sort: { type: string, enum: [name, status, updated_at] }
+        order: { type: string, enum: [asc, desc] }
     TemplatePatch:
       type: object
       additionalProperties: false
@@ -251,10 +261,14 @@ components:
         can_control: { type: boolean }
     SubmissionPage:
       type: object
-      required: [items, total]
+      required: [items, total, page, page_size, sort, order]
       properties:
         items: { type: array, items: { $ref: '#/components/schemas/Submission' } }
-        total: { type: integer }
+        total: { type: integer, description: records matching the filters and the caller's permissions }
+        page: { type: integer, description: the page returned (clamped to the last page) }
+        page_size: { type: integer }
+        sort: { type: string, enum: [title, status, created_at, completed_at] }
+        order: { type: string, enum: [asc, desc] }
     SubmissionCreate:
       type: object
       additionalProperties: false
@@ -321,10 +335,14 @@ components:
         created_at: { type: string, format: date-time }
     InboxPage:
       type: object
-      required: [items, total]
+      required: [items, total, page, page_size, sort, order]
       properties:
         items: { type: array, items: { $ref: '#/components/schemas/InboxItem' } }
-        total: { type: integer }
+        total: { type: integer, description: records matching the filters and the caller's permissions }
+        page: { type: integer, description: the page returned (clamped to the last page) }
+        page_size: { type: integer }
+        sort: { type: string, enum: [created_at, title, status] }
+        order: { type: string, enum: [asc, desc] }
     CertificateState:
       type: object
       required: [state]
@@ -402,10 +420,14 @@ components:
         created_at: { type: string, format: date-time }
     CertificatePage:
       type: object
-      required: [items, total]
+      required: [items, total, page, page_size, sort, order]
       properties:
         items: { type: array, items: { $ref: '#/components/schemas/Certificate' } }
-        total: { type: integer }
+        total: { type: integer, description: records matching the filters and the caller's permissions }
+        page: { type: integer, description: the page returned (clamped to the last page) }
+        page_size: { type: integer }
+        sort: { type: string, enum: [subject, kind, status, not_after, created_at] }
+        order: { type: string, enum: [asc, desc] }
     MyCertificate:
       type: object
       required: [certificate]
@@ -535,6 +557,8 @@ paths:
       parameters:
         - { $ref: '#/components/parameters/page' }
         - { $ref: '#/components/parameters/pageSize' }
+        - { $ref: '#/components/parameters/order' }
+        - { name: sort, in: query, description: 'default updated_at', schema: { type: string, enum: [name, status, updated_at] } }
         - { $ref: '#/components/parameters/q' }
         - { name: folder_id, in: query, schema: { type: string, maxLength: 36 }, description: 'uuid, or "root" for templates outside folders' }
         - { name: tag, in: query, schema: { type: string, maxLength: 40 } }
@@ -621,6 +645,8 @@ paths:
       parameters:
         - { $ref: '#/components/parameters/page' }
         - { $ref: '#/components/parameters/pageSize' }
+        - { $ref: '#/components/parameters/order' }
+        - { name: sort, in: query, description: 'default created_at', schema: { type: string, enum: [title, status, created_at, completed_at] } }
         - { $ref: '#/components/parameters/q' }
         - { name: status, in: query, schema: { type: string, enum: [draft, in_progress, completed, expired, cancelled] } }
         - { name: template_id, in: query, schema: { type: string, format: uuid } }
@@ -730,6 +756,8 @@ paths:
       parameters:
         - { $ref: '#/components/parameters/page' }
         - { $ref: '#/components/parameters/pageSize' }
+        - { $ref: '#/components/parameters/order' }
+        - { name: sort, in: query, description: 'default created_at', schema: { type: string, enum: [created_at, title, status] } }
         - { name: state, in: query, schema: { type: string, enum: [to_sign, signed] } }
       responses:
         '200': { description: 'the caller''s signer slots', content: { application/json: { schema: { $ref: '#/components/schemas/InboxPage' } } } }
@@ -855,6 +883,8 @@ paths:
       parameters:
         - { $ref: '#/components/parameters/page' }
         - { $ref: '#/components/parameters/pageSize' }
+        - { $ref: '#/components/parameters/order' }
+        - { name: sort, in: query, description: 'default created_at', schema: { type: string, enum: [subject, kind, status, not_after, created_at] } }
         - { $ref: '#/components/parameters/q' }
         - { name: kind, in: query, schema: { type: string, enum: [ca, system, signer, admin] } }
         - { name: status, in: query, schema: { type: string, enum: [active, revoked, expired, needs_reissue] } }

@@ -128,9 +128,13 @@ type createBody struct {
 
 func (s *Server) registerSubmissions(svc *submissions.Service) {
 	s.withSubject("GET", Prefix+"/submissions", func(w http.ResponseWriter, r *http.Request, subj authz.Subjects) {
+		req, ok := parseList(w, r, store.SubmissionList)
+		if !ok {
+			return
+		}
 		q := r.URL.Query()
 		f := repo.SubmissionFilter{Status: q.Get("status"), TemplateID: q.Get("template_id"), Query: q.Get("q"),
-			Page: queryInt(r, "page"), PageSize: queryInt(r, "page_size")}
+			Page: req.Page, PageSize: req.PageSize, Sort: req.Sort, Order: req.Order}
 		items, total, err := svc.List(r.Context(), subj, f, queryBool(r, "mine"))
 		if err != nil {
 			s.fail(w, r, err)
@@ -140,7 +144,7 @@ func (s *Server) registerSubmissions(svc *submissions.Service) {
 		for _, d := range items {
 			out = append(out, viewSubmission(d))
 		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": out, "total": total})
+		WriteJSON(w, http.StatusOK, listPage(out, total, req))
 	})
 	s.withSubject("POST", Prefix+"/submissions", func(w http.ResponseWriter, r *http.Request, subj authz.Subjects) {
 		var b createBody
@@ -282,7 +286,12 @@ func (s *Server) registerSubmissions(svc *submissions.Service) {
 		_ = zw.Close()
 	})
 	s.withSubject("GET", Prefix+"/inbox", func(w http.ResponseWriter, r *http.Request, subj authz.Subjects) {
-		items, total, err := svc.Inbox(r.Context(), subj, r.URL.Query().Get("state") == "signed", queryInt(r, "page"), queryInt(r, "page_size"))
+		req, ok := parseList(w, r, store.InboxList)
+		if !ok {
+			return
+		}
+		items, total, err := svc.Inbox(r.Context(), subj, repo.InboxFilter{Signed: r.URL.Query().Get("state") == "signed",
+			Page: req.Page, PageSize: req.PageSize, Sort: req.Sort, Order: req.Order})
 		if err != nil {
 			s.fail(w, r, err)
 			return
@@ -293,7 +302,7 @@ func (s *Server) registerSubmissions(svc *submissions.Service) {
 				Party: it.Signer.Party, Status: it.Signer.Status, SubmissionStatus: it.Submission.Status, Sender: it.Submission.CreatedBy,
 				ExpiresAt: it.Submission.ExpiresAt, SignedAt: it.Signer.SignedAt, CreatedAt: it.Submission.CreatedAt})
 		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": out, "total": total})
+		WriteJSON(w, http.StatusOK, listPage(out, total, req))
 	})
 	s.withSubject("GET", Prefix+"/users", func(w http.ResponseWriter, r *http.Request, subj authz.Subjects) {
 		members, err := svc.Members(r.Context(), subj, r.URL.Query().Get("q"))

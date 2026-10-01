@@ -154,7 +154,7 @@ func (s *Service) Collect(ctx context.Context, subj authz.Subjects, tenantID str
 		return "", Records{}, 0, err
 	}
 	for p := 1; ; p++ {
-		items, total, err := s.d.Store.ListTemplates(ctx, tenant, repo.TemplateFilter{Page: p, PageSize: pageSize})
+		items, total, err := s.d.Store.ListTemplates(ctx, tenant, repo.TemplateFilter{Page: p, PageSize: pageSize, Export: true})
 		if err != nil {
 			return "", Records{}, 0, err
 		}
@@ -164,7 +164,7 @@ func (s *Service) Collect(ctx context.Context, subj authz.Subjects, tenantID str
 		}
 	}
 	for p := 1; ; p++ {
-		items, total, err := s.d.Store.ListSubmissions(ctx, tenant, repo.SubmissionFilter{Page: p, PageSize: pageSize})
+		items, total, err := s.d.Store.ListSubmissions(ctx, tenant, repo.SubmissionFilter{Page: p, PageSize: pageSize, Export: true})
 		if err != nil {
 			return "", Records{}, 0, err
 		}
@@ -186,7 +186,7 @@ func (s *Service) Collect(ctx context.Context, subj authz.Subjects, tenantID str
 		}
 	}
 	for p := 1; ; p++ {
-		items, total, err := s.d.Store.ListCertificates(ctx, tenant, repo.CertificateFilter{Page: p, PageSize: pageSize})
+		items, total, err := s.d.Store.ListCertificates(ctx, tenant, repo.CertificateFilter{Page: p, PageSize: pageSize, Export: true})
 		if err != nil {
 			return "", Records{}, 0, err
 		}

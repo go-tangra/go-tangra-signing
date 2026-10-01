@@ -9,13 +9,14 @@ import { computed, inject, onMounted, reactive, ref } from 'vue'
 import { routerKey } from 'vue-router'
 import { useAbility } from '@casl/vue'
 import {
-  UiAlert, UiBadge, UiButton, UiCard, UiDataTable, UiDialog, UiInput, UiPage, UiPagination, UiSelect, UiStatusChip, UiTree,
+  UiAlert, UiBadge, UiButton, UiCard, UiDataTable, UiDialog, UiInput, UiPage, UiSelect, UiStatusChip, UiTree,
   useConfirm, useToast, type Column, type SelectOption, type TreeNode,
 } from '@go-tangra/ui'
 import { describe, describeRefusal } from '@/api/client'
 import type { Folder, Template, TemplateStatus } from '@/api/types'
 import { TEMPLATE_STATUSES } from '@/api/types'
-import { useTemplates } from '@/stores/templates'
+import { PAGE_SIZE, useTemplates } from '@/stores/templates'
+import { useServerTable } from '@/composables/useServerTable'
 import { useFolders } from '@/stores/folders'
 import { folderLabel, folderOptions } from '@/utils/folderTree'
 import { when } from '@/utils/format'
@@ -51,11 +52,18 @@ function pickFolder(n: TreeNode): void {
   apply()
 }
 
-// --- filters ---
+// --- filters (a change returns to the first page) ---
 const f = reactive({ q: '', status: '' as TemplateStatus | '', tag: '' })
-function apply(p = 1): void {
+function filters() {
   const folder_id = folderSel.value === ALL ? undefined : folderSel.value === ROOT ? 'root' : folderSel.value
-  void store.list({ folder_id, q: f.q.trim() || undefined, status: f.status || undefined, tag: f.tag.trim() || undefined }, p)
+  return { folder_id, q: f.q.trim() || undefined, status: f.status || undefined, tag: f.tag.trim() || undefined }
+}
+// Server-paged and server-sorted; page, size and sort are kept in the URL.
+const table = useServerTable('templates', { sortable: ['name', 'status', 'updated_at'], defaultSort: { key: 'updated_at', dir: 'desc' }, defaultSize: PAGE_SIZE },
+  (q) => store.list(filters(), q))
+const lq = table.lq
+function apply(): void {
+  table.search()
 }
 function setStatus(v: unknown): void {
   f.status = typeof v === 'string' ? (v as TemplateStatus | '') : ''
@@ -63,12 +71,9 @@ function setStatus(v: unknown): void {
 }
 
 onMounted(() => {
-  apply()
+  void table.reload()
   void folders.list()
 })
-
-const pages = computed(() => Math.max(1, Math.ceil(store.total / store.pageSize)))
-const pageLabel = computed(() => `Page ${store.page} of ${pages.value} · ${store.total} template${store.total === 1 ? '' : 's'}`)
 
 // --- folder dialog (create / rename + move) ---
 const error = ref('')
@@ -192,11 +197,11 @@ const allFolderOptions = computed(() => folderOptions(folders.items))
 // --- table ---
 type Row = Template & Record<string, unknown>
 const columns: Column<Row>[] = [
-  { key: 'name', label: 'Name' },
-  { key: 'status', label: 'Status', width: 'sm' },
+  { key: 'name', label: 'Name', sortable: true },
+  { key: 'status', label: 'Status', width: 'sm', sortable: true },
   { key: 'tags', label: 'Tags', hideOnStack: true },
   { key: 'pdf_pages', label: 'Pages', width: 'sm', align: 'end', hideOnStack: true, format: (t) => String(t.pdf_pages ?? '') },
-  { key: 'updated_at', label: 'Updated', format: (t) => when(t.updated_at) },
+  { key: 'updated_at', label: 'Updated', sortable: true, defaultDir: 'desc', format: (t) => when(t.updated_at) },
 ]
 const rows = computed(() => store.items as Row[])
 </script>
@@ -241,6 +246,10 @@ const rows = computed(() => store.items as Row[])
           <UiDataTable
             :items="rows"
             :columns="columns"
+            :total="store.total"
+            :page="lq.page.value"
+            :page-size="lq.pageSize.value"
+            :sort="lq.sort.value"
             :loading="store.loading"
             caption="Signing templates — select one to open it in the builder"
             empty-title="No templates"
@@ -248,6 +257,9 @@ const rows = computed(() => store.items as Row[])
             clickable
             :row-attrs="(t) => ({ 'data-test': 'template-row-' + t.id })"
             data-test="templates-table"
+            @update:page="lq.setPage"
+            @update:page-size="lq.setPageSize"
+            @update:sort="lq.setSort"
             @row-click="openBuilder($event)"
           >
             <template #cell-name="{ row }">
@@ -276,9 +288,6 @@ const rows = computed(() => store.items as Row[])
             </template>
           </UiDataTable>
         </UiCard>
-        <div class="flex justify-end">
-          <UiPagination :has-prev="store.page > 1" :has-next="store.page < pages" :label="pageLabel" data-test="template-pager" @prev="store.list(store.filter, store.page - 1)" @next="store.list(store.filter, store.page + 1)" />
-        </div>
       </div>
     </div>
 

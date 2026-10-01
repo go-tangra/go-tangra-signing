@@ -4,6 +4,7 @@
 import { createApi, ApiError, csrfToken, describe, type Method, type RequestOptions } from '@go-tangra/ui/api'
 import { registerReasons } from '@go-tangra/ui/forms'
 import type { paths } from './schema.d'
+import type { ListParams } from '@go-tangra/ui'
 
 export { ApiError, csrfToken, describe }
 export type { Method, RequestOptions }
@@ -70,6 +71,11 @@ export function refusalDetail(err: unknown, key: string): unknown {
 /** The wording registered for a reason code (the session's `reason` when it cannot sign). */
 export function describeReason(reason: string): string {
   return describe(new ApiError(0, reason))
+}
+
+/** The list parameters of a page request (go-tangra list contract): page and size always, sort and order only when chosen. */
+export function pageQuery(q: Partial<ListParams>, defaultSize: number): { page: number; page_size: number; sort?: string; order?: 'asc' | 'desc' } {
+  return { page: q.page ?? 1, page_size: q.page_size ?? defaultSize, ...(q.sort ? { sort: q.sort } : {}), ...(q.order ? { order: q.order } : {}) }
 }
 
 /** A module URL with the query (blank values left out), like the kit client builds it. */

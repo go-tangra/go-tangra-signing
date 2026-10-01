@@ -18,6 +18,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-signing/v4/internal/repo"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/store"
 )
@@ -100,9 +102,11 @@ func unjs(b []byte, v any) error {
 	return json.Unmarshal(b, v)
 }
 
-func pageArgs(p, size int) (int, int) {
-	p, size = store.Page(p, size, 100)
-	return size, (p - 1) * size
+// pageClause is the ORDER BY / LIMIT / OFFSET of a list page, clamped to the
+// last page for total. Built only from Spec constants and integers.
+func pageClause(spec listquery.Spec, req listquery.Request, total int) string {
+	req = req.Clamp(total)
+	return fmt.Sprintf(` ORDER BY %s LIMIT %d OFFSET %d`, req.OrderBy(spec), req.Limit(), req.Offset())
 }
 
 func affected(tag pgconn.CommandTag) error {
@@ -298,13 +302,12 @@ func (d *DB) ListTemplates(ctx context.Context, tenantID string, f repo.Template
 		add(`lower(name) LIKE $%d ESCAPE '\'`, likePattern(f.Query))
 	}
 	w := strings.Join(where, " AND ")
-	limit, offset := pageArgs(f.Page, f.PageSize)
+	spec, req := f.List()
 	err = d.run(ctx, tenantID, func(tx pgx.Tx) error {
 		if err := tx.QueryRow(ctx, `SELECT count(*) FROM signing_templates WHERE `+w, args...).Scan(&total); err != nil {
 			return err
 		}
-		rows, err := tx.Query(ctx, `SELECT `+templateCols+` FROM signing_templates WHERE `+w+
-			fmt.Sprintf(` ORDER BY updated_at DESC, id DESC LIMIT %d OFFSET %d`, limit, offset), args...)
+		rows, err := tx.Query(ctx, `SELECT `+templateCols+` FROM signing_templates WHERE `+w+pageClause(spec, req, total), args...)
 		if err != nil {
 			return err
 		}
@@ -533,13 +536,12 @@ func (d *DB) ListSubmissions(ctx context.Context, tenantID string, f repo.Submis
 		add(`lower(name) LIKE $%d ESCAPE '\'`, likePattern(f.Query))
 	}
 	w := strings.Join(where, " AND ")
-	limit, offset := pageArgs(f.Page, f.PageSize)
+	spec, req := f.List()
 	err = d.run(ctx, tenantID, func(tx pgx.Tx) error {
 		if err := tx.QueryRow(ctx, `SELECT count(*) FROM signing_submissions WHERE `+w, args...).Scan(&total); err != nil {
 			return err
 		}
-		rows, err := tx.Query(ctx, `SELECT `+submissionCols+` FROM signing_submissions WHERE `+w+
-			fmt.Sprintf(` ORDER BY created_at DESC, id DESC LIMIT %d OFFSET %d`, limit, offset), args...)
+		rows, err := tx.Query(ctx, `SELECT `+submissionCols+` FROM signing_submissions WHERE `+w+pageClause(spec, req, total), args...)
 		if err != nil {
 			return err
 		}
@@ -610,12 +612,12 @@ func (d *DB) GetSigner(ctx context.Context, tenantID, id string) (s store.Signer
 }
 
 // Inbox implements repo.Store.
-func (d *DB) Inbox(ctx context.Context, tenantID, userID string, signed bool, p, size int) (out []repo.InboxItem, total int, err error) {
+func (d *DB) Inbox(ctx context.Context, tenantID, userID string, f repo.InboxFilter) (out []repo.InboxItem, total int, err error) {
 	cond := `sg.status IN ('invited','opened') AND s.status = 'in_progress'`
-	if signed {
+	if f.Signed {
 		cond = `sg.status = 'signed'`
 	}
-	limit, offset := pageArgs(p, size)
+	spec, req := f.List()
 	sgCols := "sg." + strings.ReplaceAll(strings.ReplaceAll(signerCols, "\n", ""), ", ", ", sg.")
 	sCols := "s." + strings.ReplaceAll(strings.ReplaceAll(submissionCols, "\n", ""), ", ", ", s.")
 	err = d.run(ctx, tenantID, func(tx pgx.Tx) error {
@@ -624,8 +626,7 @@ func (d *DB) Inbox(ctx context.Context, tenantID, userID string, signed bool, p,
 		if err := tx.QueryRow(ctx, `SELECT count(*)`+from, tenantID, userID).Scan(&total); err != nil {
 			return err
 		}
-		rows, err := tx.Query(ctx, `SELECT `+sgCols+`, `+sCols+from+
-			fmt.Sprintf(` ORDER BY s.created_at DESC, sg.id DESC LIMIT %d OFFSET %d`, limit, offset), tenantID, userID)
+		rows, err := tx.Query(ctx, `SELECT `+sgCols+`, `+sCols+from+pageClause(spec, req, total), tenantID, userID)
 		if err != nil {
 			return err
 		}
@@ -783,13 +784,12 @@ func (d *DB) ListCertificates(ctx context.Context, tenantID string, f repo.Certi
 		add(`(lower(subject_cn) LIKE $? ESCAPE '\' OR lower(email) LIKE $? ESCAPE '\')`, likePattern(f.Query))
 	}
 	w := strings.Join(where, " AND ")
-	limit, offset := pageArgs(f.Page, f.PageSize)
+	spec, req := f.List()
 	err = d.run(ctx, tenantID, func(tx pgx.Tx) error {
 		if err := tx.QueryRow(ctx, `SELECT count(*) FROM signing_certificates WHERE `+w, args...).Scan(&total); err != nil {
 			return err
 		}
-		out, err = queryCerts(ctx, tx, `SELECT `+certCols+` FROM signing_certificates WHERE `+w+
-			fmt.Sprintf(` ORDER BY created_at DESC, id DESC LIMIT %d OFFSET %d`, limit, offset), args...)
+		out, err = queryCerts(ctx, tx, `SELECT `+certCols+` FROM signing_certificates WHERE `+w+pageClause(spec, req, total), args...)
 		return err
 	})
 	return out, total, mapErr(err)
