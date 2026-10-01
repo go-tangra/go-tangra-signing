@@ -186,7 +186,7 @@ func Default() Config {
 		Warden:           Service{Service: "warden"},
 		TaskScheduler:    TaskScheduler{Service: "scheduler"},
 		Limits: Limits{MaxPDFBytes: 50 << 20, MaxPDFPages: 500, MaxFields: 500, MaxSigners: 50,
-			MaxImageBytes: 1 << 20, MaxFieldUploadBytes: 5 << 20, ParseTimeoutSeconds: 20, MaxPageSize: 100,
+			MaxImageBytes: 1 << 20, MaxFieldUploadBytes: 5 << 20, ParseTimeoutSeconds: 20, MaxPageSize: 200,
 			MaxBackupBytes: 2 << 30, SigningsPerMinute: 10, QESPreparationMinute: 10},
 		Signing: Signing{CAValidityYears: 10, CARenewBeforeYears: 2, CertValidityYears: 2, CRLValidityDays: 7,
 			PINMin: 6, PINMax: 32, PINIterations: 600000, LockAttempts: 5, LockMinutes: 15,
@@ -328,8 +328,8 @@ func (c Config) validateLimits() error {
 		return errors.New("config: limits_signing.max_field_upload_bytes must be within [16 KiB, 50 MiB]")
 	case !within(l.ParseTimeoutSeconds, 1, 300):
 		return errors.New("config: limits_signing.parse_timeout_seconds must be within [1, 300]")
-	case !within(l.MaxPageSize, 1, 100):
-		return errors.New("config: limits_signing.max_page_size must be within [1, 100]")
+	case !within(l.MaxPageSize, 1, 200):
+		return errors.New("config: limits_signing.max_page_size must be within [1, 200]")
 	case !within(l.MaxBackupBytes, 1<<20, 64<<30):
 		return errors.New("config: limits_signing.max_backup_bytes must be within [1 MiB, 64 GiB]")
 	case !within(l.SigningsPerMinute, 1, 1000):

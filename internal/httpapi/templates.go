@@ -221,8 +221,13 @@ func (s *Server) registerTemplates(svc *templates.Service, maxPDF int64) {
 	})
 
 	s.withSubject("GET", Prefix+"/templates", func(w http.ResponseWriter, r *http.Request, subj authz.Subjects) {
+		req, ok := parseList(w, r, store.TemplateList)
+		if !ok {
+			return
+		}
 		q := r.URL.Query()
-		f := repo.TemplateFilter{Tag: q.Get("tag"), Status: q.Get("status"), Query: q.Get("q"), Page: queryInt(r, "page"), PageSize: queryInt(r, "page_size")}
+		f := repo.TemplateFilter{Tag: q.Get("tag"), Status: q.Get("status"), Query: q.Get("q"),
+			Page: req.Page, PageSize: req.PageSize, Sort: req.Sort, Order: req.Order}
 		if fid := q.Get("folder_id"); fid != "" {
 			if fid == "root" {
 				fid = ""
@@ -238,7 +243,7 @@ func (s *Server) registerTemplates(svc *templates.Service, maxPDF int64) {
 		for _, t := range list {
 			items = append(items, viewTemplate(t))
 		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": items, "total": total})
+		WriteJSON(w, http.StatusOK, listPage(items, total, req))
 	})
 	s.withSubject("POST", Prefix+"/templates", func(w http.ResponseWriter, r *http.Request, subj authz.Subjects) {
 		mp, err := ReadMultipart(r, 8, func(name string) int64 {

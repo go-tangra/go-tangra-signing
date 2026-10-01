@@ -17,6 +17,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-signing/v4/internal/store"
 )
 
@@ -34,6 +36,9 @@ type TemplateFilter struct {
 	Query    string // name contains (case-insensitive)
 	Page     int
 	PageSize int
+	Sort     string        // store.TemplateList field; "" = default
+	Order    listquery.Dir // "" = the field's default direction
+	Export   bool          // backup: primary-key order, Sort/Order ignored
 }
 
 // SubmissionFilter narrows ListSubmissions.
@@ -44,6 +49,9 @@ type SubmissionFilter struct {
 	CreatedBy  string // "" = anyone
 	Page       int
 	PageSize   int
+	Sort       string        // store.SubmissionList field; "" = default
+	Order      listquery.Dir // "" = the field's default direction
+	Export     bool          // backup: primary-key order, Sort/Order ignored
 }
 
 // CertificateFilter narrows ListCertificates.
@@ -54,6 +62,18 @@ type CertificateFilter struct {
 	OwnerID  string
 	Page     int
 	PageSize int
+	Sort     string        // store.CertificateList field; "" = default
+	Order    listquery.Dir // "" = the field's default direction
+	Export   bool          // backup: primary-key order, Sort/Order ignored
+}
+
+// InboxFilter narrows Inbox.
+type InboxFilter struct {
+	Signed   bool // signed slots instead of slots waiting for the caller
+	Page     int
+	PageSize int
+	Sort     string        // store.InboxList field; "" = default
+	Order    listquery.Dir // "" = the field's default direction
 }
 
 // InboxItem is one signer slot of the caller with its submission.
@@ -116,7 +136,7 @@ type Store interface {
 	UpdateSigner(ctx context.Context, s store.Signer) error
 	DeleteSubmission(ctx context.Context, tenantID, id string) error
 	GetSigner(ctx context.Context, tenantID, id string) (store.Signer, error)
-	Inbox(ctx context.Context, tenantID, userID string, signed bool, page, size int) ([]InboxItem, int, error)
+	Inbox(ctx context.Context, tenantID, userID string, f InboxFilter) ([]InboxItem, int, error)
 	AddVersion(ctx context.Context, v store.DocumentVersion) error
 	GetVersion(ctx context.Context, tenantID, submissionID string, version int) (store.DocumentVersion, error)
 	ListVersions(ctx context.Context, tenantID, submissionID string) ([]store.DocumentVersion, error)
@@ -167,4 +187,32 @@ type Store interface {
 
 	// Audit.
 	AppendAudit(ctx context.Context, row store.AuditRow) error
+}
+
+// List returns the spec and page request of the filter (export walks use the
+// primary-key order). Invalid paging input falls back to the defaults.
+func (f TemplateFilter) List() (listquery.Spec, listquery.Request) {
+	return listOf(store.TemplateList, f.Export, f.Page, f.PageSize, f.Sort, f.Order)
+}
+
+// List returns the spec and page request of the filter.
+func (f SubmissionFilter) List() (listquery.Spec, listquery.Request) {
+	return listOf(store.SubmissionList, f.Export, f.Page, f.PageSize, f.Sort, f.Order)
+}
+
+// List returns the spec and page request of the filter.
+func (f CertificateFilter) List() (listquery.Spec, listquery.Request) {
+	return listOf(store.CertificateList, f.Export, f.Page, f.PageSize, f.Sort, f.Order)
+}
+
+// List returns the spec and page request of the filter.
+func (f InboxFilter) List() (listquery.Spec, listquery.Request) {
+	return listOf(store.InboxList, false, f.Page, f.PageSize, f.Sort, f.Order)
+}
+
+func listOf(s listquery.Spec, export bool, page, size int, sort string, order listquery.Dir) (listquery.Spec, listquery.Request) {
+	if export {
+		s, sort, order = store.ExportOrder, "", ""
+	}
+	return s, store.ListRequest(s, page, size, sort, order)
 }

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
+import type { ListParams } from '@go-tangra/ui'
 import { ref } from 'vue'
-import { api, describe, sendJSON } from '@/api/client'
+import { api, describe, pageQuery, sendJSON } from '@/api/client'
 import type { DetectedFields, Field, Party, Template, TemplateFilter, TemplatePage, TemplatePatch, TemplateUpload } from '@/api/types'
 
 export const PAGE_SIZE = 25
@@ -13,27 +14,40 @@ export const useTemplates = defineStore('signing-templates', () => {
   const page = ref(1)
   const pageSize = ref(PAGE_SIZE)
   const filter = ref<TemplateFilter>({})
+  const params = ref<Partial<ListParams>>({})
   const loading = ref(false)
   const error = ref('')
+  let seq = 0
 
-  /** Loads one page with the filter (blank filter values are not sent). */
-  async function list(f: TemplateFilter = filter.value, p = 1): Promise<void> {
+  /**
+   * Loads one page with the filter (blank filter values are not sent) and the
+   * list parameters (page, page_size, sort, order; omitted ones take the
+   * server defaults). Resolves with the page the server returned, or null when
+   * the request failed or a newer one superseded it.
+   */
+  async function list(f: TemplateFilter = filter.value, q: Partial<ListParams> = { page: 1 }): Promise<number | null> {
+    const mine = ++seq
     loading.value = true
     error.value = ''
     filter.value = { ...f }
+    params.value = { ...q }
     try {
-      const res = await api<TemplatePage>('GET', 'templates', undefined, { query: { ...f, page: p, page_size: pageSize.value } })
+      const res = await api<TemplatePage>('GET', 'templates', undefined, { query: { ...f, ...pageQuery(q, pageSize.value) } })
+      if (mine !== seq) return null
       items.value = res.items ?? []
       total.value = res.total ?? 0
-      page.value = p
+      page.value = res.page ?? q.page ?? 1
+      pageSize.value = res.page_size ?? pageSize.value
+      return page.value
     } catch (e) {
-      error.value = describe(e)
+      if (mine === seq) error.value = describe(e)
+      return null
     } finally {
-      loading.value = false
+      if (mine === seq) loading.value = false
     }
   }
 
-  const reload = () => list(filter.value, page.value)
+  const reload = () => list(filter.value, { ...params.value, page: page.value })
 
   function replace(t: Template): Template {
     items.value = items.value.map((x) => (x.id === t.id ? t : x))

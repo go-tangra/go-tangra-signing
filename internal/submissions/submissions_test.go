@@ -420,10 +420,10 @@ func TestViewsAndDocuments(t *testing.T) {
 	if _, total, _ := e.svc.List(ctx, user("admin"), repo.SubmissionFilter{}, true); total != 0 {
 		t.Fatalf("mine: %d", total)
 	}
-	if items, total, err := e.svc.Inbox(ctx, user("alice"), false, 1, 20); err != nil || total != 1 || items[0].Submission.ID != id {
+	if items, total, err := e.svc.Inbox(ctx, user("alice"), repo.InboxFilter{Page: 1, PageSize: 20}); err != nil || total != 1 || items[0].Submission.ID != id {
 		t.Fatalf("inbox %d %v", total, err)
 	}
-	if _, _, err := e.svc.Inbox(ctx, authz.System(), false, 1, 20); !errors.Is(err, apperr.Forbidden) {
+	if _, _, err := e.svc.Inbox(ctx, authz.System(), repo.InboxFilter{Page: 1, PageSize: 20}); !errors.Is(err, apperr.Forbidden) {
 		t.Fatal("inbox needs a user")
 	}
 	if m, err := e.svc.Members(ctx, user("sender"), " ali "); err != nil || len(m) != 1 || m[0].UserID != "alice" {

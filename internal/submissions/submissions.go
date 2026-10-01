@@ -588,11 +588,11 @@ func (s *Service) List(ctx context.Context, subj authz.Subjects, f repo.Submissi
 }
 
 // Inbox pages the caller's signer slots (to sign, or signed/declined).
-func (s *Service) Inbox(ctx context.Context, subj authz.Subjects, signed bool, page, size int) ([]repo.InboxItem, int, error) {
+func (s *Service) Inbox(ctx context.Context, subj authz.Subjects, f repo.InboxFilter) ([]repo.InboxItem, int, error) {
 	if !subj.IsMember() {
 		return nil, 0, apperr.Forbidden
 	}
-	return s.d.Store.Inbox(ctx, subj.TenantID, subj.UserID, signed, page, size)
+	return s.d.Store.Inbox(ctx, subj.TenantID, subj.UserID, f)
 }
 
 // Events returns the history of a submission the caller may view.

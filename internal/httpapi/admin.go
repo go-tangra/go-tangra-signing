@@ -14,14 +14,19 @@ import (
 	"github.com/go-tangra/go-tangra-signing/v4/internal/certs"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/documents"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/repo"
+	"github.com/go-tangra/go-tangra-signing/v4/internal/store"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/warden"
 )
 
 func (s *Server) registerAdmin(svc *certs.Admin) {
 	s.withSubject("GET", Prefix+"/certificates", func(w http.ResponseWriter, r *http.Request, subj authz.Subjects) {
+		req, ok := parseList(w, r, store.CertificateList)
+		if !ok {
+			return
+		}
 		q := r.URL.Query()
 		items, total, err := svc.List(r.Context(), subj, repo.CertificateFilter{Kind: q.Get("kind"), Status: q.Get("status"),
-			Query: q.Get("q"), Page: queryInt(r, "page"), PageSize: queryInt(r, "page_size")})
+			Query: q.Get("q"), Page: req.Page, PageSize: req.PageSize, Sort: req.Sort, Order: req.Order})
 		if err != nil {
 			s.fail(w, r, err)
 			return
@@ -30,7 +35,7 @@ func (s *Server) registerAdmin(svc *certs.Admin) {
 		for _, c := range items {
 			out = append(out, viewCertificate(c, false))
 		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": out, "total": total})
+		WriteJSON(w, http.StatusOK, listPage(out, total, req))
 	})
 	s.withSubject("POST", Prefix+"/certificates", func(w http.ResponseWriter, r *http.Request, subj authz.Subjects) {
 		var b struct {

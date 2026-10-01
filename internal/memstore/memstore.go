@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-signing/v4/internal/repo"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/store"
 )
@@ -269,19 +271,6 @@ func sameParent(a, b *string) bool {
 	return *a == *b
 }
 
-func page(items int, p, size int) (int, int) {
-	p, size = store.Page(p, size, 100)
-	lo := (p - 1) * size
-	if lo > items {
-		lo = items
-	}
-	hi := lo + size
-	if hi > items {
-		hi = items
-	}
-	return lo, hi
-}
-
 // ---- Folders ----
 
 // CreateFolder implements repo.Store.
@@ -480,14 +469,20 @@ func (m *Mem) ListTemplates(_ context.Context, tenantID string, f repo.TemplateF
 		}
 		all = append(all, cloneTemplate(t))
 	}
-	sort.Slice(all, func(i, j int) bool {
-		if !all[i].UpdatedAt.Equal(all[j].UpdatedAt) {
-			return all[i].UpdatedAt.After(all[j].UpdatedAt)
+	_, req := f.List()
+	listquery.SortSlice(all, req, func(t store.Template, field string) any {
+		switch field {
+		case "name":
+			return t.Name
+		case "status":
+			return t.Status
+		case "updated_at":
+			return t.UpdatedAt
 		}
-		return all[i].ID > all[j].ID
-	})
-	lo, hi := page(len(all), f.Page, f.PageSize)
-	return all[lo:hi], len(all), nil
+		return t.ID // export order
+	}, func(t store.Template) string { return t.ID })
+	items, total, _ := listquery.Window(all, req)
+	return items, total, nil
 }
 
 // UpdateTemplate implements repo.Store.
@@ -649,14 +644,25 @@ func (m *Mem) ListSubmissions(_ context.Context, tenantID string, f repo.Submiss
 		}
 		all = append(all, cloneSubmission(s))
 	}
-	sort.Slice(all, func(i, j int) bool {
-		if !all[i].CreatedAt.Equal(all[j].CreatedAt) {
-			return all[i].CreatedAt.After(all[j].CreatedAt)
+	_, req := f.List()
+	listquery.SortSlice(all, req, func(s store.Submission, field string) any {
+		switch field {
+		case "title":
+			return s.Name
+		case "status":
+			return s.Status
+		case "created_at":
+			return s.CreatedAt
+		case "completed_at":
+			if s.CompletedAt == nil {
+				return nil
+			}
+			return *s.CompletedAt
 		}
-		return all[i].ID > all[j].ID
-	})
-	lo, hi := page(len(all), f.Page, f.PageSize)
-	return all[lo:hi], len(all), nil
+		return s.ID // export order
+	}, func(s store.Submission) string { return s.ID })
+	items, total, _ := listquery.Window(all, req)
+	return items, total, nil
 }
 
 // UpdateSubmission implements repo.Store.
@@ -747,7 +753,7 @@ func (m *Mem) GetSigner(_ context.Context, tenantID, id string) (store.Signer, e
 
 // Inbox implements repo.Store: to-sign = invited/opened on an in-progress
 // submission; signed = signed slots. Newest first.
-func (m *Mem) Inbox(_ context.Context, tenantID, userID string, signed bool, p, size int) ([]repo.InboxItem, int, error) {
+func (m *Mem) Inbox(_ context.Context, tenantID, userID string, f repo.InboxFilter) ([]repo.InboxItem, int, error) {
 	unlock, err := m.lock("Inbox")
 	defer unlock()
 	if err != nil {
@@ -759,7 +765,7 @@ func (m *Mem) Inbox(_ context.Context, tenantID, userID string, signed bool, p, 
 			continue
 		}
 		s := m.d.subs[sg.SubmissionID]
-		if signed {
+		if f.Signed {
 			if sg.Status != store.SignerSigned {
 				continue
 			}
@@ -768,14 +774,18 @@ func (m *Mem) Inbox(_ context.Context, tenantID, userID string, signed bool, p, 
 		}
 		all = append(all, repo.InboxItem{Signer: cloneSigner(sg), Submission: cloneSubmission(s)})
 	}
-	sort.Slice(all, func(i, j int) bool {
-		if !all[i].Submission.CreatedAt.Equal(all[j].Submission.CreatedAt) {
-			return all[i].Submission.CreatedAt.After(all[j].Submission.CreatedAt)
+	_, req := f.List()
+	listquery.SortSlice(all, req, func(it repo.InboxItem, field string) any {
+		switch field {
+		case "title":
+			return it.Submission.Name
+		case "status":
+			return it.Signer.Status
 		}
-		return all[i].Signer.ID > all[j].Signer.ID
-	})
-	lo, hi := page(len(all), p, size)
-	return all[lo:hi], len(all), nil
+		return it.Submission.CreatedAt
+	}, func(it repo.InboxItem) string { return it.Signer.ID })
+	items, total, _ := listquery.Window(all, req)
+	return items, total, nil
 }
 
 // AddVersion implements repo.Store.
@@ -891,14 +901,24 @@ func (m *Mem) ListCertificates(_ context.Context, tenantID string, f repo.Certif
 		}
 		all = append(all, c)
 	}
-	sort.Slice(all, func(i, j int) bool {
-		if !all[i].CreatedAt.Equal(all[j].CreatedAt) {
-			return all[i].CreatedAt.After(all[j].CreatedAt)
+	_, req := f.List()
+	listquery.SortSlice(all, req, func(c store.Certificate, field string) any {
+		switch field {
+		case "subject":
+			return c.SubjectCN
+		case "kind":
+			return c.Kind
+		case "status":
+			return c.Status
+		case "not_after":
+			return c.NotAfter
+		case "created_at":
+			return c.CreatedAt
 		}
-		return all[i].ID > all[j].ID
-	})
-	lo, hi := page(len(all), f.Page, f.PageSize)
-	return all[lo:hi], len(all), nil
+		return c.ID // export order
+	}, func(c store.Certificate) string { return c.ID })
+	items, total, _ := listquery.Window(all, req)
+	return items, total, nil
 }
 
 // UpdateCertificate implements repo.Store.

@@ -1,17 +1,18 @@
 <script setup lang="ts">
-// Submissions: a filterable, server-paged table (name, status, signing
-// progress, mode, sent, expiry). Readers with signing:read see every
+// Submissions: a filterable, server-paged and server-sorted table (name,
+// status, signing progress, mode, sent, expiry). Readers with signing:read see every
 // submission of the tenant ("Only mine" narrows it); everyone else sees the
 // ones they sent. "New submission" opens the create drawer; a row opens the
 // submission's page. Completed / cancelled / expired events refresh the list.
 import { computed, inject, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { routeLocationKey, routerKey } from 'vue-router'
 import { useAbility } from '@casl/vue'
-import { UiAlert, UiButton, UiCard, UiCheckbox, UiDataTable, UiInput, UiPage, UiPagination, UiSelect, UiStatusChip, useToast, type Column, type SelectOption } from '@go-tangra/ui'
+import { UiAlert, UiButton, UiCard, UiCheckbox, UiDataTable, UiInput, UiPage, UiSelect, UiStatusChip, useToast, type Column, type SelectOption } from '@go-tangra/ui'
 import { api } from '@/api/client'
 import type { Submission, SubmissionStatus, Template, TemplatePage } from '@/api/types'
 import { SUBMISSION_STATUSES } from '@/api/types'
-import { useSubmissions } from '@/stores/submissions'
+import { PAGE_SIZE, useSubmissions } from '@/stores/submissions'
+import { useServerTable } from '@/composables/useServerTable'
 import { coalesce, useLive } from '@/stores/live'
 import { when } from '@/utils/format'
 import { SUBMISSION_STATUS_COLORS, SUBMISSION_STATUS_LABELS, progress } from '@/utils/submission'
@@ -32,8 +33,14 @@ const templates = ref<Template[]>([])
 const templateOptions = computed<SelectOption[]>(() => templates.value.map((t) => ({ title: t.name, value: t.id })))
 
 const f = reactive({ q: '', status: '' as SubmissionStatus | '', template_id: '', mine: false })
-function apply(p = 1): void {
-  void store.list({ q: f.q.trim() || undefined, status: f.status || undefined, template_id: f.template_id || undefined, mine: f.mine || undefined }, p)
+const filters = () => ({ q: f.q.trim() || undefined, status: f.status || undefined, template_id: f.template_id || undefined, mine: f.mine || undefined })
+// Server-paged and server-sorted; page, size and sort are kept in the URL.
+const table = useServerTable('submissions', { sortable: ['title', 'status', 'created_at', 'completed_at'], defaultSort: { key: 'created_at', dir: 'desc' }, defaultSize: PAGE_SIZE },
+  (q) => store.list(filters(), q))
+const lq = table.lq
+/** A filter changed: back to the first page. */
+function apply(): void {
+  table.search()
 }
 function setStatus(v: unknown): void {
   f.status = typeof v === 'string' ? (v as SubmissionStatus | '') : ''
@@ -55,7 +62,7 @@ let unsubscribe: (() => void) | null = null
 onMounted(() => {
   const tid = route?.query.template_id
   if (typeof tid === 'string' && tid) f.template_id = tid
-  apply()
+  void table.reload()
   if (ability.can('read', 'SigningTemplate')) {
     api<TemplatePage>('GET', 'templates', undefined, { query: { page: 1, page_size: 100 } }).then((r) => (templates.value = r.items ?? [])).catch(() => {})
   }
@@ -68,8 +75,6 @@ onBeforeUnmount(() => {
   release?.()
 })
 
-const pages = computed(() => Math.max(1, Math.ceil(store.total / store.pageSize)))
-const pageLabel = computed(() => `Page ${store.page} of ${pages.value} · ${store.total} submission${store.total === 1 ? '' : 's'}`)
 
 // --- drawer ---
 const drawerOpen = ref(false)
@@ -84,11 +89,13 @@ function onSent(s: Submission): void {
 // --- table ---
 type Row = Submission & Record<string, unknown>
 const columns: Column<Row>[] = [
-  { key: 'name', label: 'Name' },
-  { key: 'status', label: 'Status', width: 'sm' },
+  { key: 'title', label: 'Name', sortable: true },
+  { key: 'status', label: 'Status', width: 'sm', sortable: true },
   { key: 'progress', label: 'Signatures', format: (s) => progress(s) },
   { key: 'mode', label: 'Order', width: 'sm', hideOnStack: true, format: (s) => (s.mode === 'sequential' ? 'In order' : 'Any order') },
   { key: 'sent_at', label: 'Sent', hideOnStack: true, format: (s) => when(s.sent_at) || (s.status === 'draft' ? 'Not sent' : '') },
+  { key: 'completed_at', label: 'Completed', hideOnStack: true, sortable: true, defaultDir: 'desc', format: (s) => when(s.completed_at) },
+  { key: 'created_at', label: 'Created', hideOnStack: true, sortable: true, defaultDir: 'desc', format: (s) => when(s.created_at) },
   { key: 'expires_at', label: 'Expires', hideOnStack: true, format: (s) => when(s.expires_at) },
 ]
 const rows = computed(() => store.items as Row[])
@@ -117,6 +124,10 @@ const rows = computed(() => store.items as Row[])
         <UiDataTable
           :items="rows"
           :columns="columns"
+          :total="store.total"
+          :page="lq.page.value"
+          :page-size="lq.pageSize.value"
+          :sort="lq.sort.value"
           :loading="store.loading"
           caption="Submissions — select one to see its signers and history"
           empty-title="No submissions"
@@ -124,11 +135,13 @@ const rows = computed(() => store.items as Row[])
           clickable
           :row-attrs="(s) => ({ 'data-test': 'submission-row-' + s.id })"
           data-test="submissions-table"
+          @update:page="lq.setPage"
+          @update:page-size="lq.setPageSize"
+          @update:sort="lq.setSort"
           @row-click="open($event)"
         >
-          <template #cell-name="{ row }">
+          <template #cell-title="{ row }">
             <span class="font-medium">{{ row.name }}</span>
-            <span v-if="row.created_at" class="block text-xs text-base-content/70">Created {{ when(row.created_at) }}</span>
           </template>
           <template #cell-status="{ row }">
             <UiStatusChip :status="row.status" :label="SUBMISSION_STATUS_LABELS[row.status]" :colors="SUBMISSION_STATUS_COLORS" :data-test="'submission-status-' + row.id" />
@@ -140,9 +153,6 @@ const rows = computed(() => store.items as Row[])
           </template>
         </UiDataTable>
       </UiCard>
-      <div class="flex justify-end">
-        <UiPagination :has-prev="store.page > 1" :has-next="store.page < pages" :label="pageLabel" data-test="submission-pager" @prev="store.list(store.filter, store.page - 1)" @next="store.list(store.filter, store.page + 1)" />
-      </div>
     </div>
 
     <SubmissionDrawer :open="drawerOpen" :template-id="f.template_id || undefined" @close="drawerOpen = false" @created="store.reload()" @sent="onSent" />

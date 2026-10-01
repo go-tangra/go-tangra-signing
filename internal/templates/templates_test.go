@@ -106,9 +106,13 @@ func TestCreateGetListAndPDF(t *testing.T) {
 	if len(b) == 0 {
 		t.Fatal("empty pdf")
 	}
-	list, total, err := e.svc.List(ctx, e.admin, repo.TemplateFilter{Tag: "hr", PageSize: 1000})
+	list, total, err := e.svc.List(ctx, e.admin, repo.TemplateFilter{Tag: "hr", PageSize: 200})
 	if err != nil || total != 1 || list[0].ID != tpl.ID {
 		t.Fatalf("list = %d %v", total, err)
+	}
+	// A page larger than limits_signing.max_page_size is refused, naming the parameter.
+	if _, _, err := e.svc.List(ctx, e.admin, repo.TemplateFilter{PageSize: 201}); !errors.Is(err, apperr.Validation) {
+		t.Fatalf("oversized page = %v", err)
 	}
 }
 

@@ -778,7 +778,15 @@ export interface components {
         };
         TemplatePage: {
             items: components["schemas"]["Template"][];
+            /** @description records matching the filters and the caller's permissions */
             total: number;
+            /** @description the page returned (clamped to the last page) */
+            page: number;
+            page_size: number;
+            /** @enum {string} */
+            sort: "name" | "status" | "updated_at";
+            /** @enum {string} */
+            order: "asc" | "desc";
         };
         TemplatePatch: {
             name?: string;
@@ -860,7 +868,15 @@ export interface components {
         };
         SubmissionPage: {
             items: components["schemas"]["Submission"][];
+            /** @description records matching the filters and the caller's permissions */
             total: number;
+            /** @description the page returned (clamped to the last page) */
+            page: number;
+            page_size: number;
+            /** @enum {string} */
+            sort: "title" | "status" | "created_at" | "completed_at";
+            /** @enum {string} */
+            order: "asc" | "desc";
         };
         SubmissionCreate: {
             template_id: components["schemas"]["Uuid"];
@@ -914,7 +930,15 @@ export interface components {
         };
         InboxPage: {
             items: components["schemas"]["InboxItem"][];
+            /** @description records matching the filters and the caller's permissions */
             total: number;
+            /** @description the page returned (clamped to the last page) */
+            page: number;
+            page_size: number;
+            /** @enum {string} */
+            sort: "created_at" | "title" | "status";
+            /** @enum {string} */
+            order: "asc" | "desc";
         };
         CertificateState: {
             /** @enum {string} */
@@ -997,7 +1021,15 @@ export interface components {
         };
         CertificatePage: {
             items: components["schemas"]["Certificate"][];
+            /** @description records matching the filters and the caller's permissions */
             total: number;
+            /** @description the page returned (clamped to the last page) */
+            page: number;
+            page_size: number;
+            /** @enum {string} */
+            sort: "subject" | "kind" | "status" | "not_after" | "created_at";
+            /** @enum {string} */
+            order: "asc" | "desc";
         };
         MyCertificate: {
             certificate: components["schemas"]["Certificate"] | null;
@@ -1076,6 +1108,8 @@ export interface components {
         signerId: string;
         page: number;
         pageSize: number;
+        /** @description sort direction; defaults to the direction of the chosen sort field */
+        order: "asc" | "desc";
         q: string;
     };
     requestBodies: never;
@@ -1209,6 +1243,10 @@ export interface operations {
             query?: {
                 page?: components["parameters"]["page"];
                 page_size?: components["parameters"]["pageSize"];
+                /** @description sort direction; defaults to the direction of the chosen sort field */
+                order?: components["parameters"]["order"];
+                /** @description default updated_at */
+                sort?: "name" | "status" | "updated_at";
                 q?: components["parameters"]["q"];
                 /** @description uuid, or "root" for templates outside folders */
                 folder_id?: string;
@@ -1442,6 +1480,10 @@ export interface operations {
             query?: {
                 page?: components["parameters"]["page"];
                 page_size?: components["parameters"]["pageSize"];
+                /** @description sort direction; defaults to the direction of the chosen sort field */
+                order?: components["parameters"]["order"];
+                /** @description default created_at */
+                sort?: "title" | "status" | "created_at" | "completed_at";
                 q?: components["parameters"]["q"];
                 status?: "draft" | "in_progress" | "completed" | "expired" | "cancelled";
                 template_id?: string;
@@ -1747,6 +1789,10 @@ export interface operations {
             query?: {
                 page?: components["parameters"]["page"];
                 page_size?: components["parameters"]["pageSize"];
+                /** @description sort direction; defaults to the direction of the chosen sort field */
+                order?: components["parameters"]["order"];
+                /** @description default created_at */
+                sort?: "created_at" | "title" | "status";
                 state?: "to_sign" | "signed";
             };
             header?: never;
@@ -2074,6 +2120,10 @@ export interface operations {
             query?: {
                 page?: components["parameters"]["page"];
                 page_size?: components["parameters"]["pageSize"];
+                /** @description sort direction; defaults to the direction of the chosen sort field */
+                order?: components["parameters"]["order"];
+                /** @description default created_at */
+                sort?: "subject" | "kind" | "status" | "not_after" | "created_at";
                 q?: components["parameters"]["q"];
                 kind?: "ca" | "system" | "signer" | "admin";
                 status?: "active" | "revoked" | "expired" | "needs_reissue";

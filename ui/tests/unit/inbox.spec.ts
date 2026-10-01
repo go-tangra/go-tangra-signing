@@ -54,7 +54,7 @@ describe('inbox store', () => {
   it('asks for the state and pages', async () => {
     const calls = fetchMock(api({ to_sign: 0, signed: 0 }))
     const s = useInbox()
-    await s.list('signed', 2)
+    await s.list('signed', { page: 2 })
     expect(calls[0]!.url).toBe('/api/signing/v1/inbox?state=signed&page=2&page_size=50')
     expect(s.items.map((i) => i.signer_id)).toEqual(['sg3'])
   })

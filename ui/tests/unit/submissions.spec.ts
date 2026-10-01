@@ -90,7 +90,7 @@ describe('submissions store', () => {
   it('lists with the filter (blank values and mine=false left out) and hits the action routes', async () => {
     const calls = fetchMock(api())
     const s = useSubmissions()
-    await s.list({ q: 'contract', status: 'in_progress', template_id: '', mine: false }, 2)
+    await s.list({ q: 'contract', status: 'in_progress', template_id: '', mine: false }, { page: 2 })
     expect(calls[0]!.url).toBe('/api/signing/v1/submissions?q=contract&status=in_progress&page=2&page_size=25')
     await s.list({ mine: true })
     expect(calls[1]!.url).toBe('/api/signing/v1/submissions?mine=true&page=1&page_size=25')

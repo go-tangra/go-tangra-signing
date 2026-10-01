@@ -74,6 +74,7 @@ func Run(t *testing.T, newStore func(t *testing.T) repo.Store) {
 	t.Run("qes and events", func(t *testing.T) { qesAndEvents(t, newStore(t)) })
 	t.Run("jobs", func(t *testing.T) { jobs(t, newStore(t)) })
 	t.Run("scheduled", func(t *testing.T) { scheduled(t, newStore(t)) })
+	t.Run("lists", func(t *testing.T) { Lists(t, newStore(t)) })
 }
 
 func must(t *testing.T, err error) {
@@ -256,18 +257,18 @@ func submissions(t *testing.T, s repo.Store) {
 		t.Fatalf("cross-tenant version: %v", err)
 	}
 	// Inbox: Ivan (pending) sees nothing, Maria sees her signed slot.
-	if items, n, _ := s.Inbox(ctx, TenantA, "ivan", false, 1, 10); n != 0 || len(items) != 0 {
+	if items, n, _ := s.Inbox(ctx, TenantA, "ivan", repo.InboxFilter{Signed: false, Page: 1, PageSize: 10}); n != 0 || len(items) != 0 {
 		t.Fatalf("ivan to-sign = %d", n)
 	}
 	sg[1].Status = store.SignerInvited
 	must(t, s.UpdateSigner(ctx, sg[1]))
-	if items, n, _ := s.Inbox(ctx, TenantA, "ivan", false, 1, 10); n != 1 || items[0].Submission.ID != sub.ID {
+	if items, n, _ := s.Inbox(ctx, TenantA, "ivan", repo.InboxFilter{Signed: false, Page: 1, PageSize: 10}); n != 1 || items[0].Submission.ID != sub.ID {
 		t.Fatalf("ivan to-sign = %d", n)
 	}
-	if items, n, _ := s.Inbox(ctx, TenantA, "maria", true, 1, 10); n != 1 || items[0].Signer.Status != store.SignerSigned {
+	if items, n, _ := s.Inbox(ctx, TenantA, "maria", repo.InboxFilter{Signed: true, Page: 1, PageSize: 10}); n != 1 || items[0].Signer.Status != store.SignerSigned {
 		t.Fatalf("maria signed = %d", n)
 	}
-	if _, n, _ := s.Inbox(ctx, TenantB, "ivan", false, 1, 10); n != 0 {
+	if _, n, _ := s.Inbox(ctx, TenantB, "ivan", repo.InboxFilter{Signed: false, Page: 1, PageSize: 10}); n != 0 {
 		t.Fatal("cross-tenant inbox")
 	}
 	list, total, err := s.ListSubmissions(ctx, TenantA, repo.SubmissionFilter{CreatedBy: "sender", Status: store.SubmissionInProgress, Query: "contr"})
@@ -280,7 +281,7 @@ func submissions(t *testing.T, s repo.Store) {
 	}
 	sub.Status = store.SubmissionCancelled
 	must(t, s.UpdateSubmission(ctx, sub))
-	if items, n, _ := s.Inbox(ctx, TenantA, "ivan", false, 1, 10); n != 0 || len(items) != 0 {
+	if items, n, _ := s.Inbox(ctx, TenantA, "ivan", repo.InboxFilter{Signed: false, Page: 1, PageSize: 10}); n != 0 || len(items) != 0 {
 		t.Fatal("cancelled submission in inbox")
 	}
 	if err := s.UpdateSubmission(ctx, store.Submission{ID: sub.ID, TenantID: TenantB, Name: "x", Mode: "parallel", Status: "draft"}); !errors.Is(err, repo.ErrNotFound) {
