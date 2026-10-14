@@ -1,0 +1,26 @@
+# Freya service-to-service policy for signing (rendered for this core's
+# trust domain): the gateway forwards browser traffic; only the scheduler
+# executes signing's task types; only hr calls the module submissions API.
+version: signing-join-1
+rules:
+  - id: gateway-forwards
+    from: ["spiffe://${TRUST_DOMAIN}/svc/gateway"]
+    to: ["signing"]
+    operations: ["*"]
+    effect: allow
+  - id: scheduler-execute
+    from: ["spiffe://${TRUST_DOMAIN}/svc/scheduler"]
+    to: ["signing"]
+    operations: ["/scheduler.v1.TaskExecutor/ExecuteTask"]
+    effect: allow
+  - id: hr-module-api
+    from: ["spiffe://${TRUST_DOMAIN}/svc/hr"]
+    to: ["signing"]
+    operations:
+      - "/signing.v1.ModuleSubmissions/ListTemplates"
+      - "/signing.v1.ModuleSubmissions/CreateAndSend"
+      - "/signing.v1.ModuleSubmissions/GetSubmission"
+      - "/signing.v1.ModuleSubmissions/Cancel"
+      - "/signing.v1.ModuleSubmissions/Delete"
+      - "/signing.v1.ModuleSubmissions/FinalDocument"
+    effect: allow

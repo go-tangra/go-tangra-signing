@@ -1,0 +1,54 @@
+# signing configuration, rendered by the gateway's add-module wizard: every
+# ${...} below was filled from the core's own configuration, generated for
+# this bundle, or given in the wizard.
+service_name: signing
+trust_domain: ${TRUST_DOMAIN}
+env: production
+identity:
+  provider: provided
+mesh_enroll:
+  enabled: true
+  enroll_url: ${LCM_ENROLL_URL}
+  lcm_grpc: ${LCM_GRPC}
+  tenant_id: ${MESH_TENANT_ID}
+  token_file: /tokens/enrollment.token
+  state_file: /state/svid.json
+authz: { source: file, path: /app/policy.yaml }
+server: { grpc_addr: 0.0.0.0:9915, http_addr: 0.0.0.0:9916 }
+admin: { addr: 127.0.0.1:9860 }
+discovery:
+  static:
+    gateway: ["${GATEWAY_GRPC}"]
+    auth: ["${AUTH_GRPC}"]
+    notification: ["${SIGNING_NOTIFICATION_GRPC}"]
+    scheduler: ["${SIGNING_SCHEDULER_GRPC}"]
+    warden: ["${SIGNING_WARDEN_GRPC}"]
+# Template uploads and verification carry PDFs of up to 50 MiB.
+limits: { max_request_bytes: 67108864 }
+db:
+  dsn: postgres://signing_app:${GEN_PASSWORD_2}@signing-db:5432/signing?sslmode=verify-full&sslrootcert=/tls/ca.pem
+  migrate_dsn: postgres://postgres:${GEN_PASSWORD_1}@signing-db:5432/signing?sslmode=verify-full&sslrootcert=/tls/ca.pem
+  max_conns: 16
+valkey:
+  addresses: ["${SIGNING_VALKEY_ADDRESS}"]
+  username: signing
+  password: "${SIGNING_VALKEY_PASSWORD}"
+  ca_file: /etc/signing/valkey-ca.pem
+events: { enabled: true }
+platform_tenant_id: ${MESH_TENANT_ID}
+kek: { source: env, env: SIGNING_KEK }
+object_store:
+  endpoint: signing-s3:9000
+  bucket: signing
+  region: us-east-1
+  use_ssl: true
+  access_key: signing
+  secret_key: ${GEN_PASSWORD_3}
+auth: { service: auth }
+notification: { service: notification }
+warden: { service: warden }
+task_scheduler: { enabled: true, service: scheduler }
+links: { portal_base_url: ${GATEWAY_ISSUER} }
+verify: { use_system_roots: true, extra_roots_file: "" }
+qes: { origin_cert_file: "", origin_key_file: "" }
+gateway: { service: gateway, issuer: ${GATEWAY_ISSUER} }

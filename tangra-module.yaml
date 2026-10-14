@@ -1,0 +1,45 @@
+# How signing describes itself to the gateway's module catalogue (spec 035).
+# Each v* release publishes catalogue-entry.json and bundle.zip built from
+# this file and deploy/bundle/ (see .github/workflows/ci.yaml, job catalogue).
+schema: 1
+module: signing
+display_name: Signing
+category: Documents
+summary: PDF templates and submissions signed with personal or qualified certificates, a per-tenant signing CA, verification and audit trails.
+image: ghcr.io/go-tangra/go-tangra-signing
+routes:
+  prefixes: [/api/signing, /m/signing, /signing]
+  names: [signing]
+min_core: { gateway: 4.9.0, auth: 4.10.0 }
+bundle:
+  dir: deploy/bundle
+  templates: [config.yaml, policy.yaml]
+  tls_hosts: [signing-db, signing-s3]
+host_inputs:
+  - key: MODULE_ADVERTISE_HOST
+    label: Host name the core uses to reach this module
+    pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$'
+  - key: MODULE_BIND_IP
+    label: IP address the module's mesh ports listen on (reachable from the core)
+    pattern: '^((25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])$'
+  # The platform event bus is the core's Valkey (TLS), shared with the
+  # gateway and the other modules; it is not part of the bundle.
+  - key: SIGNING_VALKEY_ADDRESS
+    label: Core Valkey address reachable from this host, TLS (host:port)
+    pattern: '^[A-Za-z0-9.-]{1,253}:[0-9]{1,5}$'
+  - key: SIGNING_VALKEY_PASSWORD
+    label: Password of the core Valkey user "signing"
+    pattern: '^[^\s''"$`\\]{1,128}$'
+  - key: SIGNING_VALKEY_CA_FILE
+    label: Host file with the CA certificate (PEM) of the core Valkey's TLS certificate
+    pattern: '^/[A-Za-z0-9._/-]{0,254}$'
+  - key: SIGNING_NOTIFICATION_GRPC
+    label: Notification module gRPC address reachable from this host (host:port)
+    pattern: '^[A-Za-z0-9.-]{1,253}:[0-9]{1,5}$'
+  - key: SIGNING_WARDEN_GRPC
+    label: Warden module gRPC address reachable from this host (host:port)
+    pattern: '^[A-Za-z0-9.-]{1,253}:[0-9]{1,5}$'
+  - key: SIGNING_SCHEDULER_GRPC
+    label: Scheduler module gRPC address reachable from this host (host:port)
+    pattern: '^[A-Za-z0-9.-]{1,253}:[0-9]{1,5}$'
+docs: https://github.com/go-tangra/go-tangra-signing/blob/master/deploy/README.md
