@@ -44,7 +44,9 @@ LABEL org.opencontainers.image.source="https://github.com/go-tangra/go-tangra-si
       org.opencontainers.image.revision="${VCS_REF}"
 # tzdata: dates on signatures and the audit trail are shown in local time zones.
 # The PDF fonts (DejaVu) are embedded in the binary.
-RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 app
+# /state: mount point of the enrolment state (SVID), owned by the service user
+# so a fresh named volume is writable (catalogue join bundle).
+RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 app && install -d -o app -g app -m 0700 /state
 COPY --from=build /out/signingsvc /usr/local/bin/
 COPY deploy /app/deploy
 WORKDIR /app

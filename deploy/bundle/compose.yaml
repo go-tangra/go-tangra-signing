@@ -1,0 +1,83 @@
+# signing join bundle, rendered by the gateway's add-module wizard.
+#   docker compose up -d
+# Values come from .env (written by the gateway: core addresses, generated
+# passwords and keys, and the host inputs you gave). private/ holds the
+# single-use enrolment token, the mesh CA and this bundle's own TLS material.
+name: tangra-signing
+services:
+  signing-db:
+    image: timescale/timescaledb:2.17.2-pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: signing
+      POSTGRES_PASSWORD: ${GEN_PASSWORD_1}
+      SIGNING_APP_PASSWORD: ${GEN_PASSWORD_2}
+    # The server key must belong to the postgres user: copy it before start.
+    entrypoint: ["sh", "-c", "install -d -o postgres -m 0700 /tls-pg && install -o postgres -m 0600 /tls/signing-db.key /tls-pg/server.key && install -o postgres -m 0644 /tls/signing-db.crt /tls-pg/server.crt && exec docker-entrypoint.sh \"$$@\"", "--"]
+    command: ["postgres", "-c", "ssl=on", "-c", "ssl_cert_file=/tls-pg/server.crt", "-c", "ssl_key_file=/tls-pg/server.key"]
+    volumes:
+      - signing-db:/var/lib/postgresql/data
+      - ./private/tls:/tls:ro
+      - ./init-db.sh:/docker-entrypoint-initdb.d/10-app-role.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d signing"]
+      interval: 5s
+      retries: 30
+  # S3-compatible store of the PDFs and images (TLS; signing creates its
+  # bucket on start). The key is copied so it is readable inside the container.
+  signing-s3:
+    image: rustfs/rustfs:latest
+    restart: unless-stopped
+    user: "0:0"
+    environment:
+      RUSTFS_ACCESS_KEY: signing
+      RUSTFS_SECRET_KEY: ${GEN_PASSWORD_3}
+      RUSTFS_VOLUMES: /data
+      RUSTFS_TLS_PATH: /tls-s3
+    entrypoint: ["sh", "-c", "install -d -m 0700 /tls-s3 && install -m 0600 /tls/signing-s3.key /tls-s3/rustfs_key.pem && install -m 0644 /tls/signing-s3.crt /tls-s3/rustfs_cert.pem && exec \"$$@\"", "--"]
+    command: ["rustfs"]
+    volumes:
+      - signing-s3:/data
+      - ./private/tls:/tls:ro
+  signing-bootstrap:
+    image: ${MODULE_IMAGE}:${MODULE_VERSION}
+    command: ["bootstrap", "-config", "/app/config.yaml"]
+    environment: &signing-env
+      # Seals the tenant CA, system and administrator keys: back up .env with
+      # the database; losing it means re-issuing those certificates.
+      SIGNING_KEK: ${GEN_KEY_1}
+      # The bundle CA (database and object store) next to the system roots.
+      SSL_CERT_DIR: /tls
+    volumes: &signing-volumes
+      - ./config.yaml:/app/config.yaml:ro
+      - ./policy.yaml:/app/policy.yaml:ro
+      - ./private/enrollment.token:/tokens/enrollment.token:ro
+      - ./private/tls/ca.pem:/tls/ca.pem:ro
+      - ${SIGNING_VALKEY_CA_FILE}:/etc/signing/valkey-ca.pem:ro
+      - signing-state:/state
+    depends_on:
+      signing-db: { condition: service_healthy }
+  signing:
+    image: ${MODULE_IMAGE}:${MODULE_VERSION}
+    restart: unless-stopped
+    command: ["-config", "/app/config.yaml"]
+    environment:
+      <<: *signing-env
+      FREYA_ADVERTISE_HOST: ${MODULE_ADVERTISE_HOST}
+    ports:
+      - "${MODULE_BIND_IP}:9915:9915"
+      - "${MODULE_BIND_IP}:9916:9916"
+    volumes: *signing-volumes
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9860/readyz"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+    depends_on:
+      signing-bootstrap: { condition: service_completed_successfully }
+      signing-s3: { condition: service_started }
+volumes:
+  signing-db: {}
+  signing-s3: {}
+  signing-state: {}
