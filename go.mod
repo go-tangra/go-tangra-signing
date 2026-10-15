@@ -13,11 +13,11 @@ require (
 	github.com/go-tangra/go-tangra-auth/sdk/v4 v4.2.0
 	github.com/go-tangra/go-tangra-lcm/sdk/v4 v4.1.0
 	github.com/go-tangra/go-tangra-notification/sdk/v4 v4.2.0
-	github.com/go-tangra/go-tangra-portal/sdk/v4 v4.1.0
+	github.com/go-tangra/go-tangra-portal/sdk/v4 v4.2.0
 	github.com/go-tangra/go-tangra-scheduler/sdk/v4 v4.0.0
 	github.com/go-tangra/go-tangra-signing/sdk/v4 v4.0.0
 	github.com/go-tangra/go-tangra-warden/sdk/v4 v4.0.0
-	github.com/go-tangra/go-tangra/v4 v4.3.1
+	github.com/go-tangra/go-tangra/v4 v4.10.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/menta2k/go-pdfplumber v0.0.0-20260322062525-72c744524563
 	github.com/menta2k/go-transliteration v0.0.0-20260325071158-812b44907811

@@ -17,12 +17,14 @@ import (
 
 	"github.com/go-tangra/go-tangra-lcm/sdk/v4/pkg/lcmidentity"
 	"github.com/go-tangra/go-tangra/v4"
+	"github.com/go-tangra/go-tangra/v4/helpdocs"
 	"google.golang.org/grpc"
 
 	authv1 "github.com/go-tangra/go-tangra-auth/sdk/v4/api/proto/auth/v1"
 	"github.com/go-tangra/go-tangra-auth/sdk/v4/pkg/authclient"
 	"github.com/go-tangra/go-tangra-portal/sdk/v4/pkg/gatewayclient"
 
+	"github.com/go-tangra/go-tangra-signing/v4/docs"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-signing/v4/internal/backup"
@@ -103,6 +105,9 @@ type App struct {
 	Admin       *certs.Admin
 	Documents   *documents.Service
 	Backup      *backup.Service
+	// Docs is the embedded help bundle (docs/help) served to the gateway;
+	// its digest is announced at registration.
+	Docs *helpdocs.Bundle
 
 	workers []func(context.Context)
 	closers []func()
@@ -140,6 +145,11 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 			built.Close()
 		}
 	}()
+	// The help pages ship in the binary; CI lints them, so a bundle that does
+	// not load is a broken build: refuse to start.
+	if a.Docs, err = helpdocs.Load(docs.Help(), signingmanifest.Module); err != nil {
+		return nil, fmt.Errorf("signing: help docs: %w", err)
+	}
 	a.Now = o.Now
 	if a.Now == nil {
 		a.Now = func() time.Time { return time.Now().UTC() }
@@ -231,6 +241,10 @@ func Build(ctx context.Context, cfg config.Config, o Options) (a *App, err error
 	a.HTTP.Register(httpapi.Deps{Hub: a.Hub, Health: a.health, Templates: a.Templates, MaxPDFBytes: l.MaxPDFBytes, Me: a.Me,
 		Submissions: a.Submissions, Signing: a.Signing, MaxImage: l.MaxImageBytes, MaxUpload: l.MaxFieldUploadBytes,
 		Admin: a.Admin, Documents: a.Documents, Backup: a.Backup, MaxBackup: l.MaxBackupBytes})
+	// Help bundle for the gateway only (its verified service identity, behind
+	// the Freya security chain); mounted before the catch-all, which would
+	// otherwise shadow it.
+	a.Freya.HTTP().Handle(helpdocs.BundlePath, helpdocs.NewHandler(a.Docs, helpdocs.AllowServices(cfg.Gateway.Service)))
 	a.Freya.HTTP().HandlePrefix("/", a.HTTP.Handler())
 	return a, nil
 }
@@ -460,6 +474,7 @@ func (a *App) register(ctx context.Context) {
 			continue
 		}
 		client, err = gatewayclient.New(conn, gatewayclient.Options{Manifest: man, HTTPURL: "https://" + httpEP.Host, GRPCTarget: grpcEP.Host, Logger: a.Log,
+			DocsDigest: a.Docs.Digest, // the gateway fetches the help bundle when it changes
 			OnState: func(s gatewayclient.State) {
 				a.Log.Info("gateway lease", "registered", s.Registered, "lease", s.LeaseID, "err", s.Err)
 			}})
