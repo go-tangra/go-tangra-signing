@@ -74,6 +74,10 @@ func TestBuildWiresTheService(t *testing.T) {
 		a.Admin == nil || a.Documents == nil {
 		t.Fatalf("app not fully wired: %+v", a)
 	}
+	// The embedded help pages are loaded; their digest goes to the gateway.
+	if a.Docs.Empty() || a.Docs.Digest == "" {
+		t.Fatal("help docs not loaded")
+	}
 	do := func(path, tok string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("GET", "https://localhost"+path, nil)
 		if tok != "" {
